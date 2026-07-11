@@ -1,15 +1,36 @@
 const mysql = require('mysql2/promise');
 
-// Crear el pool directamente - mysql2/promise ya devuelve promesas
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'mecatron_db',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+// ==========================================
+// CONEXIÓN A LA BASE DE DATOS
+// ==========================================
 
-// Exportar el pool directamente (no necesitas pool.promise())
+// Intentar usar la URL completa de Clever Cloud primero
+const databaseUrl = process.env.DATABASE_URL || null;
+
+let pool;
+
+if (databaseUrl) {
+    // Usar la URL completa (para Render)
+    pool = mysql.createPool({
+        uri: databaseUrl,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+    });
+    console.log('✅ Conectando a la BD usando DATABASE_URL');
+} else {
+    // Usar variables individuales (para local o Render)
+    pool = mysql.createPool({
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'mecatron_db',
+        port: 3306,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+    });
+    console.log('✅ Conectando a la BD usando variables individuales');
+}
+
 module.exports = pool;

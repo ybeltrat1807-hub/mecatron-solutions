@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mecatron Solutions - Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        if (sessionStorage.getItem('autorizado') !== 'true') {
+            window.location.href = "index.html";
+        }
+    </script>
+    <style>
+        :root {
+            --primary: #1A3A5C;
+            --primary-dark: #0F2840;
+            --secondary: #E67E22;
+            --secondary-dark: #D35400;
+            --gold: #F1C40F;
+            --success: #27AE60;
+            --danger: #E74C3C;
+            --text-dark: #2C3E50;
+            --text-light: #7F8C8D;
+            --bg-light: #ECF0F1;
+            --shadow: 0 4px 20px rgba(26, 58, 92, 0.15);
+            --gradient-primary: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);
+            --gradient-secondary: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+            --gradient-header: linear-gradient(135deg, #1A3A5C 0%, #0F2840 60%, #D35400 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--gradient-header);
+            padding: 0.8rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 4px solid var(--secondary);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, var(--gold) 0px, var(--gold) 20px, transparent 20px, transparent 40px);
+            opacity: 0.4;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-secondary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+        }
+
+        .logo-text .brand {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        .logo-text .brand .highlight {
+            color: var(--secondary);
+        }
+
+        .logo-text .tagline {
+            color: #B2BEC3;
+            font-size: 0.55rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            background: rgba(255,255,255,0.08);
+            padding: 0.4rem 1rem 0.4rem 0.6rem;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .user-badge .avatar {
+            width: 34px;
+            height: 34px;
+            background: var(--gradient-secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: white;
+            font-weight: 700;
+        }
+
+        .user-badge .user-name {
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .btn-logout {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: #E74C3C;
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .btn-logout:hover {
+            background: rgba(231, 76, 60, 0.3);
+            border-color: #E74C3C;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 5%;
+        }
+
+        .welcome-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-section::after {
+            content: '⚙️';
+            position: absolute;
+            right: -10px;
+            bottom: -20px;
+            font-size: 8rem;
+            opacity: 0.04;
+        }
+
+        .welcome-section h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .welcome-section h2 span {
+            color: var(--secondary);
+        }
+
+        .welcome-section p {
+            color: var(--text-light);
+            margin-top: 0.3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            border-bottom: 4px solid var(--primary);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(26, 58, 92, 0.2);
+        }
+
+        .stat-card .icon {
+            float: right;
+            font-size: 2rem;
+            opacity: 0.15;
+            color: var(--primary);
+        }
+
+        .stat-card .number {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.2rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card:nth-child(2) { border-bottom-color: var(--secondary); }
+        .stat-card:nth-child(2) .number { color: var(--secondary); }
+        .stat-card:nth-child(2) .icon { color: var(--secondary); }
+
+        .stat-card:nth-child(3) { border-bottom-color: var(--gold); }
+        .stat-card:nth-child(3) .number { color: #D4AC0D; }
+        .stat-card:nth-child(3) .icon { color: var(--gold); }
+
+        .stat-card:nth-child(4) { border-bottom-color: var(--danger); }
+        .stat-card:nth-child(4) .number { color: var(--danger); }
+        .stat-card:nth-child(4) .icon { color: var(--danger); }
+
+        .stats-refresh {
+            text-align: right;
+            margin-bottom: 2rem;
+        }
+
+        .btn-refresh {
+            padding: 0.4rem 1.2rem;
+            background: var(--gradient-secondary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.2);
+        }
+
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.3);
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .module-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-secondary);
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 50px rgba(26, 58, 92, 0.15);
+            border-color: var(--secondary);
+        }
+
+        .module-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .module-card .icon-container {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient-primary);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.2rem;
+            font-size: 2.5rem;
+            color: white;
+            box-shadow: 0 8px 25px rgba(26, 58, 92, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .module-card:hover .icon-container {
+            transform: scale(1.05) rotate(-3deg);
+            box-shadow: 0 12px 35px rgba(26, 58, 92, 0.3);
+        }
+
+        .module-card h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .module-card p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            line-height: 1.7;
+            margin-bottom: 1.2rem;
+        }
+
+        .module-card .status-badge {
+            display: inline-block;
+            padding: 0.2rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: #27AE6015;
+            color: var(--success);
+            margin-bottom: 1.2rem;
+        }
+
+        .module-card .btn-module {
+            display: inline-block;
+            padding: 0.8rem 2.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            cursor: pointer;
+        }
+
+        .module-card .btn-module.primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(26, 58, 92, 0.3);
+        }
+
+        .module-card .btn-module.primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(26, 58, 92, 0.4);
+        }
+
+        .module-card .btn-module.success {
+            background: var(--gradient-secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+        }
+
+        .module-card .btn-module.success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(230, 126, 34, 0.4);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 3rem;
+        }
+
+        .footer strong {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                padding: 1rem;
+            }
+
+            .header-left {
+                flex-direction: column;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .welcome-section h2 {
+                font-size: 1.3rem;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">⚙️</div>
+            <div class="logo-text">
+                <span class="brand">MECATRON <span class="highlight">SOLUTIONS</span></span>
+                <span class="tagline">Mecánica · Electricidad</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="user-badge">
+                <div class="avatar" id="avatarInicial">A</div>
+                <span class="user-name" id="userNameDisplay">Administrador</span>
+            </div>
+            <button class="btn-logout" onclick="sessionStorage.clear(); window.location.href='index.html';">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+
+        <div class="welcome-section">
+            <h2>👋 ¡Bienvenido, <span id="nombreUsuario">Administrador</span>!</h2>
+            <p>Gestiona tus operaciones de servicios y ventas desde un solo lugar.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="icon">📦</span>
+                <div class="number" id="totalProductos">0</div>
+                <div class="label">Productos en Inventario</div>
+            </div>
+            <div class="stat-card">
+                <span class="icon">🛒</span>
+                <div class="number" id="totalVentas">0</div>
+                <div class="label">Ventas Registradas</div>
+            </div>
+            <div class="stat-card">
+                <span class="icon">🚚</span>
+                <div class="number" id="totalServicios">0</div>
+                <div class="label">Remisiones Activas</div>
+            </div>
+            <div class="stat-card">
+                <span class="icon">⚠️</span>
+                <div class="number" id="alertasStock">0</div>
+                <div class="label">Alertas de Stock</div>
+            </div>
+        </div>
+
+        <div class="stats-refresh">
+    <button class="btn-refresh" onclick="cargarEstadisticasVentas()" style="margin-right: 0.5rem;">
+        <i class="fas fa-sync-alt"></i> Actualizar
+    </button>
+    <button id="btnReportes" class="btn-refresh" onclick="abrirReporte()" style="background: var(--gradient-secondary); display: none;">
+        <i class="fas fa-chart-bar"></i> Reportes
+    </button>
+</div>
+
+        <div class="cards-grid">
+
+            <div class="module-card">
+                <div class="icon-container">🔧</div>
+                <h3>Módulo de Servicios</h3>
+                <p>Gestión de herramientas, asignación de kits por labor, seguimiento de mantenimiento y control de inventario.</p>
+                <span class="status-badge">● Operativo</span>
+                <br>
+                <a href="servicios.html" class="btn-module primary">
+                    <i class="fas fa-arrow-right"></i> Acceder
+                </a>
+            </div>
+
+            <div class="module-card">
+                <div class="icon-container" style="background: var(--gradient-secondary);">
+                    🛒
+                </div>
+                <h3>Módulo de Ventas</h3>
+                <p>Control de rutas de preventa, registro de ventas en campo, auditoría financiera y cierre de jornada.</p>
+                <span class="status-badge">● Operativo</span>
+                <br>
+                <a href="ventas.html" class="btn-module success">
+                    <i class="fas fa-arrow-right"></i> Acceder
+                </a>
+            </div>
+            <!-- Módulo Financiero -->
+<div class="module-card" style="border: 2px solid #27AE60;">
+    <div class="icon-container" style="background: var(--gradient-secondary);">
+        💰
+    </div>
+    <h3>Módulo Financiero</h3>
+    <p>Gestión de utilidades, reinversiones y control de capital. Visualiza tus ganancias en tiempo real.</p>
+    <span class="status-badge">● Activo</span>
+    <br>
+    <a href="financiero.html" class="btn-module success" style="background: var(--gradient-secondary);">
+        <i class="fas fa-arrow-right"></i> Acceder
+    </a>
+</div>
+<!-- Módulo de Inventario -->
+<div class="module-card">
+    <div class="icon-container" style="background: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);">
+        📦
+    </div>
+    <h3>Módulo de Inventario</h3>
+    <p>Gestión de productos y herramientas. Registra compras, controla stock y visualiza la trazabilidad completa.</p>
+    <span class="status-badge">● Activo</span>
+    <br>
+    <a href="inventario.html" class="btn-module primary">
+        <i class="fas fa-arrow-right"></i> Acceder
+    </a>
+</div>
+
+        </div>
+
+        <div class="footer">
+            <p>Desarrollado por <strong>Beltrán Software Solutions</strong> &copy; 2026</p>
+        </div>
+
+    </div>
+
+    <script>
+    
+        // ==========================================
+        // CARGAR ESTADÍSTICAS
+        // ==========================================
+        async function cargarEstadisticasVentas() {
+            try {
+                const res1 = await fetch('http://192.168.1.2:3000/api/ventas/total-productos');
+                const data1 = await res1.json();
+                document.getElementById('totalProductos').textContent = data1.total || 0;
+
+                const res2 = await fetch('http://192.168.1.2:3000/api/ventas/stock-bajo');
+                const data2 = await res2.json();
+                document.getElementById('alertasStock').textContent = data2.total || 0;
+
+                const res3 = await fetch('http://192.168.1.2:3000/api/ventas/ventas-hoy');
+                const data3 = await res3.json();
+                document.getElementById('totalVentas').textContent = data3.total || 0;
+
+                const res4 = await fetch('http://192.168.1.2:3000/api/ventas/remisiones-activas');
+                const data4 = await res4.json();
+                document.getElementById('totalServicios').textContent = data4.total || 0;
+            } catch (error) {
+                console.error('Error al cargar estadísticas:', error);
+                document.getElementById('totalProductos').textContent = '0';
+                document.getElementById('totalVentas').textContent = '0';
+                document.getElementById('totalServicios').textContent = '0';
+                document.getElementById('alertasStock').textContent = '0';
+            }
+        }
+
+        // ==========================================
+        // MOSTRAR NOMBRE DEL USUARIO EN BIENVENIDA
+        // ==========================================
+        function cargarNombreUsuario() {
+            const nombre = sessionStorage.getItem('usuario');
+            const rol = sessionStorage.getItem('rol');
+            const inicial = nombre ? nombre.charAt(0).toUpperCase() : 'A';
+            
+            if (nombre) {
+                // Actualizar el saludo
+                const saludo = document.getElementById('nombreUsuario');
+                if (saludo) {
+                    saludo.textContent = nombre;
+                }
+                
+                // Actualizar el badge del usuario en el header
+                const userBadge = document.getElementById('userNameDisplay');
+                if (userBadge) {
+                    userBadge.textContent = nombre;
+                }
+                
+                // Actualizar el avatar con la inicial
+                const avatar = document.getElementById('avatarInicial');
+                if (avatar) {
+                    avatar.textContent = inicial;
+                }
+                
+                // Si es administrador, mostrar badge especial
+                if (rol === 'administrador') {
+                    const badge = document.querySelector('.user-badge');
+                    if (badge && !badge.querySelector('.admin-badge')) {
+                        const adminBadge = document.createElement('span');
+                        adminBadge.className = 'admin-badge';
+                        adminBadge.style.cssText = `
+                            background: var(--secondary);
+                            color: white;
+                            font-size: 0.5rem;
+                            padding: 0.1rem 0.4rem;
+                            border-radius: 50px;
+                            font-weight: 700;
+                            margin-left: 0.3rem;
+                        `;
+                        adminBadge.textContent = 'ADMIN';
+                        badge.appendChild(adminBadge);
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // INICIALIZACIÓN
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarNombreUsuario();
+            cargarEstadisticasVentas();
+        });
+
+        // Actualizar estadísticas cada 60 segundos
+        setInterval(cargarEstadisticasVentas, 60000);
+
+        console.log('📊 Panel de Mecatron Solutions cargado');
+        // ==========================================
+// REPORTES
+// ==========================================
+
+function abrirReporte() {
+    document.getElementById('modalReporte').style.display = 'flex';
+    document.getElementById('resultadoReporte').style.display = 'none';
+    document.getElementById('loadingReporte').style.display = 'none';
+}
+
+function cerrarReporte() {
+    document.getElementById('modalReporte').style.display = 'none';
+}
+
+// ==========================================
+// GENERAR REPORTE
+// ==========================================
+async function generarReporte() {
+    const periodo = document.getElementById('periodoReporte').value;
+    const fechaSeleccionada = document.getElementById('fechaReporte').value;
+    const resultadoDiv = document.getElementById('resultadoReporte');
+    const loadingDiv = document.getElementById('loadingReporte');
+
+    // --- PASO 1: Validar fecha ---
+    if (!fechaSeleccionada) {
+        resultadoDiv.style.display = 'block';
+        resultadoDiv.innerHTML = `<p style="color: var(--danger);">⚠️ Selecciona una fecha válida</p>`;
+        return;
+    }
+
+    // --- PASO 2: Calcular fechas ---
+    let fechaInicio, fechaFin;
+    // ... (mantén tu lógica de cálculo de fechas aquí) ...
+
+    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+    // --- PASO 3: Mostrar estado "Conectando" ---
+    resultadoDiv.style.display = 'block';
+    resultadoDiv.innerHTML = `
+        <div style="background: #FFF8E1; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--gold);">
+            <p><strong>📡 Conectando al servidor...</strong></p>
+            <p style="font-size: 0.8rem; color: var(--text-light);">Periodo: ${periodo}</p>
+            <p style="font-size: 0.8rem; color: var(--text-light);">Fecha Inicio: ${fechaInicioStr}</p>
+            <p style="font-size: 0.8rem; color: var(--text-light);">Fecha Fin: ${fechaFinStr}</p>
+        </div>
+    `;
+
+    // --- PASO 4: Hacer la petición con TIMEOUT ---
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos de timeout
+
+    try {
+        const url = 'http://192.168.1.2:3000/api/reportes/costos-utilidad'; // ¡USA TU IP AQUÍ!
+        resultadoDiv.innerHTML += `<p style="font-size: 0.8rem;">📡 URL: ${url}</p>`;
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                periodo: periodo,
+                fecha_inicio: fechaInicioStr,
+                fecha_fin: fechaFinStr
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        // --- PASO 5: Mostrar estado de la respuesta ---
+        resultadoDiv.innerHTML += `
+            <div style="background: #E8F0FE; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 0.5rem;">
+                <p><strong>📡 Respuesta del servidor:</strong></p>
+                <p style="font-size: 0.8rem; color: var(--text-light);">Status: ${res.status} ${res.statusText}</p>
+            </div>
+        `;
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            resultadoDiv.innerHTML += `
+                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
+                    <p><strong>❌ Error del servidor</strong></p>
+                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${errorText}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // --- PASO 6: Intentar parsear JSON ---
+        let data;
+        try {
+            data = await res.json();
+        } catch (e) {
+            const text = await res.text();
+            resultadoDiv.innerHTML += `
+                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
+                    <p><strong>❌ Error al parsear JSON</strong></p>
+                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${text}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // --- PASO 7: Mostrar resultados ---
+        const r = data.resumen;
+        resultadoDiv.innerHTML = `
+            <div style="background: #2ECC7115; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success);">
+                <p><strong>✅ ¡Reporte generado con éxito!</strong></p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Ventas</span><br><strong>${r?.total_ventas || 0}</strong></div>
+                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Ingresos</span><br><strong>$${r?.total_ingresos?.toLocaleString() || 0}</strong></div>
+                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Costos</span><br><strong>$${r?.total_costos?.toLocaleString() || 0}</strong></div>
+                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Utilidad</span><br><strong>$${r?.utilidad?.toLocaleString() || 0}</strong></div>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.5rem;">Margen: ${r?.margen?.toFixed(1) || 0}%</p>
+            </div>
+        `;
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            resultadoDiv.innerHTML += `
+                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
+                    <p><strong>⏰ Tiempo de espera agotado (30 segundos)</strong></p>
+                    <p style="font-size: 0.8rem; color: var(--text-light);">El servidor tardó demasiado en responder.</p>
+                </div>
+            `;
+        } else {
+            resultadoDiv.innerHTML += `
+                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
+                    <p><strong>❌ Error de conexión</strong></p>
+                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${error.message}</p>
+                </div>
+            `;
+        }
+    }
+}
+
+async function verDetalleVentas() {
+    const periodo = document.getElementById('periodoReporte').value;
+    const fechaSeleccionada = document.getElementById('fechaReporte').value;
+    
+    // Calcular fechas igual que en generarReporte
+    let fechaInicio, fechaFin;
+    
+    switch(periodo) {
+        case 'diario':
+            fechaInicio = new Date(fechaSeleccionada);
+            fechaInicio.setHours(0, 0, 0, 0);
+            fechaFin = new Date(fechaSeleccionada);
+            fechaFin.setHours(23, 59, 59, 999);
+            break;
+        case 'semanal':
+            const [year, week] = fechaSeleccionada.split('-W');
+            const primerDia = new Date(parseInt(year), 0, 1);
+            const diaSemana = (primerDia.getDay() + 6) % 7;
+            const diasOffset = (parseInt(week) - 1) * 7 - diaSemana;
+            fechaInicio = new Date(parseInt(year), 0, 1 + diasOffset);
+            fechaInicio.setHours(0, 0, 0, 0);
+            fechaFin = new Date(fechaInicio);
+            fechaFin.setDate(fechaFin.getDate() + 6);
+            fechaFin.setHours(23, 59, 59, 999);
+            break;
+        case 'mensual':
+            const [yearM, monthM] = fechaSeleccionada.split('-');
+            fechaInicio = new Date(parseInt(yearM), parseInt(monthM) - 1, 1);
+            fechaInicio.setHours(0, 0, 0, 0);
+            fechaFin = new Date(parseInt(yearM), parseInt(monthM), 0);
+            fechaFin.setHours(23, 59, 59, 999);
+            break;
+    }
+
+    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+    try {
+        const res = await fetch('http://192.168.1.2:3000/api/reportes/ventas-detalle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fecha_inicio: fechaInicioStr,
+                fecha_fin: fechaFinStr
+            })
+        });
+        
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert('Error: ' + data.error);
+            return;
+        }
+
+        // ... resto del código igual
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al obtener detalle de ventas');
+    }
+}
+// ==========================================
+// SELECTOR DE FECHAS SEGÚN PERIODO
+// ==========================================
+function cambiarFechas() {
+    const periodo = document.getElementById('periodoReporte').value;
+    const fechaInput = document.getElementById('fechaReporte');
+    const labelFecha = document.getElementById('labelFecha');
+    const hoy = new Date();
+    const año = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoy.getDate()).padStart(2, '0');
+
+    switch(periodo) {
+        case 'diario':
+            labelFecha.textContent = '📅 Selecciona el Día:';
+            fechaInput.type = 'date';
+            fechaInput.value = `${año}-${mes}-${dia}`;
+            break;
+        case 'semanal':
+            labelFecha.textContent = '📅 Semana del:';
+            fechaInput.type = 'week';
+            fechaInput.value = `${año}-W${String(Math.ceil((hoy.getDate() - hoy.getDay() + 1) / 7)).padStart(2, '0')}`;
+            break;
+        case 'mensual':
+            labelFecha.textContent = '📅 Selecciona el Mes:';
+            fechaInput.type = 'month';
+            fechaInput.value = `${año}-${mes}`;
+            break;
+    }
+}
+
+// ==========================================
+// ABRIR REPORTE
+// ==========================================
+function abrirReporte() {
+    document.getElementById('modalReporte').style.display = 'flex';
+    document.getElementById('resultadoReporte').style.display = 'none';
+    document.getElementById('loadingReporte').style.display = 'none';
+    cambiarFechas();
+}
+
+// ==========================================
+// CERRAR REPORTE
+// ==========================================
+function cerrarReporte() {
+    document.getElementById('modalReporte').style.display = 'none';
+}
+    </script>
+<!-- ========================================== -->
+<!-- MODAL DE REPORTES                          -->
+<!-- ========================================== -->
+<div id="modalReporte" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+">
+    <div style="
+        background: white;
+        border-radius: 20px;
+        max-width: 800px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--secondary); padding-bottom: 1rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">
+                📊 Reporte de Costos vs Utilidad
+            </h2>
+            <button onclick="cerrarReporte()" style="
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                cursor: pointer;
+                color: var(--text-light);
+            ">
+                ✕
+            </button>
+        </div>
+
+        <!-- Selector de periodo -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);">Periodo:</label>
+                <select id="periodoReporte" onchange="cambiarFechas()" style="
+                    width: 100%;
+                    padding: 0.7rem 1rem;
+                    border: 2px solid #E8ECF1;
+                    border-radius: 10px;
+                    font-size: 0.9rem;
+                    font-family: 'Inter', sans-serif;
+                    background: #F8F9FA;
+                    margin-top: 0.3rem;
+                ">
+                    <option value="diario">📅 Diario</option>
+                    <option value="semanal">📅 Semanal</option>
+                    <option value="mensual">📅 Mensual</option>
+                </select>
+            </div>
+            <div id="selectorFechaContainer">
+                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);" id="labelFecha">Fecha:</label>
+                <input type="date" id="fechaReporte" style="
+                    width: 100%;
+                    padding: 0.7rem 1rem;
+                    border: 2px solid #E8ECF1;
+                    border-radius: 10px;
+                    font-size: 0.9rem;
+                    font-family: 'Inter', sans-serif;
+                    background: #F8F9FA;
+                    margin-top: 0.3rem;
+                ">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+            <button onclick="generarReporte()" style="
+                flex: 1;
+                padding: 0.7rem;
+                background: var(--gradient-secondary);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                font-family: 'Inter', sans-serif;
+                font-size: 0.9rem;
+                transition: all 0.3s ease;
+            ">
+                <i class="fas fa-file-alt"></i> Generar Reporte
+            </button>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultadoReporte" style="display: none;">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingReporte" style="text-align: center; padding: 2rem; display: none;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--secondary);"></i>
+            <p style="color: var(--text-light); margin-top: 0.5rem;">Generando reporte...</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

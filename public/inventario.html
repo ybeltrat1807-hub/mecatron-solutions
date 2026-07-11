@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Inventario - Mecatron Solutions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1A3A5C;
+            --secondary: #E67E22;
+            --success: #27AE60;
+            --danger: #E74C3C;
+            --gold: #F1C40F;
+            --text-dark: #2C3E50;
+            --text-light: #7F8C8D;
+            --bg-light: #ECF0F1;
+            --shadow: 0 4px 20px rgba(26, 58, 92, 0.15);
+            --gradient-primary: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);
+            --gradient-secondary: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+            --gradient-header: linear-gradient(135deg, #1A3A5C 0%, #0F2840 60%, #D35400 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--gradient-header);
+            padding: 0.8rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 4px solid var(--secondary);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, var(--gold) 0px, var(--gold) 20px, transparent 20px, transparent 40px);
+            opacity: 0.4;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-secondary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+        }
+
+        .logo-text .brand {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        .logo-text .brand .highlight {
+            color: var(--secondary);
+        }
+
+        .logo-text .tagline {
+            color: #B2BEC3;
+            font-size: 0.55rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .btn-outline {
+            padding: 0.4rem 1.2rem;
+            border-radius: 50px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+        }
+
+        .btn-outline:hover {
+            background: rgba(230, 126, 34, 0.3);
+            border-color: var(--secondary);
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 5%;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .section-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid #F0F2F5;
+        }
+
+        .section-card .card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--primary);
+            margin-bottom: 0.3rem;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 2px solid #E8ECF1;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            background: #F8F9FA;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.1);
+            background: white;
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-success {
+            background: var(--gradient-secondary);
+            color: white;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.3);
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26, 58, 92, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-block { width: 100%; }
+        .btn-sm { padding: 0.4rem 1rem; font-size: 0.8rem; }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 3rem;
+        }
+        .footer strong { color: var(--primary); }
+
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--primary);
+            min-width: 280px;
+        }
+
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: var(--secondary); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th {
+            background: #F8F9FA;
+            padding: 0.6rem;
+            text-align: left;
+            border-bottom: 2px solid #E8ECF1;
+            font-weight: 600;
+        }
+        td {
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid #F0F2F5;
+        }
+        .badge-estado {
+            padding: 0.15rem 0.6rem;
+            border-radius: 50px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+        .badge-estado.disponible { background: #27AE6015; color: var(--success); }
+        .badge-estado.reparacion { background: #F1C40F15; color: #D4AC0D; }
+        .badge-estado.baja { background: #E74C3C15; color: var(--danger); }
+
+        .search-bar {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .search-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.5rem 1rem;
+            border: 2px solid #E8ECF1;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--secondary);
+        }
+        .movimiento-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #F0F2F5;
+            font-size: 0.85rem;
+        }
+        .movimiento-item .cantidad.entrada { color: var(--success); font-weight: 700; }
+        .movimiento-item .cantidad.salida { color: var(--danger); font-weight: 700; }
+
+        .grid-3col {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .grid-3col { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">📦</div>
+            <div class="logo-text">
+                <span class="brand">MECATRON <span class="highlight">SOLUTIONS</span></span>
+                <span class="tagline">Módulo de Inventario</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="panel.html" class="btn-outline">
+                <i class="fas fa-arrow-left"></i> Panel
+            </a>
+            <span style="color: var(--secondary); font-size: 0.8rem;">
+                <i class="fas fa-circle" style="font-size: 0.5rem;"></i> Conectado
+            </span>
+        </div>
+    </header>
+
+    <div class="app-container">
+
+        <!-- ========================================== -->
+        <!-- REGISTRAR FACTURA DE COMPRA                -->
+        <!-- ========================================== -->
+        <div class="section-card" style="border-left: 4px solid var(--gold);">
+            <div class="card-header">
+                <h3>🧾 Registrar Factura de Compra</h3>
+                <span style="font-size:0.7rem; color:var(--text-light);">Los productos se agregarán automáticamente al inventario</span>
+            </div>
+            <div id="formFactura">
+                <div class="grid-3col">
+                    <div class="form-group">
+                        <label>🔢 Número de Factura</label>
+                        <input type="text" id="facturaNumero" placeholder="Ej: FAC-001" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🏢 Proveedor</label>
+                        <input type="text" id="facturaProveedor" placeholder="Nombre del proveedor">
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Fecha</label>
+                        <input type="date" id="facturaFecha">
+                    </div>
+                </div>
+                <div class="grid-3col">
+                    <div class="form-group">
+    <label>📝 Producto</label>
+    <input type="text" id="detalleNombre" placeholder="Escribe el nombre del producto..." 
+           oninput="buscarProductoParaFactura(this.value)" autocomplete="off">
+    <div id="sugerenciasProductos" style="
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        max-height: 150px;
+        overflow-y: auto;
+        width: 100%;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    "></div>
+</div>
+                    <div class="form-group">
+                        <label>📂 Tipo</label>
+                        <select id="detalleTipo">
+                            <option value="VENTA">🛒 Venta</option>
+                            <option value="SERVICIO">🔧 Servicio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>📦 Cantidad</label>
+                        <input type="number" id="detalleCantidad" placeholder="0">
+                    </div>
+                </div>
+                <div class="grid-3col">
+                    <div class="form-group">
+                        <label>💰 Costo Unitario</label>
+                        <input type="number" id="detalleCosto" placeholder="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>🏷️ Precio Venta</label>
+                        <input type="number" id="detallePrecio" placeholder="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end; gap:0.5rem;">
+                        <button onclick="agregarDetalleFactura()" class="btn btn-primary" style="flex:1;">
+                            <i class="fas fa-plus"></i> Agregar Producto
+                        </button>
+                        <button onclick="limpiarDetalleFactura()" class="btn btn-secondary" style="background:#E8ECF1; color:var(--text-dark); flex:0.5;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="margin: 1rem 0;">
+                    <div style="font-size:0.8rem; font-weight:600; color:var(--text-dark);">📋 Productos en esta factura:</div>
+                    <div id="listaDetallesFactura" style="max-height:150px; overflow-y:auto; border:1px solid #E8ECF1; border-radius:8px; padding:0.5rem; background:#F8F9FA; margin-top:0.3rem;">
+                        <p style="color:var(--text-light); font-size:0.85rem;">No hay productos agregados</p>
+                    </div>
+                    <div style="text-align:right; font-weight:700; margin-top:0.5rem; font-size:1rem;">
+                        Total: <span id="totalFactura">$0</span>
+                    </div>
+                </div>
+                <button onclick="guardarFactura()" class="btn btn-success btn-block">
+                    <i class="fas fa-save"></i> Guardar Factura y Actualizar Inventario
+                </button>
+                <p style="font-size:0.7rem; color:var(--text-light); margin-top:0.5rem;">
+                    ⚠️ Al guardar, el stock de los productos se actualizará automáticamente.
+                </p>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- FILTROS Y ACCIONES                         -->
+        <!-- ========================================== -->
+        <div class="section-card">
+            <div class="card-header">
+                <h3>🔍 Buscar Producto</h3>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="buscarInventario" placeholder="Buscar por nombre..." oninput="cargarInventario()">
+                <select id="filtroTipo" onchange="cargarInventario()" style="padding: 0.5rem 1rem; border: 2px solid #E8ECF1; border-radius: 8px;">
+                    <option value="TODOS">📌 Todos</option>
+                    <option value="VENTA">🛒 Venta</option>
+                    <option value="SERVICIO">🔧 Servicio</option>
+                </select>
+                <select id="filtroEstado" onchange="cargarInventario()" style="padding: 0.5rem 1rem; border: 2px solid #E8ECF1; border-radius: 8px;">
+                    <option value="TODOS">📌 Todos</option>
+                    <option value="DISPONIBLE">✅ Disponible</option>
+                    <option value="REPARACION">🔧 Reparación</option>
+                    <option value="DADO_BAJA">❌ Dado de Baja</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TABLA DE INVENTARIO                        -->
+        <!-- ========================================== -->
+        <div class="section-card">
+            <div class="card-header">
+                <h3>📦 Inventario General</h3>
+                <button onclick="cargarInventario()" class="btn btn-primary btn-sm">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Stock</th>
+                            <th>Costo</th>
+                            <th>Precio Venta</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaInventario">
+                        <tr>
+                            <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-light);">
+                                <i class="fas fa-spinner fa-spin"></i> Cargando inventario...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- HISTORIAL DE MOVIMIENTOS                   -->
+        <!-- ========================================== -->
+        <div class="section-card">
+    <div class="card-header">
+        <h3>📋 Compras registradas <span id="contadorMovimientos" style="font-size: 0.7rem; color: var(--text-light); font-weight: 400;"></span></h3>
+        <button onclick="cargarHistorialInventario()" class="btn btn-primary btn-sm">
+            <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
+    </div>
+    <div id="historialInventario">
+        <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando historial...
+        </p>
+    </div>
+</div>
+<!-- ========================================== -->
+<!-- MODAL PARA VER DETALLE DE FACTURA          -->
+<!-- ========================================== -->
+<div id="modalFactura" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:white; border-radius:16px; max-width:700px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:2px solid var(--secondary); padding-bottom:1rem;">
+            <h3 id="modalFacturaTitulo" style="color:var(--primary);">🧾 Factura</h3>
+            <button onclick="cerrarModalFactura()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+        </div>
+        <div id="modalFacturaContenido">
+            <!-- Se llena dinámicamente -->
+        </div>
+    </div>
+</div>
+
+        <div class="footer">
+            <p>Desarrollado por <strong>Beltrán Software Solutions</strong> &copy; 2026</p>
+        </div>
+
+    </div>
+
+    <div id="toastContainer"></div>
+
+    <script>
+        const API_URL = 'http://192.168.1.2:3000/api';
+        let detallesFactura = [];
+
+        // ==========================================
+// AGREGAR DETALLE A FACTURA (VALIDADO)
+// ==========================================
+function agregarDetalleFactura() {
+    const nombre = document.getElementById('detalleNombre').value.trim();
+    const tipo = document.getElementById('detalleTipo').value;
+    const cantidad = parseInt(document.getElementById('detalleCantidad').value);
+    const costo = parseFloat(document.getElementById('detalleCosto').value) || 0;
+    const precio = parseFloat(document.getElementById('detallePrecio').value) || 0;
+
+    if (!nombre || !cantidad || cantidad <= 0) {
+        showToast('Ingrese nombre y cantidad válida', 'error');
+        return;
+    }
+
+    // ⭐ VALIDACIÓN: Verificar si el producto ya está en la lista de la factura
+    const existeEnFactura = detallesFactura.some(d => 
+        d.nombre.toLowerCase() === nombre.toLowerCase() && d.tipo === tipo
+    );
+
+    if (existeEnFactura) {
+        if (!confirm(`⚠️ "${nombre}" ya está en esta factura. ¿Quieres agregar más cantidad al existente?`)) {
+            return;
+        }
+        // Si confirma, sumamos la cantidad al existente
+        const existente = detallesFactura.find(d => 
+            d.nombre.toLowerCase() === nombre.toLowerCase() && d.tipo === tipo
+        );
+        if (existente) {
+            existente.cantidad += cantidad;
+            // Actualizar el costo promedio ponderado
+            const totalCosto = (existente.costo * (existente.cantidad - cantidad)) + (costo * cantidad);
+            existente.costo = Math.round(totalCosto / existente.cantidad);
+            renderizarDetallesFactura();
+            limpiarCamposDetalle();
+            showToast(`✅ Cantidad actualizada para "${nombre}"`, 'success');
+            return;
+        }
+    }
+
+    // Verificar si el producto existe en el inventario (para dar info)
+    const productoExistente = productosCache.find(p => 
+        p.nombre.toLowerCase() === nombre.toLowerCase() && p.tipo === tipo
+    );
+    if (productoExistente) {
+        showToast(`ℹ️ "${nombre}" ya existe en inventario (Stock: ${productoExistente.stock}). Se actualizará al guardar.`, 'info');
+    }
+
+    // Agregar nuevo detalle
+    detallesFactura.push({ nombre, tipo, cantidad, costo, precio });
+    renderizarDetallesFactura();
+    limpiarCamposDetalle();
+    showToast(`✅ "${nombre}" agregado a la factura`, 'success');
+}
+
+        function renderizarDetallesFactura() {
+            const container = document.getElementById('listaDetallesFactura');
+            let total = 0;
+            if (detallesFactura.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-light); font-size:0.85rem;">No hay productos agregados</p>';
+                document.getElementById('totalFactura').textContent = '$0';
+                return;
+            }
+            container.innerHTML = detallesFactura.map((d, i) => {
+                const subtotal = d.cantidad * d.costo;
+                total += subtotal;
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0; border-bottom:1px solid #e0e0e0; font-size:0.85rem;">
+                        <div>
+                            <strong>${d.nombre}</strong>
+                            <span style="font-size:0.7rem; color:var(--text-light); margin-left:0.5rem;">${d.tipo}</span>
+                            <span style="font-size:0.7rem; color:var(--text-light);">x${d.cantidad}</span>
+                            <span style="font-size:0.7rem; color:var(--text-light);">$${d.costo.toFixed(2)} c/u</span>
+                        </div>
+                        <div>
+                            <span style="font-weight:600;">$${subtotal.toFixed(2)}</span>
+                            <button onclick="eliminarDetalleFactura(${i})" style="background:none; border:none; color:var(--danger); cursor:pointer; margin-left:0.5rem;">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('totalFactura').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function eliminarDetalleFactura(index) {
+            detallesFactura.splice(index, 1);
+            renderizarDetallesFactura();
+        }
+
+        function limpiarCamposDetalle() {
+            document.getElementById('detalleNombre').value = '';
+            document.getElementById('detalleCantidad').value = '';
+            document.getElementById('detalleCosto').value = '';
+            document.getElementById('detallePrecio').value = '';
+        }
+
+        function limpiarDetalleFactura() {
+            limpiarCamposDetalle();
+        }
+
+        // ==========================================
+        // GUARDAR FACTURA
+        // ==========================================
+        async function guardarFactura() {
+            const numero = document.getElementById('facturaNumero').value.trim();
+            const proveedor = document.getElementById('facturaProveedor').value.trim();
+            const fecha = document.getElementById('facturaFecha').value;
+
+            if (!numero || !fecha || detallesFactura.length === 0) {
+                showToast('Complete los datos de la factura y agregue al menos un producto', 'error');
+                return;
+            }
+
+            const btn = event.target;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/inventario/factura`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        numero,
+                        proveedor,
+                        fecha,
+                        detalles: detallesFactura,
+                        usuario: sessionStorage.getItem('usuario') || 'Sistema'
+                    })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showToast(`✅ Factura ${numero} guardada exitosamente`, 'success');
+                    detallesFactura = [];
+                    renderizarDetallesFactura();
+                    document.getElementById('facturaNumero').value = '';
+                    document.getElementById('facturaProveedor').value = '';
+                    document.getElementById('facturaFecha').value = '';
+                    cargarInventario();
+                    cargarHistorialInventario();
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // CARGAR INVENTARIO
+        // ==========================================
+        async function cargarInventario() {
+            const buscar = document.getElementById('buscarInventario').value;
+            const tipo = document.getElementById('filtroTipo').value;
+            const estado = document.getElementById('filtroEstado').value;
+            const tbody = document.getElementById('tablaInventario');
+
+            try {
+                const res = await fetch(`${API_URL}/inventario?buscar=${buscar}&tipo=${tipo}&estado=${estado}`);
+                const data = await res.json();
+
+                if (!data.productos || data.productos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-light);">📭 No hay productos en el inventario</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.productos.map(p => `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td><strong>${p.nombre}</strong></td>
+                        <td>${p.tipo === 'VENTA' ? '🛒 Venta' : '🔧 Servicio'}</td>
+                        <td style="font-weight:700; ${p.stock <= 0 ? 'color:var(--danger);' : 'color:var(--success);'}">${p.stock}</td>
+                        <td>$${parseFloat(p.costo).toLocaleString()}</td>
+                        <td>$${parseFloat(p.precio_venta).toLocaleString()}</td>
+                        <td><span class="badge-estado ${p.estado.toLowerCase()}">${p.estado}</span></td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error al cargar inventario:', error);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--danger);">❌ Error al cargar inventario</td></tr>`;
+            }
+        }
+
+       cargarHistorialInventario()
+
+        // ==========================================
+        // TOAST
+        // ==========================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ==========================================
+// INICIALIZACIÓN
+// ==========================================
+window.onload = function() {
+    document.getElementById('facturaFecha').value = new Date().toISOString().split('T')[0];
+    cargarInventario();
+    cargarHistorialInventario();
+    mostrarFiltrosActivos();
+};
+        // ==========================================
+// BUSCAR PRODUCTO PARA FACTURA (AUTOCOMPLETADO)
+// ==========================================
+let productosCache = [];
+
+async function buscarProductoParaFactura(texto) {
+    const sugerenciasDiv = document.getElementById('sugerenciasProductos');
+    
+    if (texto.length < 2) {
+        sugerenciasDiv.style.display = 'none';
+        return;
+    }
+
+    try {
+        // Obtener todos los productos del inventario (con caché)
+        if (productosCache.length === 0) {
+            const res = await fetch(`${API_URL}/inventario?tipo=TODOS&estado=TODOS`);
+            const data = await res.json();
+            productosCache = data.productos || [];
+        }
+
+        // Filtrar productos que coincidan con el texto (case insensitive)
+        const coincidencias = productosCache.filter(p => 
+            p.nombre.toLowerCase().includes(texto.toLowerCase())
+        );
+
+        if (coincidencias.length === 0) {
+            sugerenciasDiv.innerHTML = `
+                <div style="padding: 0.5rem; color: var(--text-light); font-size: 0.85rem; text-align: center;">
+                    📭 No se encontraron productos. 
+                    <span style="color: var(--secondary); font-weight: 600; cursor: pointer;" onclick="crearNuevoProductoDesdeSugerencia()">
+                        Haz clic aquí para crearlo
+                    </span>
+                </div>
+            `;
+            sugerenciasDiv.style.display = 'block';
+            return;
+        }
+
+        // Mostrar sugerencias
+        sugerenciasDiv.innerHTML = coincidencias.map(p => `
+            <div style="padding: 0.5rem 0.8rem; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;"
+                 onmouseover="this.style.background='#f5f5f5'" 
+                 onmouseout="this.style.background='white'"
+                 onclick="seleccionarProductoParaFactura(${p.id}, '${p.nombre}', '${p.tipo}')">
+                <div>
+                    <strong>${p.nombre}</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-light); margin-left: 0.5rem;">
+                        ${p.tipo === 'VENTA' ? '🛒' : '🔧'} ${p.tipo}
+                    </span>
+                </div>
+                <div style="font-size: 0.7rem; color: var(--text-light);">
+                    Stock: ${p.stock}
+                </div>
+            </div>
+        `).join('');
+
+        sugerenciasDiv.style.display = 'block';
+
+    } catch (error) {
+        console.error('Error al buscar productos:', error);
+    }
+}
+// ==========================================
+// SELECCIONAR PRODUCTO DE SUGERENCIA
+// ==========================================
+function seleccionarProductoParaFactura(id, nombre, tipo) {
+    // Ocultar sugerencias
+    document.getElementById('sugerenciasProductos').style.display = 'none';
+    
+    // Llenar los campos del detalle
+    document.getElementById('detalleNombre').value = nombre;
+    document.getElementById('detalleTipo').value = tipo;
+    
+    // Buscar el producto en la caché para obtener precio y costo sugeridos
+    const producto = productosCache.find(p => p.id === id);
+    if (producto) {
+        if (producto.costo > 0) {
+            document.getElementById('detalleCosto').value = producto.costo;
+        }
+        if (producto.precio_venta > 0) {
+            document.getElementById('detallePrecio').value = producto.precio_venta;
+        }
+    }
+    
+    showToast(`✅ Producto "${nombre}" seleccionado. Ajusta la cantidad y precios si es necesario.`, 'info');
+}
+// ==========================================
+// CREAR NUEVO PRODUCTO DESDE FACTURA
+// ==========================================
+function crearNuevoProductoDesdeSugerencia() {
+    const nombre = document.getElementById('detalleNombre').value.trim();
+    if (!nombre || nombre.length < 2) {
+        showToast('Escribe al menos 2 caracteres para crear un producto', 'error');
+        return;
+    }
+
+    // Ocultar sugerencias
+    document.getElementById('sugerenciasProductos').style.display = 'none';
+
+    // Preguntar el tipo de producto
+    const tipo = confirm('¿El producto es de VENTA?') ? 'VENTA' : 'SERVICIO';
+    document.getElementById('detalleTipo').value = tipo;
+
+    // Enfocar el campo de cantidad
+    document.getElementById('detalleCantidad').focus();
+    
+    showToast(`📝 Creando nuevo producto "${nombre}" (${tipo}). Completa los datos.`, 'info');
+}
+// ==========================================
+// OCULTAR SUGERENCIAS AL HACER CLIC FUERA
+// ==========================================
+document.addEventListener('click', function(e) {
+    const sugerenciasDiv = document.getElementById('sugerenciasProductos');
+    const input = document.getElementById('detalleNombre');
+    if (!sugerenciasDiv.contains(e.target) && e.target !== input) {
+        sugerenciasDiv.style.display = 'none';
+    }
+});
+// ==========================================
+// CARGAR HISTORIAL DE FACTURAS
+// ==========================================
+async function cargarHistorialInventario() {
+    const container = document.getElementById('historialInventario');
+    const contador = document.getElementById('contadorFacturas');
+    const buscar = document.getElementById('buscarFactura')?.value || '';
+
+    container.innerHTML = `
+        <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando facturas...
+        </p>
+    `;
+
+    try {
+        const res = await fetch(`${API_URL}/inventario/historial`);
+        const data = await res.json();
+
+        if (contador) {
+            contador.textContent = data.facturas && data.facturas.length > 0 ? `(${data.facturas.length})` : '';
+        }
+
+        if (!data.facturas || data.facturas.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--text-light);">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                    <p>${data.mensaje || 'No hay facturas de compra registradas.'}</p>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                        Registra tu primera factura de compra en la sección superior.
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        // Filtrar facturas por búsqueda
+        let facturas = data.facturas;
+        if (buscar) {
+            const busqLower = buscar.toLowerCase();
+            facturas = facturas.filter(f => 
+                f.numero.toLowerCase().includes(busqLower) ||
+                (f.proveedor && f.proveedor.toLowerCase().includes(busqLower))
+            );
+        }
+
+        if (facturas.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--text-light);">
+                    <p>🔍 No hay facturas que coincidan con "${buscar}"</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = facturas.map(f => {
+            const fecha = new Date(f.fecha);
+            const fechaStr = fecha.toLocaleDateString('es-CO', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+
+            return `
+                <div class="factura-item" style="
+                    background: white;
+                    border: 1px solid #E8ECF1;
+                    border-radius: 12px;
+                    padding: 1rem 1.2rem;
+                    margin-bottom: 0.8rem;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                " onmouseover="this.style.borderColor='var(--secondary)'" onmouseout="this.style.borderColor='#E8ECF1'">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+                                <span style="font-weight: 700; color: var(--primary); font-size: 1.1rem;">🧾 ${f.numero}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-light);">📅 ${fechaStr}</span>
+                                <span style="font-size: 0.7rem; background: #F8F9FA; padding: 0.1rem 0.6rem; border-radius: 50px; color: var(--text-light);">
+                                    ${f.productos} productos
+                                </span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 0.2rem;">
+                                🏢 ${f.proveedor}
+                                ${f.usuario ? `| 👤 ${f.usuario}` : ''}
+                            </div>
+                            ${f.observaciones ? `<div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.1rem;">📝 ${f.observaciones}</div>` : ''}
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary);">
+                                $${f.total.toLocaleString()}
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-light);">
+                                ${f.unidades} unidades
+                            </div>
+                            <button onclick="verDetalleFactura(${f.id})" class="btn btn-primary btn-sm" style="margin-top: 0.3rem; padding: 0.2rem 0.8rem; font-size: 0.7rem;">
+                                📄 Ver Detalle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error al cargar facturas:', error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: var(--danger);">
+                <p>❌ Error al cargar facturas</p>
+                <p style="font-size: 0.8rem;">${error.message}</p>
+                <button onclick="cargarHistorialInventario()" class="btn btn-primary btn-sm" style="margin-top: 0.5rem;">
+                    <i class="fas fa-sync-alt"></i> Reintentar
+                </button>
+            </div>
+        `;
+    }
+}
+// ==========================================
+// VER DETALLE DE FACTURA
+// ==========================================
+async function verDetalleFactura(facturaId) {
+    const modal = document.getElementById('modalFactura');
+    const titulo = document.getElementById('modalFacturaTitulo');
+    const contenido = document.getElementById('modalFacturaContenido');
+
+    modal.style.display = 'flex';
+    titulo.textContent = '⏳ Cargando...';
+    contenido.innerHTML = `
+        <p style="text-align: center; padding: 1rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando detalle...
+        </p>
+    `;
+
+    try {
+        const res = await fetch(`${API_URL}/inventario/factura/${facturaId}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            contenido.innerHTML = `<p style="color: var(--danger);">❌ ${data.error || 'Error al cargar'}</p>`;
+            return;
+        }
+
+        const c = data.cabecera;
+        const fecha = new Date(c.fecha_factura || c.fecha_registro);
+        const fechaStr = fecha.toLocaleDateString('es-CO', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        titulo.textContent = `🧾 ${c.numero_factura || 'Factura'}`;
+
+        contenido.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: #F8F9FA; padding: 1rem; border-radius: 8px;">
+                    <div><span style="font-weight: 600;">📅 Fecha:</span> ${fechaStr}</div>
+                    <div><span style="font-weight: 600;">🏢 Proveedor:</span> ${c.proveedor || 'Sin proveedor'}</div>
+                    <div><span style="font-weight: 600;">👤 Usuario:</span> ${c.usuario || 'Sistema'}</div>
+                    <div><span style="font-weight: 600;">💰 Total:</span> <strong>$${parseFloat(c.total_compra || 0).toLocaleString()}</strong></div>
+                </div>
+                ${c.observaciones ? `<p style="font-size: 0.85rem; color: var(--text-light);">📝 ${c.observaciones}</p>` : ''}
+            </div>
+
+            <h4 style="font-size: 0.9rem; color: var(--text-dark); margin-bottom: 0.5rem;">📦 Productos</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="background: #F0F2F5; border-bottom: 2px solid #E8ECF1;">
+                        <th style="padding: 0.4rem; text-align: left;">Producto</th>
+                        <th style="padding: 0.4rem; text-align: center;">Tipo</th>
+                        <th style="padding: 0.4rem; text-align: center;">Cant.</th>
+                        <th style="padding: 0.4rem; text-align: right;">Costo</th>
+                        <th style="padding: 0.4rem; text-align: right;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.detalles.map(d => `
+                        <tr style="border-bottom: 1px solid #F0F2F5;">
+                            <td style="padding: 0.4rem; font-weight: 500;">${d.nombre}</td>
+                            <td style="padding: 0.4rem; text-align: center;">${d.tipo === 'VENTA' ? '🛒' : '🔧'}</td>
+                            <td style="padding: 0.4rem; text-align: center;">${d.cantidad}</td>
+                            <td style="padding: 0.4rem; text-align: right;">$${parseFloat(d.costo || 0).toFixed(2)}</td>
+                            <td style="padding: 0.4rem; text-align: right; font-weight: 600;">$${parseFloat(d.subtotal || 0).toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div style="margin-top: 1rem; text-align: right; font-weight: 700; font-size: 1.1rem; border-top: 2px solid #E8ECF1; padding-top: 0.5rem;">
+                Total Factura: $${parseFloat(c.total_compra || 0).toLocaleString()}
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Error al ver detalle:', error);
+        contenido.innerHTML = `<p style="color: var(--danger);">❌ Error de conexión</p>`;
+    }
+}
+
+// ==========================================
+// CERRAR MODAL DE FACTURA
+// ==========================================
+function cerrarModalFactura() {
+    document.getElementById('modalFactura').style.display = 'none';
+}
+    </script>
+
+</body>
+</html>

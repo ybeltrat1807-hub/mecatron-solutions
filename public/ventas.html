@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Ventas - Mecatron Solutions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1A3A5C;
+            --primary-dark: #0F2840;
+            --secondary: #E67E22;
+            --secondary-dark: #D35400;
+            --gold: #F1C40F;
+            --success: #27AE60;
+            --danger: #E74C3C;
+            --text-dark: #2C3E50;
+            --text-light: #7F8C8D;
+            --bg-light: #ECF0F1;
+            --shadow: 0 4px 20px rgba(26, 58, 92, 0.15);
+            --gradient-primary: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);
+            --gradient-secondary: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+            --gradient-header: linear-gradient(135deg, #1A3A5C 0%, #0F2840 60%, #D35400 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: var(--gradient-header);
+            padding: 0.8rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 4px solid var(--secondary);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, var(--gold) 0px, var(--gold) 20px, transparent 20px, transparent 40px);
+            opacity: 0.4;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-secondary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
+        }
+
+        .logo-text .brand {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        .logo-text .brand .highlight {
+            color: var(--secondary);
+        }
+
+        .logo-text .tagline {
+            color: #B2BEC3;
+            font-size: 0.55rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .btn-outline {
+            padding: 0.4rem 1.2rem;
+            border-radius: 50px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+        }
+
+        .btn-outline:hover {
+            background: rgba(230, 126, 34, 0.3);
+            border-color: var(--secondary);
+        }
+
+        /* CONTENEDOR */
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 5%;
+        }
+
+        .pantalla {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .pantalla.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* MENÚ */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .menu-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 0.4s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-secondary);
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 35px rgba(26, 58, 92, 0.12);
+            border-color: var(--secondary);
+        }
+        .menu-card:hover::before { transform: scaleX(1); }
+
+        .menu-card .icon { font-size: 2.8rem; margin-bottom: 0.8rem; }
+        .menu-card h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-dark); }
+        .menu-card p { font-size: 0.85rem; color: var(--text-light); margin: 0.5rem 0 1rem; }
+
+        .menu-card .btn-role {
+            padding: 0.6rem 1.5rem;
+            border-radius: 50px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .menu-card .btn-role.primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(26, 58, 92, 0.2);
+        }
+        .menu-card .btn-role.primary:hover { transform: scale(1.05); }
+
+        .menu-card .btn-role.success {
+            background: var(--gradient-secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.25);
+        }
+        .menu-card .btn-role.success:hover { transform: scale(1.05); }
+
+        /* TARJETAS */
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .section-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid #F0F2F5;
+        }
+
+        .section-card .card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .grid-2col { grid-template-columns: 1fr; }
+        }
+
+        /* FORMULARIOS */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--primary);
+            margin-bottom: 0.3rem;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 2px solid #E8ECF1;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            background: #F8F9FA;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.1);
+            background: white;
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(26, 58, 92, 0.2);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(26, 58, 92, 0.3);
+        }
+
+        .btn-success {
+            background: var(--gradient-secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.25);
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.35);
+        }
+
+        .btn-warning-custom {
+            background: var(--gradient-secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.25);
+        }
+        .btn-warning-custom:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #E8ECF1;
+            color: var(--text-dark);
+        }
+        .btn-secondary:hover { background: #D5D8DC; }
+
+        .btn-block { width: 100%; }
+        .btn-sm { padding: 0.4rem 1rem; font-size: 0.8rem; }
+
+        /* CARRITO */
+        .carrito-container {
+            background: #F8F9FA;
+            border-radius: 10px;
+            padding: 0.8rem;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .carrito-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #E8ECF1;
+            font-size: 0.85rem;
+        }
+        .carrito-item:last-child { border-bottom: none; }
+
+        .carrito-item .badge-qty {
+            background: var(--secondary);
+            color: white;
+            padding: 0.1rem 0.6rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+        }
+
+        .carrito-vacio {
+            color: var(--text-light);
+            text-align: center;
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .carrito-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .carrito-actions .btn {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* AUDITORIA */
+        .auditoria-box {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 1.2rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+
+        .auditoria-box .total {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary);
+        }
+        .auditoria-box .label { font-size: 0.8rem; color: #B2BEC3; }
+
+        /* LISTA DE REMISIONES */
+        .remision-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.7rem 0.8rem;
+            border-bottom: 1px solid #E8ECF1;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 0.3rem;
+            transition: all 0.3s ease;
+        }
+
+        .remision-item:hover {
+            background: #F8F9FA;
+            transform: translateX(4px);
+        }
+
+        .remision-item .remision-info {
+            flex: 1;
+        }
+
+        .remision-item .remision-id {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+
+        .remision-item .remision-fecha {
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-left: 0.5rem;
+        }
+
+        .remision-item .remision-detalle {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 0.1rem;
+        }
+
+        .remision-item .remision-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .remision-item .remision-actions .btn-icon {
+            padding: 0.2rem 0.6rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-icon.admin {
+            background: var(--gradient-primary);
+            color: white;
+        }
+        .btn-icon.admin:hover { transform: scale(1.05); }
+
+        .btn-icon.vendedor {
+            background: var(--gradient-secondary);
+            color: white;
+        }
+        .btn-icon.vendedor:hover { transform: scale(1.05); }
+
+        /* TOAST */
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--primary);
+            min-width: 280px;
+        }
+
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: var(--secondary); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 3rem;
+        }
+        .footer strong { color: var(--primary); }
+
+        /* Botón volver al menú */
+        .btn-back-menu {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1.2rem;
+            background: var(--text-light);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .btn-back-menu:hover {
+            background: var(--text-dark);
+            transform: translateX(-3px);
+        }
+
+        @media (max-width: 768px) {
+            .header { flex-direction: column; text-align: center; }
+            .header-left { flex-direction: column; }
+            .header-right { width: 100%; justify-content: center; flex-wrap: wrap; }
+            .menu-grid { grid-template-columns: 1fr; }
+            .remision-item { flex-direction: column; gap: 0.5rem; text-align: center; }
+        }
+    /* ==========================================
+   ESTILOS PARA IMPRESIÓN DE RECIBOS
+   ========================================== */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #reciboVenta, #reciboVenta * {
+        visibility: visible;
+    }
+    #reciboVenta {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        background: white !important;
+        padding: 20px !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    #reciboVenta button {
+        display: none !important;
+    }
+}
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">🛒</div>
+            <div class="logo-text">
+                <span class="brand">MECATRON <span class="highlight">SOLUTIONS</span></span>
+                <span class="tagline">Mecánica · Electricidad</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="panel.html" class="btn-outline">
+                <i class="fas fa-arrow-left"></i> Panel
+            </a>
+            <span style="color: var(--secondary); font-size: 0.8rem;">
+                <i class="fas fa-circle" style="font-size: 0.5rem;"></i> Conectado
+            </span>
+        </div>
+    </header>
+
+    <!-- CONTENIDO -->
+    <div class="app-container">
+
+        <!-- MENÚ PRINCIPAL -->
+        <div id="menuPrincipal" class="menu-grid">
+            <div class="menu-card" onclick="cambiarPantalla('pantallaAdmin')">
+                <div class="icon">🏢</div>
+                <h3>Operaciones de Bodega</h3>
+                <p>Despacho de rutas, carga de camión y cierre de jornada</p>
+                <button class="btn-role primary">
+                    <i class="fas fa-arrow-right"></i> Ingresar
+                </button>
+            </div>
+
+            <div class="menu-card" onclick="cambiarPantalla('pantallaVendedor')">
+                <div class="icon">🚚</div>
+                <h3>Vendedor en Campo</h3>
+                <p>Registro de ventas en ruta y pre-facturación en vivo</p>
+                <button class="btn-role success">
+                    <i class="fas fa-arrow-right"></i> Ingresar
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- LISTA DE REMISIONES ACTIVAS (SIEMPRE VISIBLE) -->
+        <!-- ========================================== -->
+        <div class="section-card" style="border-left: 4px solid var(--gold);">
+            <div class="card-header">
+                <h3>📋 Remisiones Activas</h3>
+                <button onclick="cargarListaRemisiones()" class="btn btn-primary btn-sm">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+            <div id="listaRemisionesActivas" style="max-height: 200px; overflow-y: auto;">
+                <p style="color: var(--text-light); font-size: 0.85rem; text-align: center; padding: 1rem;">
+                    <i class="fas fa-spinner fa-spin"></i> Cargando remisiones activas...
+                </p>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PANTALLA ADMIN -->
+        <!-- ========================================== -->
+        <div id="pantallaAdmin" class="pantalla">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">🏢 Panel de Bodega</h2>
+                <button onclick="regresarMenuVentas()" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+            </div>
+
+            <div class="grid-2col">
+                <!-- COLUMNA 1: Despachar -->
+                <div class="section-card">
+                    <div class="card-header">
+                        <h3>📦 Despachar a Ruta</h3>
+                    </div>
+                    <div class="form-group">
+                        <label>Producto</label>
+                        <select id="selectProductoBodega"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad</label>
+                        <input type="number" id="cantidadSalida" placeholder="Ej: 5">
+                    </div>
+                    <button onclick="agregarAlCarrito()" class="btn btn-primary btn-block btn-sm">
+                        <i class="fas fa-plus"></i> Añadir al Camión
+                    </button>
+
+                    <!-- CARRITO -->
+                    <div style="margin-top: 1rem;">
+                        <div class="carrito-container" id="listaCarrito">
+                            <div class="carrito-vacio">🛒 El camión está vacío</div>
+                        </div>
+                        <div class="carrito-actions">
+                            <button onclick="vaciarCarritoCompleto()" class="btn" style="background: var(--danger); color: white;">
+                                🗑️ Vaciar
+                            </button>
+                            <button onclick="despacharCamionComplete(this)" class="btn btn-success">
+                            <i class="fas fa-truck"></i> Despachar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA 2: Cierre -->
+                <div class="section-card">
+                    <div class="card-header">
+                        <h3>🏁 Cierre de Jornada</h3>
+                    </div>
+                    <div class="form-group">
+                        <label>ID de Remisión</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" id="remisionCierre" placeholder="Ej: REM-0001">
+                            <button onclick="cargarPreFacturaCierre()" class="btn btn-success">
+                                <i class="fas fa-calculator"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="areaCierreAuditoria"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+<!-- PANTALLA VENDEDOR (con carrito de venta)   -->
+<!-- ========================================== -->
+<div id="pantallaVendedor" class="pantalla">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">🚚 Venta en Ruta</h2>
+        <button onclick="regresarMenuVentas()" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </button>
+    </div>
+
+    <div class="section-card">
+        <div class="card-header">
+            <h3>📝 Registrar Venta</h3>
+        </div>
+
+        <div class="form-group">
+            <label>ID de Remisión</label>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="remisionBuscar" placeholder="Ej: REM-0001">
+                <button onclick="buscarRemisionRuta()" class="btn btn-warning-custom">
+                    <i class="fas fa-search"></i> Cargar
+                </button>
+            </div>
+        </div>
+
+        <div class="grid-2col" style="gap: 1rem;">
+            <div class="form-group">
+                <label>Producto</label>
+                <select id="selectProductoCalle"></select>
+            </div>
+            <div class="form-group">
+                <label>Cantidad</label>
+                <input type="number" id="cantidadVenta" placeholder="0" min="1">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Precio Pactado ($)</label>
+            <input type="number" id="precioVentaReal" placeholder="Ej: 35000" step="0.01">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+            <button onclick="agregarAlCarritoVenta()" class="btn btn-primary" style="flex: 1;">
+                <i class="fas fa-plus"></i> Agregar a Venta
+            </button>
+        </div>
+
+        <!-- CARRITO DE VENTA MÚLTIPLE -->
+        <div style="margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h4 style="font-size: 0.9rem; color: var(--text-dark);">🛒 Productos de esta venta</h4>
+                <button onclick="vaciarCarritoVenta()" class="btn btn-sm" style="background: var(--danger); color: white; padding: 0.2rem 0.8rem;">
+                    Vaciar
+                </button>
+            </div>
+            <div class="carrito-container" id="carritoVenta">
+                <div class="carrito-vacio">No hay productos agregados</div>
+            </div>
+            <button onclick="finalizarVentaMultiple()" class="btn btn-success btn-block" style="margin-top: 0.5rem;">
+    <i class="fas fa-check"></i> Finalizar Venta Múltiple
+</button>
+        </div>
+
+        <div class="auditoria-box" style="margin-top: 1rem;">
+            <div class="label">📊 ESTADO CONTABLE</div>
+            <div class="total" id="infoRecaudado">💰 $0</div>
+        </div>
+    </div>
+</div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer"></div>
+
+    <!-- ========================================== -->
+    <!-- SCRIPTS COMPLETOS -->
+    <!-- ========================================== -->
+    <script>
+        const API_URL = 'http://192.168.1.2:3000/api';
+        let carritoTemporal = [];
+        let dbProductosMemoria = [];
+        let remisionActual = null; // Remisión cargada para validaciones y uso en vendedor
+
+        // ==========================================
+        // VALIDACIÓN DE SESIÓN
+        // ==========================================
+        if (sessionStorage.getItem('autorizado') !== 'true') {
+            window.location.href = "index.html";
+        }
+
+        // ==========================================
+        // TOAST NOTIFICATIONS
+        // ==========================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ==========================================
+        // NAVEGACIÓN
+        // ==========================================
+        function cambiarPantalla(idPantalla) {
+            document.getElementById('menuPrincipal').style.display = 'none';
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
+            document.getElementById(idPantalla).classList.add('active');
+        }
+
+        function regresarMenuVentas() {
+            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
+            document.getElementById('menuPrincipal').style.display = 'grid';
+            document.getElementById('areaCierreAuditoria').innerHTML = '';
+            document.getElementById('listaCarrito').innerHTML = '<div class="carrito-vacio">🛒 El camión está vacío</div>';
+            carritoTemporal = [];
+            remisionActual = null;
+        }
+
+        // ==========================================
+        // CARGAR LISTA DE REMISIONES ACTIVAS
+        // ==========================================
+        async function cargarListaRemisiones() {
+            const container = document.getElementById('listaRemisionesActivas');
+            container.innerHTML = `
+                <p style="color: var(--text-light); font-size: 0.85rem; text-align: center; padding: 0.5rem;">
+                    <i class="fas fa-spinner fa-spin"></i> Cargando remisiones...
+                </p>
+            `;
+
+            try {
+                const res = await fetch(`${API_URL}/preventa/remisiones-activas`);
+                const data = await res.json();
+
+                if (!data.activas || data.activas.length === 0) {
+                    container.innerHTML = `
+                        <p style="color: var(--text-light); font-size: 0.85rem; text-align: center; padding: 0.5rem;">
+                            🚫 No hay remisiones activas
+                        </p>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.activas.map(rem => {
+                    const totalProductos = rem.productos.length;
+                    const totalVendidos = rem.productos.reduce((sum, p) => sum + (p.vendidos || 0), 0);
+                    const fecha = new Date(rem.fechaCreacion).toLocaleString();
+
+                    return `
+                        <div class="remision-item">
+                            <div class="remision-info">
+                                <span class="remision-id">${rem.idRemision}</span>
+                                <span class="remision-fecha">📅 ${fecha}</span>
+                                <div class="remision-detalle">
+                                    📦 ${totalProductos} productos | 🛒 ${totalVendidos} vendidos | 💰 $${rem.totalVentas.toLocaleString()}
+                                </div>
+                            </div>
+                            <div class="remision-actions">
+                                <button class="btn-icon admin" onclick="cargarRemisionEnAdmin('${rem.idRemision}')" title="Cargar en Admin para Cierre">
+                                    🏢
+                                </button>
+                                <button class="btn-icon vendedor" onclick="cargarRemisionEnVendedor('${rem.idRemision}')" title="Cargar en Vendedor">
+                                    🚚
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error al cargar remisiones:', error);
+                container.innerHTML = `
+                    <p style="color: var(--danger); font-size: 0.85rem; text-align: center; padding: 0.5rem;">
+                        ⚠️ Error al cargar remisiones
+                    </p>
+                `;
+            }
+        }
+
+        // ==========================================
+        // CARGAR REMISIÓN EN ADMIN
+        // ==========================================
+        function cargarRemisionEnAdmin(idRemision) {
+            document.getElementById('remisionCierre').value = idRemision;
+            document.getElementById('remisionBuscar').value = idRemision;
+            cambiarPantalla('pantallaAdmin');
+            setTimeout(() => cargarPreFacturaCierre(), 300);
+            showToast(`📋 Remisión ${idRemision} cargada en Admin`, 'info');
+        }
+
+        // ==========================================
+        // CARGAR REMISIÓN EN VENDEDOR
+        // ==========================================
+        function cargarRemisionEnVendedor(idRemision) {
+            document.getElementById('remisionBuscar').value = idRemision;
+            cambiarPantalla('pantallaVendedor');
+            setTimeout(() => buscarRemisionRuta(), 300);
+            showToast(`🚚 Remisión ${idRemision} cargada en Vendedor`, 'info');
+        }
+
+        // ==========================================
+        // CARGAR PRODUCTOS AL INICIAR
+        // ==========================================
+        window.onload = async function() {
+            try {
+                await cargarProductos();
+            } catch (err) {
+                console.error('Error en carga inicial de productos:', err);
+                showToast('Error al cargar productos', 'error');
+            }
+
+            await cargarListaRemisiones();
+            console.log('🛒 Módulo de Ventas cargado correctamente');
+        };
+
+        // ==========================================
+        // CARGAR PRODUCTOS (NORMALIZADO)
+        // ==========================================
+        async function cargarProductos() {
+            try {
+                const res = await fetch(`${API_URL}/preventa/productos-lista`);
+                const data = await res.json();
+                // Manejo robusto: aceptar array o { productos: [...] }
+                dbProductosMemoria = Array.isArray(data) ? data : (data.productos || []);
+                const selectBodega = document.getElementById('selectProductoBodega');
+                selectBodega.innerHTML = dbProductosMemoria.map(p => `
+                    <option value="${p.id}">📦 ${p.nombre} (${p.stock} uds)</option>
+                `).join('');
+            } catch (err) {
+                console.error('Error al cargar productos:', err);
+                showToast('Error al cargar productos', 'error');
+            }
+        }
+
+        // ==========================================
+        // AGREGAR AL CARRITO (CON VALIDACIÓN DE STOCK)
+        // ==========================================
+        function agregarAlCarrito() {
+            const idProducto = parseInt(document.getElementById('selectProductoBodega').value, 10);
+            const cantidadSalida = parseInt(document.getElementById('cantidadSalida').value, 10);
+
+            if (!cantidadSalida || cantidadSalida <= 0) {
+                showToast('Por favor digite una cantidad válida', 'error');
+                return;
+            }
+
+            const producto = dbProductosMemoria.find(p => p.id === idProducto);
+            if (!producto) {
+                showToast('Producto no encontrado', 'error');
+                return;
+            }
+
+            // Comprobar stock inmediatamente
+            if (producto.stock === undefined || producto.stock === null) {
+                showToast('Stock no disponible, actualice productos', 'error');
+                return;
+            }
+            if (cantidadSalida > producto.stock) {
+                showToast(`❌ Stock insuficiente. Disponible: ${producto.stock}`, 'error');
+                return;
+            }
+
+            const existente = carritoTemporal.find(item => item.idProducto === idProducto);
+            if (existente) {
+                const nuevaCant = existente.cantidadSalida + cantidadSalida;
+                if (nuevaCant > producto.stock) {
+                    showToast(`❌ No puede agregar ${cantidadSalida}. Stock disponible: ${producto.stock - existente.cantidadSalida}`, 'error');
+                    return;
+                }
+                existente.cantidadSalida = nuevaCant;
+                showToast(`✅ ${producto.nombre} cantidad actualizada a ${existente.cantidadSalida}`, 'success');
+            } else {
+                carritoTemporal.push({
+                    id: Date.now(),
+                    idProducto: idProducto,
+                    nombre: producto.nombre,
+                    cantidadSalida: cantidadSalida
+                });
+                showToast(`✅ ${producto.nombre} agregado al carrito`, 'success');
+            }
+
+            renderizarCarrito();
+            document.getElementById('cantidadSalida').value = '';
+        }
+
+        // ==========================================
+        // RENDERIZAR CARRITO
+        // ==========================================
+        function renderizarCarrito() {
+            const container = document.getElementById('listaCarrito');
+
+            if (carritoTemporal.length === 0) {
+                container.innerHTML = '<div class="carrito-vacio">🛒 El camión está vacío</div>';
+                return;
+            }
+
+            container.innerHTML = carritoTemporal.map(item => `
+                <div class="carrito-item">
+                    <span style="font-weight: 600;">🔹 ${item.nombre}</span>
+                    <div>
+                        <span class="badge-qty">${item.cantidadSalida} uds</span>
+                        <button onclick="editarCantidadCarrito(${item.id})" 
+                                style="background: var(--primary); color: white; border: none; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.7rem; margin-left: 0.3rem;">
+                            ✏️
+                        </button>
+                        <button onclick="eliminarDelCarrito(${item.id})" 
+                                style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.7rem;">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // ELIMINAR DEL CARRITO
+        // ==========================================
+        function eliminarDelCarrito(id) {
+            const item = carritoTemporal.find(i => i.id === id);
+            if (!item) return;
+
+            if (confirm(`¿Eliminar "${item.nombre}" del carrito?`)) {
+                carritoTemporal = carritoTemporal.filter(i => i.id !== id);
+                renderizarCarrito();
+                showToast(`🗑️ "${item.nombre}" eliminado del carrito`, 'info');
+            }
+        }
+
+        // ==========================================
+        // EDITAR CANTIDAD (CON VALIDACIÓN)
+        // ==========================================
+        function editarCantidadCarrito(id) {
+            const item = carritoTemporal.find(i => i.id === id);
+            if (!item) return;
+
+            const nuevaCantidad = prompt(
+                `¿Cuántas unidades de "${item.nombre}" quieres llevar?`,
+                item.cantidadSalida
+            );
+
+            if (nuevaCantidad === null) return;
+
+            const cantidad = parseInt(nuevaCantidad, 10);
+            if (isNaN(cantidad) || cantidad <= 0) {
+                showToast('Cantidad no válida', 'error');
+                return;
+            }
+
+            const producto = dbProductosMemoria.find(p => p.id === item.idProducto);
+            if (producto && cantidad > producto.stock) {
+                showToast(`❌ Stock insuficiente. Disponible: ${producto.stock}`, 'error');
+                return;
+            }
+
+            item.cantidadSalida = cantidad;
+            renderizarCarrito();
+            showToast(`✅ Cantidad de "${item.nombre}" actualizada a ${cantidad}`, 'success');
+        }
+
+        // ==========================================
+        // VACIAR CARRITO
+        // ==========================================
+        function vaciarCarritoCompleto() {
+            if (carritoTemporal.length === 0) {
+                showToast('El carrito ya está vacío', 'info');
+                return;
+            }
+
+            if (confirm('⚠️ ¿Estás seguro de vaciar todo el carrito?')) {
+                carritoTemporal = [];
+                renderizarCarrito();
+                showToast('🗑️ Carrito vaciado completamente', 'info');
+            }
+        }
+
+        // ==========================================
+        // DESPACHAR CAMIÓN (MEJOR MANEJO DE RESPUESTA)
+        // ==========================================
+        async function despacharCamionComplete(btn) {
+            if (carritoTemporal.length === 0) {
+                showToast('El carrito está vacío', 'error');
+                return;
+            }
+
+            for (const item of carritoTemporal) {
+                const producto = dbProductosMemoria.find(p => p.id === item.idProducto);
+                if (producto && item.cantidadSalida > producto.stock) {
+                    showToast(`❌ Stock insuficiente para "${item.nombre}". Disponible: ${producto.stock}`, 'error');
+                    return;
+                }
+            }
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Despachando...';
+            btn.disabled = true;
+
+            try {
+                const productosParaEnviar = carritoTemporal.map(item => ({
+                    idProducto: item.idProducto,
+                    cantidadSalida: item.cantidadSalida
+                }));
+
+                const res = await fetch(`${API_URL}/preventa/salida`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productosCarrito: productosParaEnviar,
+                        usuario: sessionStorage.getItem('usuario') || 'Sistema'
+                    })
+                });
+
+                let data;
+                try {
+                    data = await res.json();
+                } catch (e) {
+                    data = {};
+                }
+
+                if (res.ok && data.idRemision) {
+                    showToast(`🚀 ¡Ruta Despachada! Código: ${data.idRemision}`, 'success');
+                    document.getElementById('remisionBuscar').value = data.idRemision;
+                    document.getElementById('remisionCierre').value = data.idRemision;
+
+                    carritoTemporal = [];
+                    renderizarCarrito();
+                    await cargarListaRemisiones();
+                    await cargarProductos();
+                } else {
+                    const mensaje = data.error || 'Error al procesar la salida';
+                    showToast('Error: ' + mensaje, 'error');
+                }
+            } catch (error) {
+                console.error('Error despachando:', error);
+                showToast('Error de conexión con el servidor', 'error');
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+// BUSCAR REMISIÓN EN RUTA (CON PRECIO)
+// ==========================================
+async function buscarRemisionRuta() {
+    const idRemision = document.getElementById('remisionBuscar').value;
+    if (!idRemision) {
+        showToast('Digite el código de remisión', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/preventa/consultar/${idRemision}`);
+        const data = await res.json();
+
+        if (res.ok) {
+            const select = document.getElementById('selectProductoCalle');
+            select.innerHTML = data.productos.map(p => {
+                let disponible = p.cantidadCargadaInicial - p.cantidadVendidaEnCalle;
+                let precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
+                return `<option value="${p.idProducto}" data-precio="${precio}">
+                            ${p.nombre} (${disponible} uds) - $${precio.toLocaleString()}
+                        </option>`;
+            }).join('');
+
+            // Auto-completar precio al seleccionar
+            select.addEventListener('change', function() {
+                const selected = this.options[this.selectedIndex];
+                if (selected && selected.dataset.precio) {
+                    document.getElementById('precioVentaReal').value = selected.dataset.precio;
+                }
+            });
+
+            if (select.options.length > 0) {
+                select.dispatchEvent(new Event('change'));
+            }
+
+            document.getElementById('infoRecaudado').innerHTML = 
+                `💰 $${data.preFactura.totalVentasEmitidas.toLocaleString()}`;
+            showToast(`✅ Remisión ${idRemision} cargada`, 'success');
+        } else {
+            showToast('Remisión no encontrada en ruta', 'error');
+        }
+    } catch (error) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+ // ==========================================
+ // REGISTRAR VENTA EN CALLE CON RECIBO INDIVIDUAL
+ // ==========================================
+ async function registrarVentaCalle(btn) {
+    const idRemision = document.getElementById('remisionBuscar').value;
+    const idProducto = parseInt(document.getElementById('selectProductoCalle').value, 10);
+    const cantidadAVender = parseInt(document.getElementById('cantidadVenta').value, 10);
+    const precioVentaReal = parseFloat(document.getElementById('precioVentaReal').value);
+
+    if (!idRemision || !idProducto || !cantidadAVender || !precioVentaReal) {
+        showToast('Complete todos los datos de la venta', 'error');
+        return;
+    }
+    // Validación local de stock usando option[data-disponible] o remisionActual
+    const select = document.getElementById('selectProductoCalle');
+    const selectedOption = select.options[select.selectedIndex];
+    const disponible = parseInt(selectedOption?.dataset?.disponible || '0', 10);
+
+    if (cantidadAVender > disponible) {
+        showToast(`❌ Stock insuficiente. Disponible: ${disponible}`, 'error');
+        return;
+    }
+
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_URL}/preventa/venta-externa`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                idRemision,
+                idProducto: idProducto,
+                cantidadAVender: cantidadAVender,
+                precioVentaReal: precioVentaReal,
+                vendedor: sessionStorage.getItem('usuario') || 'Sistema'
+            })
+        });
+        let data;
+        try { data = await res.json(); } catch (e) { data = {}; }
+
+        if (res.ok) {
+            showToast('✅ ' + (data.mensaje || 'Venta registrada'), 'success');
+            document.getElementById('cantidadVenta').value = '';
+            document.getElementById('precioVentaReal').value = '';
+
+            // Actualizar estado
+            await buscarRemisionRuta();
+            await cargarListaRemisiones();
+
+            // GENERAR RECIBO CON LA VENTA ACTUAL
+            console.log('📦 Datos recibidos:', data);
+
+            if (data.ventaActual) {
+                const nombreVendedor = sessionStorage.getItem('usuario') || 'Sistema';
+                const imprimir = confirm('🧾 ¿Desea imprimir el recibo de esta venta?');
+                if (imprimir) {
+                    const reciboHTML = generarReciboVentaIndividual(
+                        data.ventaActual,
+                        idRemision,
+                        nombreVendedor
+                    );
+                    if (reciboHTML) {
+                        document.body.insertAdjacentHTML('beforeend', reciboHTML);
+                    }
+                }
+            } else {
+                showToast('⚠️ No se pudo generar el recibo', 'info');
+            }
+        } else {
+            const mensaje = data.error || 'Error al registrar la venta';
+            showToast('Error: ' + mensaje, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error:', error);
+        showToast('Error de conexión', 'error');
+    } finally {
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    }
+}
+// ==========================================
+// CARRITO DE VENTA MÚLTIPLE (NUEVO)
+// ==========================================
+let carritoVentaActual = [];
+
+function agregarAlCarritoVenta() {
+    const select = document.getElementById('selectProductoCalle');
+    const idProducto = select.value;
+    const cantidad = parseInt(document.getElementById('cantidadVenta').value);
+    const precio = parseFloat(document.getElementById('precioVentaReal').value);
+
+    if (!idProducto || !cantidad || cantidad <= 0 || !precio || precio <= 0) {
+        showToast('Complete todos los datos del producto', 'error');
+        return;
+    }
+
+    const option = select.options[select.selectedIndex];
+    const nombre = option.text.split('(')[0].trim();
+    const disponible = parseInt(option.text.match(/\((\d+)\s*uds\)/)?.[1] || 0);
+
+    if (cantidad > disponible) {
+        showToast(`Stock insuficiente. Disponible: ${disponible}`, 'error');
+        return;
+    }
+
+    const existente = carritoVentaActual.find(item => item.idProducto === parseInt(idProducto));
+    if (existente) {
+        const nuevaCantidad = existente.cantidad + cantidad;
+        if (nuevaCantidad > disponible) {
+            showToast(`Stock insuficiente. Disponible: ${disponible}`, 'error');
+            return;
+        }
+        existente.cantidad = nuevaCantidad;
+        existente.precio = precio;
+        existente.total = nuevaCantidad * precio;
+        showToast(`✅ ${nombre} cantidad actualizada a ${nuevaCantidad}`, 'success');
+    } else {
+        carritoVentaActual.push({
+            idProducto: parseInt(idProducto),
+            nombre: nombre,
+            cantidad: cantidad,
+            precio: precio,
+            total: cantidad * precio
+        });
+        showToast(`✅ ${nombre} agregado a la venta`, 'success');
+    }
+
+    renderizarCarritoVenta();
+    document.getElementById('cantidadVenta').value = '';
+    document.getElementById('precioVentaReal').value = '';
+}
+
+function renderizarCarritoVenta() {
+    const container = document.getElementById('carritoVenta');
+    if (carritoVentaActual.length === 0) {
+        container.innerHTML = '<div class="carrito-vacio">No hay productos agregados</div>';
+        return;
+    }
+
+    let totalVenta = 0;
+    container.innerHTML = carritoVentaActual.map(item => {
+        totalVenta += item.total;
+        return `
+            <div class="carrito-item">
+                <span>🔹 ${item.nombre} x${item.cantidad}</span>
+                <div>
+                    <span style="font-weight: 600;">$${item.total.toLocaleString()}</span>
+                    <button onclick="eliminarDelCarritoVenta(${item.idProducto})" 
+                            style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.7rem; margin-left: 0.5rem;">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const totalDiv = document.createElement('div');
+    totalDiv.style.cssText = 'text-align: right; font-weight: 700; padding: 0.5rem; border-top: 2px solid var(--secondary); margin-top: 0.3rem;';
+    totalDiv.textContent = `Total Venta: $${totalVenta.toLocaleString()}`;
+    container.appendChild(totalDiv);
+}
+
+function eliminarDelCarritoVenta(idProducto) {
+    carritoVentaActual = carritoVentaActual.filter(item => item.idProducto !== idProducto);
+    renderizarCarritoVenta();
+    showToast('Producto eliminado', 'info');
+}
+
+function vaciarCarritoVenta() {
+    if (carritoVentaActual.length === 0) return;
+    if (confirm('¿Vaciar todos los productos?')) {
+        carritoVentaActual = [];
+        renderizarCarritoVenta();
+        showToast('Carrito vaciado', 'info');
+    }
+}
+// ==========================================
+// GENERAR RECIBO DE VENTA INDIVIDUAL
+// ==========================================
+function generarReciboVentaIndividual(venta, idRemision, nombreVendedor) {
+    const fecha = new Date().toLocaleString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    return `
+        <div id="reciboVenta" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        ">
+            <div style="
+                background: white;
+                border-radius: 16px;
+                max-width: 400px;
+                width: 100%;
+                padding: 2rem;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                font-family: 'Courier New', monospace;
+            ">
+                <!-- HEADER -->
+                <div style="text-align: center; border-bottom: 2px solid #1A3A5C; padding-bottom: 1rem; margin-bottom: 1rem;">
+                    <div style="font-size: 2rem; margin-bottom: 0.3rem;">🛒</div>
+                    <h2 style="margin: 0; color: #1A3A5C; font-size: 1.2rem; font-family: 'Courier New', monospace;">
+                        MECATRON SOLUTIONS
+                    </h2>
+                    <p style="margin: 0.2rem 0 0; color: #7F8C8D; font-size: 0.6rem; letter-spacing: 1px;">
+                        Innovamos · Integramos · Solucionamos
+                    </p>
+                    <p style="margin: 0.5rem 0 0; color: #2C3E50; font-size: 0.6rem;">
+                        ${idRemision}
+                    </p>
+                </div>
+
+                <!-- INFO -->
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 1rem; background: #F8F9FA; padding: 0.4rem 0.8rem; border-radius: 4px;">
+                    <span><strong>Fecha:</strong> ${fecha}</span>
+                    <span><strong>Vendedor:</strong> ${nombreVendedor}</span>
+                </div>
+
+                <!-- PRODUCTO -->
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 1rem;">
+                    <thead>
+                        <tr style="background: #F0F2F5; border-bottom: 2px solid #1A3A5C;">
+                            <th style="padding: 6px; text-align: left;">Producto</th>
+                            <th style="padding: 6px; text-align: center;">Cant.</th>
+                            <th style="padding: 6px; text-align: right;">Precio</th>
+                            <th style="padding: 6px; text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 6px; border-bottom: 1px solid #ddd;">${venta.nombre}</td>
+                            <td style="padding: 6px; text-align: center; border-bottom: 1px solid #ddd;">${venta.cantidad}</td>
+                            <td style="padding: 6px; text-align: right; border-bottom: 1px solid #ddd;">$${venta.precio.toLocaleString()}</td>
+                            <td style="padding: 6px; text-align: right; border-bottom: 1px solid #ddd;">$${venta.total.toLocaleString()}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- TOTAL -->
+                <div style="border-top: 2px solid #1A3A5C; padding-top: 0.8rem; text-align: right; margin-bottom: 1.5rem;">
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #1A3A5C;">
+                        TOTAL: $${venta.total.toLocaleString()}
+                    </div>
+                </div>
+
+                <!-- PIE -->
+                <div style="text-align: center; border-top: 1px solid #ddd; padding-top: 1rem; color: #7F8C8D; font-size: 0.6rem;">
+                    <p>¡Gracias por su compra!</p>
+                    <p style="margin-top: 0.2rem;">Documento generado por Mecatron Solutions</p>
+                </div>
+
+                <!-- BOTONES -->
+                <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
+                    <button onclick="imprimirReciboVenta()" style="
+                        flex: 1;
+                        padding: 0.7rem;
+                        border: none;
+                        border-radius: 8px;
+                        background: #1A3A5C;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 0.9rem;
+                    ">
+                        🖨️ Imprimir
+                    </button>
+                    <button onclick="cerrarReciboVenta()" style="
+                        flex: 1;
+                        padding: 0.7rem;
+                        border: none;
+                        border-radius: 8px;
+                        background: #E8ECF1;
+                        color: #2D3436;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 0.9rem;
+                    ">
+                        ✕ Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ==========================================
+// IMPRIMIR RECIBO DE VENTA
+// ==========================================
+function imprimirReciboVenta() {
+    const contenido = document.getElementById('reciboVenta');
+    if (contenido) {
+        // Ocultar los botones para imprimir
+        const botones = contenido.querySelectorAll('button');
+        botones.forEach(b => b.style.display = 'none');
+
+        window.print();
+
+        // Restaurar botones después de imprimir
+        botones.forEach(b => b.style.display = '');
+    }
+}
+
+// ==========================================
+// CERRAR RECIBO DE VENTA
+// ==========================================
+function cerrarReciboVenta() {
+    const modal = document.getElementById('reciboVenta');
+    if (modal) modal.remove();
+}
+
+        // ==========================================
+        // CARGAR PRE-FACTURA
+        // ==========================================
+        async function cargarPreFacturaCierre() {
+            const idRemision = document.getElementById('remisionCierre').value;
+            if (!idRemision) {
+                showToast('Escriba el código de remisión', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/preventa/consultar/${idRemision}`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast('No se encontró esa remisión activa', 'error');
+                    return;
+                }
+
+                let tablaProd = (data.productos || []).map(p => `
+                    <tr>
+                        <td style="padding: 0.3rem;">${p.nombre}</td>
+                        <td style="padding: 0.3rem; text-align: center;">${p.cantidadCargadaInicial}</td>
+                        <td style="padding: 0.3rem; text-align: center; color: var(--success);">${p.cantidadVendidaEnCalle}</td>
+                        <td style="padding: 0.3rem; text-align: center; color: var(--danger);">${p.cantidadCargadaInicial - p.cantidadVendidaEnCalle}</td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('areaCierreAuditoria').innerHTML = `
+                    <div style="margin-top: 1rem; background: #FFF8E1; padding: 1rem; border-radius: 10px; border-left: 4px solid var(--gold);">
+                        <strong style="display: block; margin-bottom: 0.5rem;">📋 FACTURA PREVIA</strong>
+                        <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #F8F9FA;">
+                                    <th style="padding: 0.3rem; text-align: left;">Producto</th>
+                                    <th style="padding: 0.3rem; text-align: center;">Carga</th>
+                                    <th style="padding: 0.3rem; text-align: center;">Vend</th>
+                                    <th style="padding: 0.3rem; text-align: center;">Sobra</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tablaProd}</tbody>
+                        </table>
+                        <div style="margin-top: 0.5rem;">
+                            <div style="color: var(--success); font-weight: 700;">
+                                💰 Efectivo: $${(data.preFactura?.totalVentasEmitidas || 0).toLocaleString()}
+                            </div>
+                            <div style="color: var(--primary); font-weight: 600;">
+                                📈 Utilidad: $${(data.preFactura?.gananciaPreviaCalculada || 0).toLocaleString()}
+                            </div>
+                        </div>
+                        <button onclick="ejecutarCierreConDevolucion('${idRemision}', this)" class="btn btn-success" style="margin-top: 0.6rem;">
+                    ✓ Confirmar y Reingresar a Bodega
+                    </button>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error cargar pre-factura:', error);
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        // ==========================================
+        // EJECUTAR CIERRE
+        // ==========================================
+        async function ejecutarCierreConDevolucion(idRemision, btn) {
+            if (!confirm('⚠️ ¿Confirma el cierre de jornada y el reingreso de inventario a MySQL?')) {
+                return;
+            }
+
+            const textoOriginal = btn.textContent;
+            btn.textContent = '⏳ Procesando...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/preventa/cierre-jornada`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idRemision })
+                });
+                let data;
+                try { data = await res.json(); } catch (e) { data = {}; }
+
+                if (res.ok) {
+                    showToast(`🏁 Remisión ${idRemision} liquidada con éxito`, 'success');
+                    document.getElementById('areaCierreAuditoria').innerHTML = `
+                        <div style="margin-top: 1rem; background: #27AE6015; padding: 1rem; border-radius: 10px; border-left: 4px solid var(--success);">
+                            ✅ Remisión ${idRemision} Cerrada Exitosamente
+                        </div>
+                    `;
+                    document.getElementById('remisionCierre').value = '';
+                    await cargarListaRemisiones();
+                } else {
+                    const mensaje = data.error || 'Error al cerrar la remisión';
+                    showToast('Error: ' + mensaje, 'error');
+                }
+            } catch (error) {
+                console.error('Error cierre jornada:', error);
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.textContent = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+// ==========================================
+// FINALIZAR VENTA MÚLTIPLE (CORREGIDO)
+// ==========================================
+async function finalizarVentaMultiple() {
+    console.log('🟢 Botón Finalizar Venta Múltiple presionado');
+    
+    if (carritoVentaActual.length === 0) {
+        showToast('Agregue al menos un producto a la venta', 'error');
+        return;
+    }
+
+    const idRemision = document.getElementById('remisionBuscar').value;
+    if (!idRemision) {
+        showToast('Cargue una remisión primero', 'error');
+        return;
+    }
+
+    const vendedor = sessionStorage.getItem('usuario') || 'Sistema';
+    
+    console.log('📦 Productos en carrito:', carritoVentaActual);
+    console.log('📋 Remisión:', idRemision);
+
+    const btn = document.querySelector('#pantallaVendedor .btn-success.btn-block');
+    if (!btn) {
+        showToast('Error: No se encontró el botón', 'error');
+        return;
+    }
+    
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    btn.disabled = true;
+
+    try {
+        const productos = carritoVentaActual.map(item => ({
+            idProducto: item.idProducto,
+            cantidad: item.cantidad,
+            precioUnitario: item.precio
+        }));
+
+        console.log('📤 Enviando al backend:', { idRemision, productos, vendedor });
+
+        const res = await fetch(`${API_URL}/preventa/venta-multiple`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                idRemision,
+                productos,
+                vendedor
+            })
+        });
+
+        const data = await res.json();
+        console.log('📥 Respuesta del backend:', data);
+
+        if (res.ok) {
+            showToast(`✅ ${data.mensaje}`, 'success');
+
+            // Preguntar si desea imprimir recibo
+            const imprimir = confirm('🧾 ¿Desea imprimir el recibo de esta venta?');
+            if (imprimir) {
+                const reciboHTML = generarReciboVentaMultiple(
+                    data.productos,
+                    idRemision,
+                    vendedor,
+                    data.totalVenta
+                );
+                if (reciboHTML) {
+                    document.body.insertAdjacentHTML('beforeend', reciboHTML);
+                }
+            }
+
+            // Limpiar carrito de venta
+            carritoVentaActual = [];
+            renderizarCarritoVenta();
+
+            // Actualizar estado
+            await buscarRemisionRuta();
+            await cargarListaRemisiones();
+        } else {
+            showToast('Error: ' + (data.error || 'Error desconocido'), 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error en finalizarVentaMultiple:', error);
+        showToast('Error de conexión: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    }
+}
+// ==========================================
+// GENERAR RECIBO DE VENTA MÚLTIPLE
+// ==========================================
+function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta) {
+    const fecha = new Date().toLocaleString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const productosHTML = productos.map(p => `
+        <tr>
+            <td style="padding: 6px; border-bottom: 1px solid #ddd;">${p.nombre}</td>
+            <td style="padding: 6px; text-align: center; border-bottom: 1px solid #ddd;">${p.cantidad}</td>
+            <td style="padding: 6px; text-align: right; border-bottom: 1px solid #ddd;">$${p.precio.toLocaleString()}</td>
+            <td style="padding: 6px; text-align: right; border-bottom: 1px solid #ddd;">$${p.total.toLocaleString()}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <div id="reciboVenta" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px;">
+            <div style="background:white; border-radius:16px; max-width:480px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); font-family:'Courier New', monospace;">
+                <div style="text-align:center; border-bottom:2px solid #1A3A5C; padding-bottom:1rem; margin-bottom:1rem;">
+                    <div style="font-size:2rem; margin-bottom:0.3rem;">🛒</div>
+                    <h2 style="margin:0; color:#1A3A5C; font-size:1.4rem;">MECATRON SOLUTIONS</h2>
+                    <p style="margin:0.2rem 0 0; color:#7F8C8D; font-size:0.7rem; letter-spacing:1px;">Innovamos · Integramos · Solucionamos</p>
+                    <p style="margin:0.5rem 0 0; color:#2C3E50; font-size:0.65rem; letter-spacing:2px;">${idRemision}</p>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:1rem; background:#F8F9FA; padding:0.5rem 0.8rem; border-radius:4px;">
+                    <span><strong>Fecha:</strong> ${fecha}</span>
+                    <span><strong>Vendedor:</strong> ${vendedor}</span>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; font-size:0.75rem; margin-bottom:1rem;">
+                    <thead>
+                        <tr style="background:#F0F2F5; border-bottom:2px solid #1A3A5C;">
+                            <th style="padding:6px; text-align:left;">Producto</th>
+                            <th style="padding:6px; text-align:center;">Cant.</th>
+                            <th style="padding:6px; text-align:right;">Precio</th>
+                            <th style="padding:6px; text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${productosHTML}</tbody>
+                </table>
+
+                <div style="border-top:2px solid #1A3A5C; padding-top:0.8rem; text-align:right; margin-bottom:1.5rem;">
+                    <div style="font-size:1.1rem; font-weight:700; color:#1A3A5C;">
+                        TOTAL: $${totalVenta.toLocaleString()}
+                    </div>
+                </div>
+
+                <div style="text-align:center; border-top:1px solid #ddd; padding-top:1rem; color:#7F8C8D; font-size:0.65rem;">
+                    <p>¡Gracias por su compra!</p>
+                    <p style="margin-top:0.2rem; font-size:0.6rem;">Documento generado por Mecatron Solutions</p>
+                </div>
+
+                <div style="display:flex; gap:0.8rem; margin-top:1rem;">
+                    <button onclick="imprimirReciboVenta()" style="flex:1; padding:0.7rem; border:none; border-radius:8px; background:#1A3A5C; color:white; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                        🖨️ Imprimir
+                    </button>
+                    <button onclick="cerrarReciboVenta()" style="flex:1; padding:0.7rem; border:none; border-radius:8px; background:#E8ECF1; color:#2D3436; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                        ✕ Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+        // ==========================================
+        // ACTUALIZACIÓN AUTOMÁTICA
+        // ==========================================
+        setInterval(cargarListaRemisiones, 30000);
+
+    </script>
+
+</body>
+</html>

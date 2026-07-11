@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mecatron Solutions - Acceso</title>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mecatron Solutions - Acceso</title>
+    
+    <!-- ========================================== -->
+    <!-- PWA - AGREGAR ESTO AQUÍ                    -->
+    <!-- ========================================== -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mecatron">
+    <meta name="theme-color" content="#1A3A5C">
+
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('✅ Service Worker registrado'))
+                .catch(err => console.log('❌ Error al registrar Service Worker:', err));
+        }
+    </script>
+    
+    <!-- Tus estilos y demás... -->
+</head>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1A3A5C;
+            --primary-dark: #0F2840;
+            --secondary: #E67E22;
+            --secondary-dark: #D35400;
+            --gold: #F1C40F;
+            --text-light: #7F8C8D;
+            --gradient-primary: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);
+            --gradient-secondary: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--gradient-primary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(230, 126, 34, 0.08) 0%, transparent 50%);
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translate(-25%, -25%) rotate(0deg); }
+            100% { transform: translate(25%, 25%) rotate(360deg); }
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 50px,
+                rgba(255,255,255,0.02) 50px,
+                rgba(255,255,255,0.02) 51px
+            );
+            pointer-events: none;
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: var(--gradient-secondary);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 2.5rem;
+            color: white;
+            box-shadow: 0 8px 30px rgba(230, 126, 34, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .logo-icon:hover {
+            transform: rotate(90deg) scale(1.05);
+        }
+
+        .login-card h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: 2px;
+        }
+
+        .login-card h1 span {
+            color: var(--secondary);
+        }
+
+        .login-card .subtitle {
+            color: var(--text-light);
+            font-size: 0.8rem;
+            font-weight: 400;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 0.2rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            border: 2px solid #E8ECF1;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            letter-spacing: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            background: #F8F9FA;
+            color: var(--primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.1);
+        }
+
+        .btn-access {
+            width: 100%;
+            padding: 1rem;
+            background: var(--gradient-secondary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.3);
+            margin-top: 0.5rem;
+        }
+
+        .btn-access:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(230, 126, 34, 0.4);
+        }
+
+        .btn-access:active {
+            transform: translateY(0);
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .security-badge span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--secondary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .footer-login {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+
+        .footer-login strong {
+            color: var(--primary);
+        }
+
+        /* Mensaje de error */
+        .error-message {
+            background: #E74C3C15;
+            border: 1px solid #E74C3C;
+            color: #E74C3C;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .login-card h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-container">
+                <div class="logo-icon">⚙️</div>
+                <h1>MECATRON <span>SOLUTIONS</span></h1>
+                <p class="subtitle">Innovamos, Integramos, Solucionamos</p>
+            </div>
+
+            <form id="loginForm" onsubmit="verificarAcceso(event)">
+                <div class="input-group">
+                    <label>🔐 Código de Autorización</label>
+                    <input 
+                        type="password" 
+                        id="codigo-usuario" 
+                        maxlength="4" 
+                        placeholder="• • • •" 
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <div id="errorMessage" class="error-message">
+                    ❌ Código incorrecto. Intenta nuevamente.
+                </div>
+
+                <button type="submit" class="btn-access">
+                    🚀 Ingresar al Sistema
+                </button>
+
+                <div class="security-badge">
+                    <span></span>
+                    Conexión Segura
+                </div>
+            </form>
+
+            <div class="footer-login">
+                <p>Desarrollado por <strong>Beltrán Software Solutions</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function verificarAcceso(event) {
+            event.preventDefault();
+            const codigo = document.getElementById('codigo-usuario').value;
+            const errorMsg = document.getElementById('errorMessage');
+            
+            // Ocultar mensaje de error previo
+            errorMsg.classList.remove('show');
+
+            try {
+                const res = await fetch('/api/auth/verificar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.valido) {
+                    // Guardar sesión
+                    sessionStorage.setItem('autorizado', 'true');
+                    sessionStorage.setItem('usuario', data.usuario.nombre);
+                    sessionStorage.setItem('usuario_id', data.usuario.id);
+                    sessionStorage.setItem('rol', data.usuario.rol);
+                    sessionStorage.setItem('codigo', data.usuario.codigo);
+
+                    // Animación de salida
+                    document.querySelector('.login-card').style.transform = 'scale(0.95)';
+                    document.querySelector('.login-card').style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        window.location.href = "panel.html";
+                    }, 300);
+                } else {
+                    // Mostrar error
+                    errorMsg.textContent = '❌ ' + (data.error || 'Código incorrecto. Intenta nuevamente.');
+                    errorMsg.classList.add('show');
+                    
+                    const input = document.getElementById('codigo-usuario');
+                    input.style.borderColor = '#E74C3C';
+                    input.style.animation = 'shake 0.5s ease';
+                    setTimeout(() => {
+                        input.style.borderColor = '#E8ECF1';
+                        input.style.animation = '';
+                        input.value = '';
+                        input.focus();
+                    }, 500);
+                }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+                errorMsg.textContent = '❌ Error de conexión con el servidor';
+                errorMsg.classList.add('show');
+            }
+        }
+
+        // Agregar animación shake
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-10px); }
+                75% { transform: translateX(10px); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

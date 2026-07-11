@@ -10,6 +10,16 @@ const PORT = 3000;
 // Middleware de enrutamiento estático para Mecatron Solutions
 app.use(express.json());
 app.use(express.static('public'));
+// ==========================================
+// ENDPOINT DE PRUEBA - PARA VERIFICAR QUE EL SERVIDOR FUNCIONA
+// ==========================================
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        mensaje: 'Servidor de Mecatron Solutions funcionando correctamente',
+        hora: new Date().toISOString(),
+        estado: '✅ Activo'
+    });
+});
 // CORS - Permitir peticiones del frontend
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -1756,11 +1766,19 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
         });
     }
 });
-console.log('📡 Variables de entorno cargadas:');
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_NAME:', process.env.DB_NAME);
-console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? '✅ Cargada' : '❌ No cargada');
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT 1 as test');
+        res.json({ success: true, message: 'Conexión exitosa a la BD', data: rows });
+    } catch (error) {
+        console.error('Error de conexión:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            code: error.code
+        });
+    }
+});
 const server = app.listen(PORT, () => {
     console.log(`🚀 Servidor de Mecatron Solutions corriendo en'http://192.168.1.2:3000/api;${PORT}`);
 });

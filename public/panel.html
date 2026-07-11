@@ -27,6 +27,10 @@
             --gradient-primary: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);
             --gradient-secondary: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
             --gradient-header: linear-gradient(135deg, #1A3A5C 0%, #0F2840 60%, #D35400 100%);
+            --color-servicios: #3B82F6;
+            --color-ventas: #F59E0B;
+            --color-financiero: #27AE60;
+            --color-inventario: #8B5CF6;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -308,7 +312,6 @@
         .module-card:hover {
             transform: translateY(-8px);
             box-shadow: 0 15px 50px rgba(26, 58, 92, 0.15);
-            border-color: var(--secondary);
         }
 
         .module-card:hover::before {
@@ -318,7 +321,6 @@
         .module-card .icon-container {
             width: 80px;
             height: 80px;
-            background: var(--gradient-primary);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -443,6 +445,33 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ========================================== */
+        /* ESTILOS DEL MODAL DE REPORTES             */
+        /* ========================================== */
+        #modalReporte {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #modalReporte .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
@@ -452,7 +481,7 @@
             <div class="logo-icon">⚙️</div>
             <div class="logo-text">
                 <span class="brand">MECATRON <span class="highlight">SOLUTIONS</span></span>
-                <span class="tagline">Mecánica · Electricidad</span>
+                <span class="tagline">Innovamos · Integramos · Solucionamos</span>
             </div>
         </div>
         <div class="header-right">
@@ -497,18 +526,21 @@
         </div>
 
         <div class="stats-refresh">
-    <button class="btn-refresh" onclick="cargarEstadisticasVentas()" style="margin-right: 0.5rem;">
-        <i class="fas fa-sync-alt"></i> Actualizar
-    </button>
-    <button id="btnReportes" class="btn-refresh" onclick="abrirReporte()" style="background: var(--gradient-secondary); display: none;">
-        <i class="fas fa-chart-bar"></i> Reportes
-    </button>
-</div>
+            <button class="btn-refresh" onclick="cargarEstadisticasVentas()" style="margin-right: 0.5rem;">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <button id="btnReportes" class="btn-refresh" onclick="abrirReporte()" style="background: var(--gradient-secondary); display: none;">
+                <i class="fas fa-chart-bar"></i> Reportes
+            </button>
+        </div>
 
         <div class="cards-grid">
 
-            <div class="module-card">
-                <div class="icon-container">🔧</div>
+            <!-- ========================================== -->
+            <!-- MÓDULO DE SERVICIOS (AZUL)                 -->
+            <!-- ========================================== -->
+            <div class="module-card" style="border-color: var(--color-servicios);">
+                <div class="icon-container" style="background: var(--color-servicios);">🔧</div>
                 <h3>Módulo de Servicios</h3>
                 <p>Gestión de herramientas, asignación de kits por labor, seguimiento de mantenimiento y control de inventario.</p>
                 <span class="status-badge">● Operativo</span>
@@ -518,10 +550,11 @@
                 </a>
             </div>
 
-            <div class="module-card">
-                <div class="icon-container" style="background: var(--gradient-secondary);">
-                    🛒
-                </div>
+            <!-- ========================================== -->
+            <!-- MÓDULO DE VENTAS (AMARILLO/DORADO)         -->
+            <!-- ========================================== -->
+            <div class="module-card" style="border-color: var(--color-ventas);">
+                <div class="icon-container" style="background: var(--color-ventas);">🛒</div>
                 <h3>Módulo de Ventas</h3>
                 <p>Control de rutas de preventa, registro de ventas en campo, auditoría financiera y cierre de jornada.</p>
                 <span class="status-badge">● Operativo</span>
@@ -530,32 +563,34 @@
                     <i class="fas fa-arrow-right"></i> Acceder
                 </a>
             </div>
-            <!-- Módulo Financiero -->
-<div class="module-card" style="border: 2px solid #27AE60;">
-    <div class="icon-container" style="background: var(--gradient-secondary);">
-        💰
-    </div>
-    <h3>Módulo Financiero</h3>
-    <p>Gestión de utilidades, reinversiones y control de capital. Visualiza tus ganancias en tiempo real.</p>
-    <span class="status-badge">● Activo</span>
-    <br>
-    <a href="financiero.html" class="btn-module success" style="background: var(--gradient-secondary);">
-        <i class="fas fa-arrow-right"></i> Acceder
-    </a>
-</div>
-<!-- Módulo de Inventario -->
-<div class="module-card">
-    <div class="icon-container" style="background: linear-gradient(135deg, #1A3A5C 0%, #0F2840 100%);">
-        📦
-    </div>
-    <h3>Módulo de Inventario</h3>
-    <p>Gestión de productos y herramientas. Registra compras, controla stock y visualiza la trazabilidad completa.</p>
-    <span class="status-badge">● Activo</span>
-    <br>
-    <a href="inventario.html" class="btn-module primary">
-        <i class="fas fa-arrow-right"></i> Acceder
-    </a>
-</div>
+
+            <!-- ========================================== -->
+            <!-- MÓDULO FINANCIERO (VERDE)                  -->
+            <!-- ========================================== -->
+            <div class="module-card" style="border-color: var(--color-financiero);">
+                <div class="icon-container" style="background: var(--color-financiero);">💰</div>
+                <h3>Módulo Financiero</h3>
+                <p>Gestión de utilidades, reinversiones y control de capital. Visualiza tus ganancias en tiempo real.</p>
+                <span class="status-badge">● Activo</span>
+                <br>
+                <a href="financiero.html" class="btn-module success" style="background: var(--color-financiero);">
+                    <i class="fas fa-arrow-right"></i> Acceder
+                </a>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- MÓDULO DE INVENTARIO (VIOLETA)             -->
+            <!-- ========================================== -->
+            <div class="module-card" style="border-color: var(--color-inventario);">
+                <div class="icon-container" style="background: var(--color-inventario);">📦</div>
+                <h3>Módulo de Inventario</h3>
+                <p>Gestión de productos y herramientas. Registra compras, controla stock y visualiza la trazabilidad completa.</p>
+                <span class="status-badge">● Activo</span>
+                <br>
+                <a href="inventario.html" class="btn-module primary" style="background: var(--color-inventario);">
+                    <i class="fas fa-arrow-right"></i> Acceder
+                </a>
+            </div>
 
         </div>
 
@@ -565,71 +600,103 @@
 
     </div>
 
+    <!-- ========================================== -->
+    <!-- MODAL DE REPORTES                          -->
+    <!-- ========================================== -->
+    <div id="modalReporte">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--secondary); padding-bottom: 1rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">
+                    📊 Reporte de Costos vs Utilidad
+                </h2>
+                <button onclick="cerrarReporte()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-light);">
+                    ✕
+                </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);">Periodo:</label>
+                    <select id="periodoReporte" onchange="cambiarFechas()" style="width:100%; padding:0.7rem 1rem; border:2px solid #E8ECF1; border-radius:10px; font-size:0.9rem; font-family:'Inter', sans-serif; background:#F8F9FA; margin-top:0.3rem;">
+                        <option value="diario">📅 Diario</option>
+                        <option value="semanal">📅 Semanal</option>
+                        <option value="mensual">📅 Mensual</option>
+                    </select>
+                </div>
+                <div id="selectorFechaContainer">
+                    <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);" id="labelFecha">Fecha:</label>
+                    <input type="date" id="fechaReporte" style="width:100%; padding:0.7rem 1rem; border:2px solid #E8ECF1; border-radius:10px; font-size:0.9rem; font-family:'Inter', sans-serif; background:#F8F9FA; margin-top:0.3rem;">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <button onclick="generarReporte()" style="flex:1; padding:0.7rem; background:var(--gradient-secondary); color:white; border:none; border-radius:10px; font-weight:600; cursor:pointer; font-family:'Inter', sans-serif; font-size:0.9rem; transition:all 0.3s ease;">
+                    <i class="fas fa-file-alt"></i> Generar Reporte
+                </button>
+            </div>
+
+            <div id="resultadoReporte" style="display: none;"></div>
+            <div id="loadingReporte" style="text-align:center; padding:2rem; display:none;">
+                <i class="fas fa-spinner fa-spin" style="font-size:2rem; color:var(--secondary);"></i>
+                <p style="color:var(--text-light); margin-top:0.5rem;">Generando reporte...</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_URL = 'https://mecatron-solutions.onrender.com/api';
-    
-    // ==========================================
-// CARGAR ESTADÍSTICAS
-// ==========================================
-async function cargarEstadisticasVentas() {
-    try {
-        console.log('🔄 Cargando estadísticas...');
-        
-        const res1 = await fetch(`${API_URL}/ventas/total-productos`);
-        const data1 = await res1.json();
-        document.getElementById('totalProductos').textContent = data1.total || 0;
-
-        const res2 = await fetch(`${API_URL}/ventas/stock-bajo`);
-        const data2 = await res2.json();
-        document.getElementById('alertasStock').textContent = data2.total || 0;
-
-        const res3 = await fetch(`${API_URL}/ventas/ventas-hoy`);
-        const data3 = await res3.json();
-        document.getElementById('totalVentas').textContent = data3.total || 0;
-
-        const res4 = await fetch(`${API_URL}/ventas/remisiones-activas`);
-        const data4 = await res4.json();
-        document.getElementById('totalServicios').textContent = data4.total || 0;
-
-        console.log('✅ Estadísticas cargadas correctamente');
-    } catch (error) {
-        console.error('❌ Error al cargar estadísticas:', error);
-        // Mostrar 0 en lugar de vacío
-        document.getElementById('totalProductos').textContent = '0';
-        document.getElementById('totalVentas').textContent = '0';
-        document.getElementById('totalServicios').textContent = '0';
-        document.getElementById('alertasStock').textContent = '0';
-    }
-}
 
         // ==========================================
-        // MOSTRAR NOMBRE DEL USUARIO EN BIENVENIDA
+        // CARGAR ESTADÍSTICAS
+        // ==========================================
+        async function cargarEstadisticasVentas() {
+            try {
+                console.log('🔄 Cargando estadísticas...');
+
+                const res1 = await fetch(`${API_URL}/ventas/total-productos`);
+                const data1 = await res1.json();
+                document.getElementById('totalProductos').textContent = data1.total || 0;
+
+                const res2 = await fetch(`${API_URL}/ventas/stock-bajo`);
+                const data2 = await res2.json();
+                document.getElementById('alertasStock').textContent = data2.total || 0;
+
+                const res3 = await fetch(`${API_URL}/ventas/ventas-hoy`);
+                const data3 = await res3.json();
+                document.getElementById('totalVentas').textContent = data3.total || 0;
+
+                const res4 = await fetch(`${API_URL}/ventas/remisiones-activas`);
+                const data4 = await res4.json();
+                document.getElementById('totalServicios').textContent = data4.total || 0;
+
+                console.log('✅ Estadísticas cargadas correctamente');
+            } catch (error) {
+                console.error('❌ Error al cargar estadísticas:', error);
+                document.getElementById('totalProductos').textContent = '0';
+                document.getElementById('totalVentas').textContent = '0';
+                document.getElementById('totalServicios').textContent = '0';
+                document.getElementById('alertasStock').textContent = '0';
+            }
+        }
+
+        // ==========================================
+        // MOSTRAR NOMBRE DEL USUARIO
         // ==========================================
         function cargarNombreUsuario() {
             const nombre = sessionStorage.getItem('usuario');
             const rol = sessionStorage.getItem('rol');
             const inicial = nombre ? nombre.charAt(0).toUpperCase() : 'A';
-            
+
             if (nombre) {
-                // Actualizar el saludo
                 const saludo = document.getElementById('nombreUsuario');
-                if (saludo) {
-                    saludo.textContent = nombre;
-                }
-                
-                // Actualizar el badge del usuario en el header
+                if (saludo) saludo.textContent = nombre;
+
                 const userBadge = document.getElementById('userNameDisplay');
-                if (userBadge) {
-                    userBadge.textContent = nombre;
-                }
-                
-                // Actualizar el avatar con la inicial
+                if (userBadge) userBadge.textContent = nombre;
+
                 const avatar = document.getElementById('avatarInicial');
-                if (avatar) {
-                    avatar.textContent = inicial;
-                }
-                
-                // Si es administrador, mostrar badge especial
+                if (avatar) avatar.textContent = inicial;
+
                 if (rol === 'administrador') {
                     const badge = document.querySelector('.user-badge');
                     if (badge && !badge.querySelector('.admin-badge')) {
@@ -652,367 +719,224 @@ async function cargarEstadisticasVentas() {
         }
 
         // ==========================================
+        // VERIFICAR PERFIL PARA MOSTRAR BOTÓN
+        // ==========================================
+        function verificarPerfilReportes() {
+            const codigo = sessionStorage.getItem('codigo');
+            const btnReportes = document.getElementById('btnReportes');
+            if (codigo === '1807') {
+                btnReportes.style.display = 'inline-block';
+            } else {
+                btnReportes.style.display = 'none';
+            }
+        }
+
+        // ==========================================
+        // REPORTES
+        // ==========================================
+        function abrirReporte() {
+            document.getElementById('modalReporte').style.display = 'flex';
+            document.getElementById('resultadoReporte').style.display = 'none';
+            document.getElementById('loadingReporte').style.display = 'none';
+            cambiarFechas();
+        }
+
+        function cerrarReporte() {
+            document.getElementById('modalReporte').style.display = 'none';
+        }
+
+        function cambiarFechas() {
+            const periodo = document.getElementById('periodoReporte').value;
+            const fechaInput = document.getElementById('fechaReporte');
+            const labelFecha = document.getElementById('labelFecha');
+            const hoy = new Date();
+            const año = hoy.getFullYear();
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoy.getDate()).padStart(2, '0');
+
+            switch (periodo) {
+                case 'diario':
+                    labelFecha.textContent = '📅 Selecciona el Día:';
+                    fechaInput.type = 'date';
+                    fechaInput.value = `${año}-${mes}-${dia}`;
+                    break;
+                case 'semanal':
+                    labelFecha.textContent = '📅 Semana del:';
+                    fechaInput.type = 'week';
+                    fechaInput.value = `${año}-W${String(Math.ceil((hoy.getDate() - hoy.getDay() + 1) / 7)).padStart(2, '0')}`;
+                    break;
+                case 'mensual':
+                    labelFecha.textContent = '📅 Selecciona el Mes:';
+                    fechaInput.type = 'month';
+                    fechaInput.value = `${año}-${mes}`;
+                    break;
+            }
+        }
+
+        async function generarReporte() {
+            const periodo = document.getElementById('periodoReporte').value;
+            const fechaSeleccionada = document.getElementById('fechaReporte').value;
+            const resultadoDiv = document.getElementById('resultadoReporte');
+            const loadingDiv = document.getElementById('loadingReporte');
+
+            if (!fechaSeleccionada) {
+                resultadoDiv.style.display = 'block';
+                resultadoDiv.innerHTML = `<p style="color: var(--danger);">⚠️ Selecciona una fecha válida</p>`;
+                return;
+            }
+
+            let fechaInicio, fechaFin;
+            const hoy = new Date();
+
+            switch (periodo) {
+                case 'diario':
+                    fechaInicio = new Date(fechaSeleccionada);
+                    fechaInicio.setHours(0, 0, 0, 0);
+                    fechaFin = new Date(fechaSeleccionada);
+                    fechaFin.setHours(23, 59, 59, 999);
+                    break;
+                case 'semanal':
+                    const [year, week] = fechaSeleccionada.split('-W');
+                    const primerDia = new Date(parseInt(year), 0, 1);
+                    const diaSemana = (primerDia.getDay() + 6) % 7;
+                    const diasOffset = (parseInt(week) - 1) * 7 - diaSemana;
+                    fechaInicio = new Date(parseInt(year), 0, 1 + diasOffset);
+                    fechaInicio.setHours(0, 0, 0, 0);
+                    fechaFin = new Date(fechaInicio);
+                    fechaFin.setDate(fechaFin.getDate() + 6);
+                    fechaFin.setHours(23, 59, 59, 999);
+                    break;
+                case 'mensual':
+                    const [yearM, monthM] = fechaSeleccionada.split('-');
+                    fechaInicio = new Date(parseInt(yearM), parseInt(monthM) - 1, 1);
+                    fechaInicio.setHours(0, 0, 0, 0);
+                    fechaFin = new Date(parseInt(yearM), parseInt(monthM), 0);
+                    fechaFin.setHours(23, 59, 59, 999);
+                    break;
+                default:
+                    resultadoDiv.innerHTML = `<p style="color: var(--danger);">❌ Periodo no válido</p>`;
+                    return;
+            }
+
+            const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+            const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+            resultadoDiv.style.display = 'block';
+            resultadoDiv.innerHTML = `
+                <div style="background: #FFF8E1; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--gold);">
+                    <p><strong>📡 Conectando al servidor...</strong></p>
+                    <p style="font-size: 0.8rem; color: var(--text-light);">Periodo: ${periodo}</p>
+                    <p style="font-size: 0.8rem; color: var(--text-light);">Inicio: ${fechaInicioStr}</p>
+                    <p style="font-size: 0.8rem; color: var(--text-light);">Fin: ${fechaFinStr}</p>
+                </div>
+            `;
+
+            try {
+                const url = `${API_URL}/reportes/costos-utilidad`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        periodo: periodo,
+                        fecha_inicio: fechaInicioStr,
+                        fecha_fin: fechaFinStr
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    resultadoDiv.innerHTML = `
+                        <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top:0.5rem;">
+                            <p><strong>❌ Error del servidor</strong></p>
+                            <p style="font-size:0.8rem; word-break:break-all;">${errorText}</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const data = await res.json();
+                const r = data.resumen;
+
+                resultadoDiv.innerHTML = `
+                    <div style="background: #2ECC7115; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success); margin-top:0.5rem;">
+                        <p><strong>✅ ¡Reporte generado con éxito!</strong></p>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                            <div><span style="font-size:0.7rem; color:var(--text-light);">Ventas</span><br><strong>${r?.total_ventas || 0}</strong></div>
+                            <div><span style="font-size:0.7rem; color:var(--text-light);">Ingresos</span><br><strong>$${r?.total_ingresos?.toLocaleString() || 0}</strong></div>
+                            <div><span style="font-size:0.7rem; color:var(--text-light);">Costos</span><br><strong>$${r?.total_costos?.toLocaleString() || 0}</strong></div>
+                            <div><span style="font-size:0.7rem; color:var(--text-light);">Utilidad</span><br><strong>$${r?.utilidad?.toLocaleString() || 0}</strong></div>
+                        </div>
+                        <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.5rem;">Margen: ${r?.margen?.toFixed(1) || 0}%</p>
+                        <button onclick="exportarReportePDF()" class="btn btn-primary" style="margin-top:0.5rem; padding:0.5rem 1.5rem; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer;">
+                            📥 Exportar PDF
+                        </button>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('Error en reporte:', error);
+                resultadoDiv.innerHTML = `
+                    <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top:0.5rem;">
+                        <p><strong>❌ Error de conexión</strong></p>
+                        <p style="font-size:0.8rem;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function exportarReportePDF() {
+            const contenido = document.getElementById('resultadoReporte');
+            if (!contenido || contenido.innerHTML.trim() === '') {
+                alert('Primero genera un reporte');
+                return;
+            }
+
+            const ventana = window.open('', '_blank');
+            ventana.document.write(`
+                <html>
+                    <head>
+                        <title>Reporte Financiero Mecatron</title>
+                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+                        <style>
+                            body { font-family: 'Inter', sans-serif; padding: 40px; color: #2C3E50; }
+                            .header { text-align: center; border-bottom: 2px solid #1A3A5C; padding-bottom: 20px; margin-bottom: 20px; }
+                            .header h1 { color: #1A3A5C; }
+                            .footer { text-align: center; margin-top: 30px; color: #7F8C8D; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+                            .fecha { text-align: center; font-size: 14px; color: #7F8C8D; margin-bottom: 20px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>💰 MECATRON SOLUTIONS</h1>
+                            <p>Reporte Financiero</p>
+                        </div>
+                        <div class="fecha">Reporte generado: ${new Date().toLocaleString()}</div>
+                        ${contenido.innerHTML}
+                        <div class="footer">
+                            <p>Documento generado por Mecatron Solutions - ${new Date().toLocaleString()}</p>
+                        </div>
+                        <script>
+                            window.onload = function() { window.print(); }
+                        <\/script>
+                    </body>
+                </html>
+            `);
+            ventana.document.close();
+        }
+
+        // ==========================================
         // INICIALIZACIÓN
         // ==========================================
         document.addEventListener('DOMContentLoaded', function() {
             cargarNombreUsuario();
             cargarEstadisticasVentas();
+            verificarPerfilReportes();
         });
 
-        // Actualizar estadísticas cada 60 segundos
         setInterval(cargarEstadisticasVentas, 60000);
 
         console.log('📊 Panel de Mecatron Solutions cargado');
-        // ==========================================
-// REPORTES
-// ==========================================
-
-function abrirReporte() {
-    document.getElementById('modalReporte').style.display = 'flex';
-    document.getElementById('resultadoReporte').style.display = 'none';
-    document.getElementById('loadingReporte').style.display = 'none';
-}
-
-function cerrarReporte() {
-    document.getElementById('modalReporte').style.display = 'none';
-}
-
-// ==========================================
-// GENERAR REPORTE
-// ==========================================
-async function generarReporte() {
-    const periodo = document.getElementById('periodoReporte').value;
-    const fechaSeleccionada = document.getElementById('fechaReporte').value;
-    const resultadoDiv = document.getElementById('resultadoReporte');
-    const loadingDiv = document.getElementById('loadingReporte');
-
-    // --- PASO 1: Validar fecha ---
-    if (!fechaSeleccionada) {
-        resultadoDiv.style.display = 'block';
-        resultadoDiv.innerHTML = `<p style="color: var(--danger);">⚠️ Selecciona una fecha válida</p>`;
-        return;
-    }
-
-    // --- PASO 2: Calcular fechas ---
-    let fechaInicio, fechaFin;
-    // ... (mantén tu lógica de cálculo de fechas aquí) ...
-
-    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
-    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
-
-    // --- PASO 3: Mostrar estado "Conectando" ---
-    resultadoDiv.style.display = 'block';
-    resultadoDiv.innerHTML = `
-        <div style="background: #FFF8E1; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--gold);">
-            <p><strong>📡 Conectando al servidor...</strong></p>
-            <p style="font-size: 0.8rem; color: var(--text-light);">Periodo: ${periodo}</p>
-            <p style="font-size: 0.8rem; color: var(--text-light);">Fecha Inicio: ${fechaInicioStr}</p>
-            <p style="font-size: 0.8rem; color: var(--text-light);">Fecha Fin: ${fechaFinStr}</p>
-        </div>
-    `;
-
-    // --- PASO 4: Hacer la petición con TIMEOUT ---
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos de timeout
-
-    try {
-        const url = 'https://mecatron-solutions.onrender.com/reportes/costos-utilidad'; // ¡USA TU IP AQUÍ!
-        resultadoDiv.innerHTML += `<p style="font-size: 0.8rem;">📡 URL: ${url}</p>`;
-
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                periodo: periodo,
-                fecha_inicio: fechaInicioStr,
-                fecha_fin: fechaFinStr
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        // --- PASO 5: Mostrar estado de la respuesta ---
-        resultadoDiv.innerHTML += `
-            <div style="background: #E8F0FE; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 0.5rem;">
-                <p><strong>📡 Respuesta del servidor:</strong></p>
-                <p style="font-size: 0.8rem; color: var(--text-light);">Status: ${res.status} ${res.statusText}</p>
-            </div>
-        `;
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            resultadoDiv.innerHTML += `
-                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
-                    <p><strong>❌ Error del servidor</strong></p>
-                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${errorText}</p>
-                </div>
-            `;
-            return;
-        }
-
-        // --- PASO 6: Intentar parsear JSON ---
-        let data;
-        try {
-            data = await res.json();
-        } catch (e) {
-            const text = await res.text();
-            resultadoDiv.innerHTML += `
-                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
-                    <p><strong>❌ Error al parsear JSON</strong></p>
-                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${text}</p>
-                </div>
-            `;
-            return;
-        }
-
-        // --- PASO 7: Mostrar resultados ---
-        const r = data.resumen;
-        resultadoDiv.innerHTML = `
-            <div style="background: #2ECC7115; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success);">
-                <p><strong>✅ ¡Reporte generado con éxito!</strong></p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
-                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Ventas</span><br><strong>${r?.total_ventas || 0}</strong></div>
-                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Ingresos</span><br><strong>$${r?.total_ingresos?.toLocaleString() || 0}</strong></div>
-                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Costos</span><br><strong>$${r?.total_costos?.toLocaleString() || 0}</strong></div>
-                    <div><span style="font-size: 0.7rem; color: var(--text-light);">Utilidad</span><br><strong>$${r?.utilidad?.toLocaleString() || 0}</strong></div>
-                </div>
-                <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.5rem;">Margen: ${r?.margen?.toFixed(1) || 0}%</p>
-            </div>
-        `;
-
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            resultadoDiv.innerHTML += `
-                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
-                    <p><strong>⏰ Tiempo de espera agotado (30 segundos)</strong></p>
-                    <p style="font-size: 0.8rem; color: var(--text-light);">El servidor tardó demasiado en responder.</p>
-                </div>
-            `;
-        } else {
-            resultadoDiv.innerHTML += `
-                <div style="background: #E74C3C15; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin-top: 0.5rem;">
-                    <p><strong>❌ Error de conexión</strong></p>
-                    <p style="font-size: 0.8rem; color: var(--text-light); word-break: break-all;">${error.message}</p>
-                </div>
-            `;
-        }
-    }
-}
-
-async function verDetalleVentas() {
-    const periodo = document.getElementById('periodoReporte').value;
-    const fechaSeleccionada = document.getElementById('fechaReporte').value;
-    
-    // Calcular fechas igual que en generarReporte
-    let fechaInicio, fechaFin;
-    
-    switch(periodo) {
-        case 'diario':
-            fechaInicio = new Date(fechaSeleccionada);
-            fechaInicio.setHours(0, 0, 0, 0);
-            fechaFin = new Date(fechaSeleccionada);
-            fechaFin.setHours(23, 59, 59, 999);
-            break;
-        case 'semanal':
-            const [year, week] = fechaSeleccionada.split('-W');
-            const primerDia = new Date(parseInt(year), 0, 1);
-            const diaSemana = (primerDia.getDay() + 6) % 7;
-            const diasOffset = (parseInt(week) - 1) * 7 - diaSemana;
-            fechaInicio = new Date(parseInt(year), 0, 1 + diasOffset);
-            fechaInicio.setHours(0, 0, 0, 0);
-            fechaFin = new Date(fechaInicio);
-            fechaFin.setDate(fechaFin.getDate() + 6);
-            fechaFin.setHours(23, 59, 59, 999);
-            break;
-        case 'mensual':
-            const [yearM, monthM] = fechaSeleccionada.split('-');
-            fechaInicio = new Date(parseInt(yearM), parseInt(monthM) - 1, 1);
-            fechaInicio.setHours(0, 0, 0, 0);
-            fechaFin = new Date(parseInt(yearM), parseInt(monthM), 0);
-            fechaFin.setHours(23, 59, 59, 999);
-            break;
-    }
-
-    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
-    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
-
-    try {
-        const res = await fetch('https://mecatron-solutions.onrender.com/reportes/ventas-detalle', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fecha_inicio: fechaInicioStr,
-                fecha_fin: fechaFinStr
-            })
-        });
-        
-        const data = await res.json();
-
-        if (!res.ok) {
-            alert('Error: ' + data.error);
-            return;
-        }
-
-        // ... resto del código igual
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al obtener detalle de ventas');
-    }
-}
-// ==========================================
-// SELECTOR DE FECHAS SEGÚN PERIODO
-// ==========================================
-function cambiarFechas() {
-    const periodo = document.getElementById('periodoReporte').value;
-    const fechaInput = document.getElementById('fechaReporte');
-    const labelFecha = document.getElementById('labelFecha');
-    const hoy = new Date();
-    const año = hoy.getFullYear();
-    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dia = String(hoy.getDate()).padStart(2, '0');
-
-    switch(periodo) {
-        case 'diario':
-            labelFecha.textContent = '📅 Selecciona el Día:';
-            fechaInput.type = 'date';
-            fechaInput.value = `${año}-${mes}-${dia}`;
-            break;
-        case 'semanal':
-            labelFecha.textContent = '📅 Semana del:';
-            fechaInput.type = 'week';
-            fechaInput.value = `${año}-W${String(Math.ceil((hoy.getDate() - hoy.getDay() + 1) / 7)).padStart(2, '0')}`;
-            break;
-        case 'mensual':
-            labelFecha.textContent = '📅 Selecciona el Mes:';
-            fechaInput.type = 'month';
-            fechaInput.value = `${año}-${mes}`;
-            break;
-    }
-}
-
-// ==========================================
-// ABRIR REPORTE
-// ==========================================
-function abrirReporte() {
-    document.getElementById('modalReporte').style.display = 'flex';
-    document.getElementById('resultadoReporte').style.display = 'none';
-    document.getElementById('loadingReporte').style.display = 'none';
-    cambiarFechas();
-}
-
-// ==========================================
-// CERRAR REPORTE
-// ==========================================
-function cerrarReporte() {
-    document.getElementById('modalReporte').style.display = 'none';
-}
     </script>
-<!-- ========================================== -->
-<!-- MODAL DE REPORTES                          -->
-<!-- ========================================== -->
-<div id="modalReporte" style="
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 9999;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-">
-    <div style="
-        background: white;
-        border-radius: 20px;
-        max-width: 800px;
-        width: 100%;
-        max-height: 90vh;
-        overflow-y: auto;
-        padding: 2rem;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    ">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--secondary); padding-bottom: 1rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">
-                📊 Reporte de Costos vs Utilidad
-            </h2>
-            <button onclick="cerrarReporte()" style="
-                background: none;
-                border: none;
-                font-size: 1.5rem;
-                cursor: pointer;
-                color: var(--text-light);
-            ">
-                ✕
-            </button>
-        </div>
 
-        <!-- Selector de periodo -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-            <div>
-                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);">Periodo:</label>
-                <select id="periodoReporte" onchange="cambiarFechas()" style="
-                    width: 100%;
-                    padding: 0.7rem 1rem;
-                    border: 2px solid #E8ECF1;
-                    border-radius: 10px;
-                    font-size: 0.9rem;
-                    font-family: 'Inter', sans-serif;
-                    background: #F8F9FA;
-                    margin-top: 0.3rem;
-                ">
-                    <option value="diario">📅 Diario</option>
-                    <option value="semanal">📅 Semanal</option>
-                    <option value="mensual">📅 Mensual</option>
-                </select>
-            </div>
-            <div id="selectorFechaContainer">
-                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-dark);" id="labelFecha">Fecha:</label>
-                <input type="date" id="fechaReporte" style="
-                    width: 100%;
-                    padding: 0.7rem 1rem;
-                    border: 2px solid #E8ECF1;
-                    border-radius: 10px;
-                    font-size: 0.9rem;
-                    font-family: 'Inter', sans-serif;
-                    background: #F8F9FA;
-                    margin-top: 0.3rem;
-                ">
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-            <button onclick="generarReporte()" style="
-                flex: 1;
-                padding: 0.7rem;
-                background: var(--gradient-secondary);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: 600;
-                cursor: pointer;
-                font-family: 'Inter', sans-serif;
-                font-size: 0.9rem;
-                transition: all 0.3s ease;
-            ">
-                <i class="fas fa-file-alt"></i> Generar Reporte
-            </button>
-        </div>
-
-        <!-- Resultados -->
-        <div id="resultadoReporte" style="display: none;">
-            <!-- Se llena dinámicamente -->
-        </div>
-
-        <!-- Loading -->
-        <div id="loadingReporte" style="text-align: center; padding: 2rem; display: none;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--secondary);"></i>
-            <p style="color: var(--text-light); margin-top: 0.5rem;">Generando reporte...</p>
-        </div>
-    </div>
-</div>
 </body>
 </html>

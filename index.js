@@ -11,6 +11,36 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static('public'));
 // ==========================================
+// ENDPOINTS DE PRUEBA PARA LA BD
+// ==========================================
+app.get('/api/test', (req, res) => {
+    res.json({ mensaje: 'Servidor de Mecatron Solutions funcionando correctamente', hora: new Date() });
+});
+
+app.get('/api/test-db', async (req, res) => {
+    try {
+        console.log('🔍 Probando conexión a la BD...');
+        const [rows] = await db.query('SELECT 1 as test');
+        res.json({ 
+            success: true, 
+            message: 'Conexión exitosa a la BD', 
+            data: rows,
+            host: process.env.DB_HOST,
+            database: process.env.DB_NAME
+        });
+    } catch (error) {
+        console.error('❌ Error de conexión:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            code: error.code,
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            database: process.env.DB_NAME
+        });
+    }
+});
+// ==========================================
 // ENDPOINT DE PRUEBA - PARA VERIFICAR QUE EL SERVIDOR FUNCIONA
 // ==========================================
 app.get('/api/test', (req, res) => {
@@ -1763,19 +1793,6 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
         res.status(500).json({ 
             error: 'Error al obtener detalle de factura',
             detalle: error.message 
-        });
-    }
-});
-app.get('/api/test-db', async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT 1 as test');
-        res.json({ success: true, message: 'Conexión exitosa a la BD', data: rows });
-    } catch (error) {
-        console.error('Error de conexión:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            code: error.code
         });
     }
 });

@@ -1035,7 +1035,7 @@ async function mostrarHerramientasRecomendadas(servicio) {
 
     try {
         // Cargar TODAS las herramientas del inventario
-        const res = await fetch(`${API_URL}/api/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -1135,7 +1135,7 @@ async function agregarHerramientaExtra() {
 
     try {
         console.log('🔄 Consultando inventario completo...');
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const data = await res.json();
         
         console.log('📊 Datos del inventario:', data);
@@ -1253,7 +1253,7 @@ async function generarOrdenServicio(btn) {
     // ==========================================
     try {
         // Obtener inventario completo desde la BD
-        const res = await fetch(`${API_URL}api/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const inventarioCompleto = await res.json();
         
         // Verificar cada herramienta del carrito
@@ -1575,7 +1575,7 @@ async function cargarHerramientasEnReparacion() {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/api/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const data = await res.json();
 
         // Filtrar herramientas en reparación o baja
@@ -1775,7 +1775,7 @@ async function cargarHerramientasEnReparacion() {
         // ==========================================
         async function cargarHerramientas() {
             try {
-                const res = await fetch(`${API_URL}/api/inventario`);
+                const res = await fetch(`${API_URL}/api/servicios/inventario`);
                 const data = await res.json();
                 
                 // Filtrar solo disponibles para el select de extras

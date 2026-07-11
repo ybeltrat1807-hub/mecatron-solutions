@@ -1,12 +1,11 @@
 const mysql = require('mysql2/promise');
 
-// 🔥 LEER LAS VARIABLES DE ENTORNO (Render las inyecta automáticamente)
+// Usar el pool directamente, ya que mysql2/promise ya devuelve promesas
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'mecatron_db',
-    port: 3306,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0

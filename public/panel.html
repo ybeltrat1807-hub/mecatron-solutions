@@ -572,19 +572,19 @@
         // ==========================================
         async function cargarEstadisticasVentas() {
             try {
-                const res1 = await fetch('http://192.168.1.2:3000/api/ventas/total-productos');
+                const res1 = await fetch('https://mecatron-solutions.onrender.com/ventas/total-productos');
                 const data1 = await res1.json();
                 document.getElementById('totalProductos').textContent = data1.total || 0;
 
-                const res2 = await fetch('http://192.168.1.2:3000/api/ventas/stock-bajo');
+                const res2 = await fetch('https://mecatron-solutions.onrender.com/ventas/stock-bajo');
                 const data2 = await res2.json();
                 document.getElementById('alertasStock').textContent = data2.total || 0;
 
-                const res3 = await fetch('http://192.168.1.2:3000/api/ventas/ventas-hoy');
+                const res3 = await fetch('https://mecatron-solutions.onrender.com/ventas/ventas-hoy');
                 const data3 = await res3.json();
                 document.getElementById('totalVentas').textContent = data3.total || 0;
 
-                const res4 = await fetch('http://192.168.1.2:3000/api/ventas/remisiones-activas');
+                const res4 = await fetch('https://mecatron-solutions.onrender.com/ventas/remisiones-activas');
                 const data4 = await res4.json();
                 document.getElementById('totalServicios').textContent = data4.total || 0;
             } catch (error) {
@@ -710,7 +710,7 @@ async function generarReporte() {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos de timeout
 
     try {
-        const url = 'http://192.168.1.2:3000/api/reportes/costos-utilidad'; // ¡USA TU IP AQUÍ!
+        const url = 'https://mecatron-solutions.onrender.com/reportes/costos-utilidad'; // ¡USA TU IP AQUÍ!
         resultadoDiv.innerHTML += `<p style="font-size: 0.8rem;">📡 URL: ${url}</p>`;
 
         const res = await fetch(url, {
@@ -833,7 +833,7 @@ async function verDetalleVentas() {
     const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
 
     try {
-        const res = await fetch('http://192.168.1.2:3000/api/reportes/ventas-detalle', {
+        const res = await fetch('https://mecatron-solutions.onrender.com/reportes/ventas-detalle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

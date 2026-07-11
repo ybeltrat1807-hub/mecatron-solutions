@@ -5,7 +5,10 @@
 const express = require('express');
 const db = require('./conexion'); // Nuestro puente a MySQL
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+});
 
 // Middleware de enrutamiento estático para Mecatron Solutions
 app.use(express.json());
@@ -1797,7 +1800,7 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
     }
 });
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Servidor de Mecatron Solutions corriendo en'http://192.168.1.2:3000/api;${PORT}`);
+    console.log(`🚀 Servidor de Mecatron Solutions corriendo en'https://mecatron-solutions.onrender.com;${PORT}`);
 });
 
 // Sincronizar contadorRemisiones con la BD al iniciar el servidor (opcional pero recomendable)

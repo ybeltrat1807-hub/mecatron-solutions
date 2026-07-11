@@ -654,7 +654,7 @@ function agregarDetalleFactura() {
             btn.disabled = true;
 
             try {
-                const res = await fetch(`${API_URL}/inventario/factura`, {
+                const res = await fetch(`${API_URL}/api/inventario/factura`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -697,7 +697,7 @@ function agregarDetalleFactura() {
             const tbody = document.getElementById('tablaInventario');
 
             try {
-                const res = await fetch(`${API_URL}/inventario?buscar=${buscar}&tipo=${tipo}&estado=${estado}`);
+                const res = await fetch(`${API_URL}/api/inventario?buscar=${buscar}&tipo=${tipo}&estado=${estado}`);
                 const data = await res.json();
 
                 if (!data.productos || data.productos.length === 0) {
@@ -769,7 +769,7 @@ async function buscarProductoParaFactura(texto) {
     try {
         // Obtener todos los productos del inventario (con caché)
         if (productosCache.length === 0) {
-            const res = await fetch(`${API_URL}/inventario?tipo=TODOS&estado=TODOS`);
+            const res = await fetch(`${API_URL}/api/inventario?tipo=TODOS&estado=TODOS`);
             const data = await res.json();
             productosCache = data.productos || [];
         }
@@ -887,7 +887,7 @@ async function cargarHistorialInventario() {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/inventario/historial`);
+        const res = await fetch(`${API_URL}/api/inventario/historial`);
         const data = await res.json();
 
         if (contador) {
@@ -1006,7 +1006,7 @@ async function verDetalleFactura(facturaId) {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/inventario/factura/${facturaId}`);
+        const res = await fetch(`${API_URL}/api/inventario/factura/${facturaId}`);
         const data = await res.json();
 
         if (!res.ok) {

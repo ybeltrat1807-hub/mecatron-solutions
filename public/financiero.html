@@ -470,7 +470,7 @@
         // ==========================================
         async function cargarResumen() {
             try {
-                const res = await fetch(`${API_URL}/financiero/resumen`);
+                const res = await fetch(`${API_URL}/api/financiero/resumen`);
                 const data = await res.json();
                 document.getElementById('totalGanado').textContent = `$${data.total_ganado.toLocaleString()}`;
                 document.getElementById('totalReinvertido').textContent = `$${data.total_reinvertido.toLocaleString()}`;
@@ -486,7 +486,7 @@
         async function cargarHistorial() {
             const container = document.getElementById('historialMovimientos');
             try {
-                const res = await fetch(`${API_URL}/financiero/historial`);
+                const res = await fetch(`${API_URL}/api/financiero/historial`);
                 const data = await res.json();
                 if (!data.movimientos || data.movimientos.length === 0) {
                     container.innerHTML = `
@@ -529,7 +529,7 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/financiero/reinvertir`, {
+                const res = await fetch(`${API_URL}/api/financiero/reinvertir`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ monto, descripcion })
@@ -566,7 +566,7 @@
     container.innerHTML = `<p style="color: var(--text-light);"><i class="fas fa-spinner fa-spin"></i> Generando reporte...</p>`;
 
     try {
-        const res = await fetch(`${API_URL}/financiero/reporte-periodo`, {
+        const res = await fetch(`${API_URL}/api/financiero/reporte-periodo`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ periodo, fecha_inicio: fechaInicio, fecha_fin: fechaFin })

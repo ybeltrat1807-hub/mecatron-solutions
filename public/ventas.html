@@ -817,7 +817,7 @@
             `;
 
             try {
-                const res = await fetch(`${API_URL}/preventa/remisiones-activas`);
+                const res = await fetch(`${API_URL}/api/preventa/remisiones-activas`);
                 const data = await res.json();
 
                 if (!data.activas || data.activas.length === 0) {
@@ -906,7 +906,7 @@
         // ==========================================
         async function cargarProductos() {
             try {
-                const res = await fetch(`${API_URL}/preventa/productos-lista`);
+                const res = await fetch(`${API_URL}/api/preventa/productos-lista`);
                 const data = await res.json();
                 // Manejo robusto: aceptar array o { productos: [...] }
                 dbProductosMemoria = Array.isArray(data) ? data : (data.productos || []);
@@ -1087,7 +1087,7 @@
                     cantidadSalida: item.cantidadSalida
                 }));
 
-                const res = await fetch(`${API_URL}/preventa/salida`, {
+                const res = await fetch(`${API_URL}/api/preventa/salida`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1136,7 +1136,7 @@ async function buscarRemisionRuta() {
     }
 
     try {
-        const res = await fetch(`${API_URL}/preventa/consultar/${idRemision}`);
+        const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
         const data = await res.json();
 
         if (res.ok) {
@@ -1200,7 +1200,7 @@ async function buscarRemisionRuta() {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`${API_URL}/preventa/venta-externa`, {
+        const res = await fetch(`${API_URL}/api/preventa/venta-externa`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1508,7 +1508,7 @@ function cerrarReciboVenta() {
             }
 
             try {
-                const res = await fetch(`${API_URL}/preventa/consultar/${idRemision}`);
+                const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
                 const data = await res.json();
 
                 if (!res.ok) {
@@ -1571,7 +1571,7 @@ function cerrarReciboVenta() {
             btn.disabled = true;
 
             try {
-                const res = await fetch(`${API_URL}/preventa/cierre-jornada`, {
+                const res = await fetch(`${API_URL}/api/preventa/cierre-jornada`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idRemision })
@@ -1641,7 +1641,7 @@ async function finalizarVentaMultiple() {
 
         console.log('📤 Enviando al backend:', { idRemision, productos, vendedor });
 
-        const res = await fetch(`${API_URL}/preventa/venta-multiple`, {
+        const res = await fetch(`${API_URL}/api/preventa/venta-multiple`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -1035,7 +1035,7 @@ async function mostrarHerramientasRecomendadas(servicio) {
 
     try {
         // Cargar TODAS las herramientas del inventario
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/inventario`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -1253,7 +1253,7 @@ async function generarOrdenServicio(btn) {
     // ==========================================
     try {
         // Obtener inventario completo desde la BD
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}api/inventario`);
         const inventarioCompleto = await res.json();
         
         // Verificar cada herramienta del carrito
@@ -1289,7 +1289,7 @@ async function generarOrdenServicio(btn) {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/salida`, {
+        const res = await fetch(`${API_URL}/api/servicios/salida`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1336,7 +1336,7 @@ async function generarOrdenServicio(btn) {
             `;
 
             try {
-                const res = await fetch(`${API_URL}/servicios/ordenes-activas`);
+                const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
                 const data = await res.json();
 
                 if (!data.ordenes || data.ordenes.length === 0) {
@@ -1381,7 +1381,7 @@ async function generarOrdenServicio(btn) {
         // ==========================================
         async function iniciarReingreso(idOrden) {
             try {
-                const res = await fetch(`${API_URL}/servicios/orden/${idOrden}`);
+                const res = await fetch(`${API_URL}/api/servicios/orden/${idOrden}`);
                 const data = await res.json();
 
                 if (!res.ok) {
@@ -1482,7 +1482,7 @@ async function confirmarReingreso(idOrden) {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/reingreso`, {
+        const res = await fetch(`${API_URL}/api/servicios/reingreso`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1529,7 +1529,7 @@ async function confirmarReingreso(idOrden) {
 // ==========================================
 async function cargarHerramientas() {
     try {
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const data = await res.json();
         
         // Guardar todas para referencia
@@ -1575,7 +1575,7 @@ async function cargarHerramientasEnReparacion() {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/inventario`);
         const data = await res.json();
 
         // Filtrar herramientas en reparación o baja
@@ -1649,7 +1649,7 @@ async function cargarHerramientasEnReparacion() {
         // ==========================================
         async function procesarReparacion(id, nombre) {
             try {
-                const res = await fetch(`${API_URL}/servicios/herramienta/${id}`);
+                const res = await fetch(`${API_URL}/api/servicios/herramienta/${id}`);
                 const data = await res.json();
 
                 if (!res.ok) {
@@ -1730,7 +1730,7 @@ async function cargarHerramientasEnReparacion() {
             btn.disabled = true;
 
             try {
-                const res = await fetch(`${API_URL}/servicios/procesar-reparacion`, {
+                const res = await fetch(`${API_URL}/api/servicios/procesar-reparacion`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1775,7 +1775,7 @@ async function cargarHerramientasEnReparacion() {
         // ==========================================
         async function cargarHerramientas() {
             try {
-                const res = await fetch(`${API_URL}/servicios/inventario`);
+                const res = await fetch(`${API_URL}/api/inventario`);
                 const data = await res.json();
                 
                 // Filtrar solo disponibles para el select de extras
@@ -1825,7 +1825,7 @@ async function cargarAgendamientos() {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/agendamientos?estado=${filtro}`);
+        const res = await fetch(`${API_URL}/api/servicios/agendamientos?estado=${filtro}`);
         const data = await res.json();
 
         if (!data.agendamientos || data.agendamientos.length === 0) {
@@ -1921,7 +1921,7 @@ async function agendarServicio() {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/agendar`, {
+        const res = await fetch(`${API_URL}/api/servicios/agendar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1960,7 +1960,7 @@ async function completarAgendamiento(id) {
     if (!confirm('¿Marcar este servicio como completado?')) return;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/agendamiento/${id}/completar`, {
+        const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, {
             method: 'PUT'
         });
         const data = await res.json();
@@ -1981,7 +1981,7 @@ async function cancelarAgendamiento(id) {
     if (!confirm('¿Cancelar este servicio?')) return;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/agendamiento/${id}/cancelar`, {
+        const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, {
             method: 'PUT'
         });
         const data = await res.json();

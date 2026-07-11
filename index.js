@@ -658,14 +658,17 @@ app.post('/api/servicios/reingreso', async (req, res) => {
     }
 });
 
-// INVENTARIO COMPLETO
+// ==========================================
+// INVENTARIO DE SERVICIOS (HERRAMIENTAS)
+// ==========================================
+
 app.get('/api/servicios/inventario', async (req, res) => {
     try {
-        const [filas] = await db.query('SELECT * FROM inventario_uso_servicio ORDER BY tipo_servicio, nombre');
+        const [filas] = await db.query('SELECT * FROM inventario_uso_servicio ORDER BY nombre');
         res.json(filas);
     } catch (error) {
-        console.error("Error al leer el inventario:", error);
-        res.status(500).json({ error: "Error al leer el inventario completo." });
+        console.error('Error al leer inventario de servicios:', error);
+        res.status(500).json({ error: 'Error al leer el inventario de servicios' });
     }
 });
 

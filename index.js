@@ -1756,6 +1756,11 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
         });
     }
 });
+console.log('📡 Variables de entorno cargadas:');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_NAME:', process.env.DB_NAME);
+console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? '✅ Cargada' : '❌ No cargada');
 const server = app.listen(PORT, () => {
     console.log(`🚀 Servidor de Mecatron Solutions corriendo en'http://192.168.1.2:3000/api;${PORT}`);
 });

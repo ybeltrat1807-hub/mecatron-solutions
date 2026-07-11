@@ -1,17 +1,18 @@
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 
-// Creamos un "Pool" (piscina de conexiones). Es la forma más eficiente 
-// porque permite que múltiples usuarios consulten el inventario al tiempo.
+// 🔥 LEER LAS VARIABLES DE ENTORNO (Render las inyecta automáticamente)
 const pool = mysql.createPool({
-    host: 'localhost',       // Tu propia computadora
-    user: 'root',            // El usuario por defecto que te da XAMPP
-    password: '',            // En XAMPP viene sin contraseña por defecto
-    database: 'mecatron_db', // La base de datos que acabas de crear
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'mecatron_db',
+    port: 3306,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
 
+module.exports = pool;
 // Exportamos el puente en formato de "Promesas" para que el código sea moderno y rápido
 const poolPromise = pool.promise();
 

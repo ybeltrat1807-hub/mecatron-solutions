@@ -1244,6 +1244,7 @@ async function agregarHerramientaExtra() {
         }
 
     async function generarOrdenServicio(btn) {
+    console.log("🚀 Entró a generarOrdenServicio");
     const tecnico = document.getElementById('lugarTrabajo').value.trim();
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
 

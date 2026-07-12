@@ -800,26 +800,30 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 app.get('/api/servicios/ordenes-activas', async (req, res) => {
     try {
         const [ordenes] = await db.query(
-            `SELECT o.id_orden, o.colaborador, o.fecha_creacion, o.estado,
-                    COUNT(h.id_herramienta) as total_herramientas
-             FROM ordenes_servicio o
-             LEFT JOIN ordenes_servicio_herramientas h ON o.id_orden = h.id_orden
-             WHERE o.estado = 'EN_CAMPO'
-             GROUP BY o.id_orden
-             ORDER BY o.fecha_creacion DESC`
+            `SELECT id_orden, colaborador, fecha_creacion, estado 
+             FROM ordenes_servicio 
+             WHERE estado = 'EN_CAMPO'
+             ORDER BY fecha_creacion DESC`
         );
 
-        res.json({
-            ordenes: ordenes.map(o => ({
+        const resultado = [];
+        for (const o of ordenes) {
+            const [countRows] = await db.query(
+                'SELECT COUNT(*) as total FROM ordenes_servicio_herramientas WHERE id_orden = ?',
+                [o.id_orden]
+            );
+            resultado.push({
                 idOrden: o.id_orden,
                 colaborador: o.colaborador,
-                totalHerramientas: o.total_herramientas,
+                totalHerramientas: countRows[0].total,
                 fechaCreacion: o.fecha_creacion,
                 estado: o.estado
-            }))
-        });
+            });
+        }
+
+        res.json({ ordenes: resultado });
     } catch (error) {
-        console.error('Error al obtener órdenes activas:', error);
+        console.error('Error:', error);
         res.status(500).json({ error: "Error al consultar órdenes activas." });
     }
 });

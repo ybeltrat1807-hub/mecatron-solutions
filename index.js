@@ -604,7 +604,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         const herramientasJSON = JSON.stringify(despachoExitoso);
         await db.query(
             `INSERT INTO ordenes_servicio 
-             (id_orden, lugar_trabajo, fecha_creacion, estado, total_herramientas, usuario_creacion) 
+             (id_orden, lugar_trabajo, fecha_creacion, fecha_cierre, estado, total_herramientas, usuario_creacion) 
              VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
             [idOrden, colaborador, 'EN_CAMPO', herramientasJSON, despachoExitoso.length, usuario || 'Sistema']
         );

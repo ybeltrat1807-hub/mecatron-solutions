@@ -1245,6 +1245,7 @@ async function agregarHerramientaExtra() {
 
     async function generarOrdenServicio(btn) {
     console.log("🚀 Entró a generarOrdenServicio");
+    
     const tecnico = document.getElementById('lugarTrabajo').value.trim();
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
 
@@ -1281,12 +1282,56 @@ async function agregarHerramientaExtra() {
                 return;
             }
         }
+        
     } catch (error) {
         console.error('Error al validar inventario:', error);
         showToast('Error al validar el inventario', 'error');
         return;
     }
 }
+// Generar ID de orden
+    const idsSeleccionadas = carritoServicios.map(h => h.id);
+    const idOrden = `ORD-${String(Date.now().toString().slice(-4))}`;
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_URL}/api/servicios/salida`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                idOrden: idOrden,
+                colaborador: tecnico,
+                idsSeleccionadas: idsSeleccionadas,
+                idsAdicionales: [],
+                usuario: usuario
+            })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast(`🚀 Orden ${idOrden} generada con éxito`, 'success');
+            carritoServicios = [];
+            renderizarCarritoServicios();
+            const tecnico = document.getElementById('lugarTrabajo').value.trim();
+            
+            document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
+            
+            // Recargar herramientas y órdenes
+            await cargarHerramientas();
+            await cargarOrdenesActivas();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error al generar orden:', error);
+        showToast('Error de conexión con el servidor', 'error');
+    } finally {
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    }
+
     async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');
     

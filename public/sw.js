@@ -43,6 +43,11 @@ self.addEventListener('activate', event => {
 
 // INTERCEPTAR PETICIONES
 self.addEventListener('fetch', event => {
+    // Solo interceptar peticiones GET
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then(response => {
@@ -50,6 +55,10 @@ self.addEventListener('fetch', event => {
                     return response;
                 }
                 return fetch(event.request).then(response => {
+                    // Solo cachear respuestas exitosas y del mismo origen
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME).then(cache => {
                         cache.put(event.request, responseToCache);

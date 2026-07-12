@@ -5,7 +5,7 @@ const mysql = require('mysql2/promise');
 // ==========================================
 
 // Intentar usar la URL completa de Clever Cloud primero
-const databaseUrl = process.env.DATABASE_URL || null;
+const databaseUrl = null;
 
 let pool;
 

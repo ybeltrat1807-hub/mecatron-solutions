@@ -1325,57 +1325,59 @@ async function generarOrdenServicio(btn) {
     }
 }
         // ==========================================
-        // CARGAR ÓRDENES ACTIVAS
-        // ==========================================
-        async function cargarOrdenesActivas() {
-            console.log('🔄 Cargando órdenes activas...'); 
-            const container = document.getElementById('ordenesActivas');
+// CARGAR ÓRDENES ACTIVAS (SOLO BD)
+// ==========================================
+async function cargarOrdenesActivas() {
+    const container = document.getElementById('ordenesActivas');
+    
+    container.innerHTML = `
+        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
+        </p>
+    `;
+
+    try {
+        const res = await fetch(`${API_URL}/servicios/ordenes-activas`);
+        const data = await res.json();
+
+        console.log('📊 Datos recibidos:', data);
+
+        if (!data.ordenes || data.ordenes.length === 0) {
             container.innerHTML = `
                 <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                    <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
+                    🚫 No hay órdenes activas
                 </p>
             `;
-
-            try {
-                const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
-                const data = await res.json();
-
-                if (!data.ordenes || data.ordenes.length === 0) {
-                    container.innerHTML = `
-                        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                            🚫 No hay órdenes activas
-                        </p>
-                    `;
-                    return;
-                }
-
-                container.innerHTML = data.ordenes.map(orden => `
-                    <div class="orden-item">
-                        <div class="orden-info">
-                            <span class="orden-id">${orden.idOrden}</span>
-                            <span class="orden-fecha">📅 ${orden.fechaCreacion}</span>
-                            <div class="orden-detalle">
-                                👤 ${orden.colaborador} | 🔧 ${orden.totalHerramientas} herramientas
-                                <span class="badge-estado campo">● En Campo</span>
-                            </div>
-                        </div>
-                        <div class="orden-actions">
-                            <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden}')">
-                                🔄 Reintegrar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-
-            } catch (error) {
-                console.error('Error al cargar órdenes:', error);
-                container.innerHTML = `
-                    <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                        ⚠️ Error al cargar órdenes
-                    </p>
-                `;
-            }
+            return;
         }
+
+        container.innerHTML = data.ordenes.map(orden => `
+            <div class="orden-item">
+                <div class="orden-info">
+                    <span class="orden-id">${orden.idOrden}</span>
+                    <span class="orden-fecha">📅 ${orden.fechaCreacion}</span>
+                    <div class="orden-detalle">
+                        👤 ${orden.colaborador} | 🔧 ${orden.totalHerramientas} herramientas
+                        <span class="badge-estado campo">● En Campo</span>
+                    </div>
+                </div>
+                <div class="orden-actions">
+                    <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden}')">
+                        🔄 Reintegrar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('❌ Error al cargar órdenes:', error);
+        container.innerHTML = `
+            <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
+                ⚠️ Error al cargar órdenes: ${error.message}
+            </p>
+        `;
+    }
+}
 
         // ==========================================
         // INICIAR REINGRESO DE HERRAMIENTAS

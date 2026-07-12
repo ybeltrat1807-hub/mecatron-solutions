@@ -796,34 +796,43 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 //   ENDPOINTS PARA SERVICIOS
 // =================================================================
 
-// Obtener órdenes activas (DESDE LA BD)
+/// ==========================================
+// OBTENER ÓRDENES ACTIVAS (SOLO BD)
+// ==========================================
 app.get('/api/servicios/ordenes-activas', async (req, res) => {
+    console.log('📋 Consultando órdenes activas desde la BD...');
+    
     try {
-        // Consultar directamente desde la BD
+        // Consultar SOLO desde la base de datos
         const [ordenesBD] = await db.query(
             `SELECT 
-                id_orden as idOrden, 
+                id_orden, 
                 colaborador, 
-                fecha_creacion as fechaCreacion, 
-                estado
+                fecha_creacion, 
+                estado,
+                total_herramientas
              FROM ordenes_servicio 
-             WHERE estado = 'ACTIVA' OR estado = 'EN_CAMPO'
+             WHERE estado IN ('ACTIVA', 'EN_CAMPO')
              ORDER BY fecha_creacion DESC`
         );
 
-        // Formatear la fecha y agregar totalHerramientas (calcularlo o poner 1 por defecto)
+        console.log(`📊 Encontradas ${ordenesBD.length} órdenes activas`);
+
+        // Formatear para el frontend
         const ordenesFormateadas = ordenesBD.map(o => ({
-            idOrden: o.idOrden,
+            idOrden: o.id_orden,
             colaborador: o.colaborador,
-            fechaCreacion: new Date(o.fechaCreacion).toLocaleString('es-CO'),
+            fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
             estado: o.estado,
-            totalHerramientas: 1 // Valor por defecto
+            totalHerramientas: o.total_herramientas || 0
         }));
 
-        res.json({ ordenes: ordenesFormateadas });
+        res.json({ 
+            ordenes: ordenesFormateadas 
+        });
 
     } catch (error) {
-        console.error('Error al cargar órdenes activas:', error);
+        console.error('❌ Error al cargar órdenes activas:', error);
         res.status(500).json({ 
             error: 'Error al cargar órdenes activas',
             detalle: error.message 

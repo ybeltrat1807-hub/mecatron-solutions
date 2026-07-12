@@ -1232,14 +1232,14 @@ async function agregarHerramientaExtra() {
         }
 
      // ==========================================
-// GENERAR ORDEN DE SERVICIO (CORREGIDO)
+// GENERAR ORDEN DE SERVICIO (COMPLETA Y CORREGIDA)
 // ==========================================
 async function generarOrdenServicio(btn) {
     const tecnico = document.getElementById('tecnicoResponsable').value.trim();
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
     
     if (!tecnico) {
-        showToast('Por favor ingresa el nombre del técnico', 'error');
+        showToast('Por favor ingresa el nombre del técnico o lugar', 'error');
         return;
     }
 
@@ -1248,6 +1248,58 @@ async function generarOrdenServicio(btn) {
         return;
     }
 
+    // ... (Validaciones iniciales que ya tienes)
+
+    // Deshabilitamos el botón para evitar doble envío en la nube
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Procesando...`;
+
+    // Armamos el objeto con el nombre correcto: lugarTrabajo
+    const payload = {
+        lugarTrabajo: tecnico, // Lo que viene del input "Lugar de Trabajo"
+        usuario: usuario,
+        herramientas: carritoServicios,
+        estado: 'EN_CAMPO' // Forzamos el estado que usa tu flujo
+    };
+
+    try {
+        // fetch correcto con el prefijo /api/
+        const res = await fetch(`${API_URL}/api/servicios/crear-orden`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('¡Orden de servicio creada con éxito!', 'success');
+            
+            // Limpiamos el input y el carrito
+            document.getElementById('tecnicoResponsable').value = '';
+            vaciarCarritoServicios(); 
+            
+            // Recargamos la lista de órdenes activas para que aparezca de inmediato
+            cargarOrdenesActivas();
+            
+            setTimeout(() => {
+                regresarSubmenu();
+            }, 1500);
+        } else {
+            throw new Error(data.message || 'Error al guardar en el servidor');
+        }
+
+    } catch (error) {
+        console.error('❌ Error al generar orden:', error);
+        showToast(`No se pudo crear la orden: ${error.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
+}
     // ==========================================
     // VALIDAR CONTRA EL INVENTARIO COMPLETO
     // ==========================================
@@ -1323,11 +1375,7 @@ async function generarOrdenServicio(btn) {
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
     }
-}
-        // ==========================================
-// CARGAR ÓRDENES ACTIVAS (SOLO BD)
-// ==========================================
-async function cargarOrdenesActivas() {
+       async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');
     
     container.innerHTML = `
@@ -1337,12 +1385,16 @@ async function cargarOrdenesActivas() {
     `;
 
     try {
-        const res = await fetch(`${API_URL}/servicios/ordenes-activas`);
+        // 1. Ruta corregida con /api/
+        const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
         const data = await res.json();
 
         console.log('📊 Datos recibidos:', data);
 
-        if (!data.ordenes || data.ordenes.length === 0) {
+        // 2. Blindaje: Detecta si los datos vienen directo en un array o dentro de una propiedad
+        const listaOrdenes = Array.isArray(data) ? data : (data.ordenes || []);
+
+        if (listaOrdenes.length === 0) {
             container.innerHTML = `
                 <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                     🚫 No hay órdenes activas
@@ -1351,18 +1403,19 @@ async function cargarOrdenesActivas() {
             return;
         }
 
-        container.innerHTML = data.ordenes.map(orden => `
+        // 3. Renderizar usando la lista validada
+        container.innerHTML = listaOrdenes.map(orden => `
             <div class="orden-item">
                 <div class="orden-info">
-                    <span class="orden-id">${orden.idOrden}</span>
-                    <span class="orden-fecha">📅 ${orden.fechaCreacion}</span>
+                    <span class="orden-id">${orden.idOrden || orden.id}</span>
+                    <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
                     <div class="orden-detalle">
-                        👤 ${orden.colaborador} | 🔧 ${orden.totalHerramientas} herramientas
+                        👤 ${orden.colaborador || orden.tecnico} | 🔧 ${orden.totalHerramientas || 0} herramientas
                         <span class="badge-estado campo">● En Campo</span>
                     </div>
                 </div>
                 <div class="orden-actions">
-                    <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden}')">
+                    <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden || orden.id}')">
                         🔄 Reintegrar
                     </button>
                 </div>
@@ -1378,7 +1431,6 @@ async function cargarOrdenesActivas() {
         `;
     }
 }
-
         // ==========================================
         // INICIAR REINGRESO DE HERRAMIENTAS
         // ==========================================

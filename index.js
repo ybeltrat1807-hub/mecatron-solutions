@@ -679,31 +679,6 @@ app.get('/api/servicios/inventario', async (req, res) => {
         res.status(500).json({ error: 'Error al leer el inventario de servicios' });
     }
 });
-
-// ÓRDENES ACTIVAS
-app.get('/api/servicios/ordenes-activas', (req, res) => {
-    const ordenes = Object.keys(ordenesServicioActivas).map(id => {
-        const orden = ordenesServicioActivas[id];
-        return {
-            idOrden: id,
-            colaborador: orden.colaboradorResponsable,
-            totalHerramientas: orden.herramientasAsignadas.length,
-            fechaCreacion: new Date(orden.fechaCreacion).toLocaleString() || new Date().toLocaleString(),
-            estado: orden.estado
-        };
-    });
-    res.json({ ordenes });
-});
-
-// ORDEN ESPECÍFICA
-app.get('/api/servicios/orden/:idOrden', (req, res) => {
-    const orden = ordenesServicioActivas[req.params.idOrden];
-    if (!orden) {
-        return res.status(404).json({ error: "Orden no encontrada" });
-    }
-    res.json(orden);
-});
-
 // HERRAMIENTAS EN REPARACIÓN
 app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
     try {

@@ -1428,7 +1428,7 @@ async function generarOrdenServicio(btn) {
                         `).join('')}
                     </div>
                     <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                        <button onclick="confirmarReingreso('${data.idOrden}')" class="btn btn-success" style="flex: 1;">
+                        <button onclick="confirmarReingreso('${data.idOrden}', this)" class="btn btn-success" style="flex: 1;">
                             ✓ Confirmar Reingreso
                         </button>
                         <button onclick="cerrarReingreso()" class="btn btn-secondary">
@@ -1445,7 +1445,7 @@ async function generarOrdenServicio(btn) {
         // ==========================================
 // CONFIRMAR REINGRESO (CORREGIDO)
 // ==========================================
-async function confirmarReingreso(idOrden) {
+async function confirmarReingreso(idOrden, btn) {
     const novedades = {};
 
     const orden = ordenActivaReingreso;
@@ -1475,8 +1475,6 @@ async function confirmarReingreso(idOrden) {
             return;
         }
     }
-
-    const btn = event.target;
     const textoOriginal = btn.textContent;
     btn.textContent = '⏳ Procesando...';
     btn.disabled = true;
@@ -1703,7 +1701,7 @@ async function cargarHerramientasEnReparacion() {
                     </div>
                 `;
                     // 👇 Si ya está DADO_BAJA, no permitir procesar
-        if (dataCheck.estado === 'DADO_BAJA') {
+        if (data.estado === 'DADO_BAJA') {
             showToast(`❌ La herramienta "${nombre}" ya fue dada de baja definitivamente`, 'error');
             return;
         }
@@ -1768,46 +1766,6 @@ async function cargarHerramientasEnReparacion() {
         function cerrarProcesarReparacion() {
             document.getElementById('seccionProcesarReparacion').style.display = 'none';
             document.getElementById('procesarReparacionContent').innerHTML = '';
-        }
-
-        // ==========================================
-        // CARGAR HERRAMIENTAS DISPONIBLES
-        // ==========================================
-        async function cargarHerramientas() {
-            try {
-                const res = await fetch(`${API_URL}/api/servicios/inventario`);
-                const data = await res.json();
-                
-                // Filtrar solo disponibles para el select de extras
-                const disponibles = data.filter(h => h.estado === 'DISPONIBLE' && h.disponibles > 0);
-                
-                // Guardar todas para referencia
-                herramientasDisponibles = data;
-
-                // Llenar select de herramientas extras
-                const select = document.getElementById('selectHerramientaExtra');
-                if (disponibles.length > 0) {
-                    select.innerHTML = `
-                        <option value="">Selecciona una herramienta extra...</option>
-                        ${disponibles.map(h => `
-                            <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
-                        `).join('')}
-                    `;
-                } else {
-                    select.innerHTML = `
-                        <option value="">No hay herramientas adicionales disponibles</option>
-                    `;
-                }
-
-                // Si hay servicio seleccionado, actualizar recomendaciones
-                if (servicioSeleccionado) {
-                    await mostrarHerramientasRecomendadas(servicioSeleccionado);
-                }
-
-            } catch (error) {
-                console.error('Error al cargar herramientas:', error);
-                showToast('Error al cargar inventario de herramientas', 'error');
-            }
         }
         // ==========================================
 // AGENDAMIENTO DE SERVICIOS

@@ -985,30 +985,42 @@
         }
 
         // ==========================================
-        // NAVEGACIÓN ENTRE SUBMÓDULOS
-        // ==========================================
-        function cambiarSubmodulo(idPantalla) {
-            document.getElementById('submenuPrincipal').style.display = 'none';
-            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-            document.getElementById(idPantalla).classList.add('active');
+// NAVEGACIÓN ENTRE SUBMÓDULOS
+// ==========================================
+function cambiarSubmodulo(idPantalla) {
+    // Ocultar el menú principal
+    document.getElementById('submenuPrincipal').style.display = 'none';
+    
+    // Ocultar todas las pantallas
+    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
+    
+    // Mostrar la pantalla seleccionada
+    document.getElementById(idPantalla).classList.add('active');
 
-            // Cargar datos según el submódulo
-            if (idPantalla === 'subReintegro') {
-                cargarOrdenesActivas();
-            } else if (idPantalla === 'subReparaciones') {
-                cargarHerramientasEnReparacion();
-            } else if (idPantalla === 'subNuevaOrden') {
-                cargarHerramientas();
-            }
-        }
+    // Cargar datos según el submódulo
+    if (idPantalla === 'subReintegro') {
+        cargarOrdenesActivas();
+    } else if (idPantalla === 'subReparaciones') {
+        cargarHerramientasEnReparacion();
+    } else if (idPantalla === 'subNuevaOrden') {
+        cargarHerramientas();
+    }
+}
 
-        function regresarSubmenu() {
-            document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-            document.getElementById('submenuPrincipal').style.display = 'grid';
-            document.getElementById('seccionReingreso').style.display = 'none';
-            document.getElementById('seccionProcesarReparacion').style.display = 'none';
-        }
-
+// ==========================================
+// VOLVER AL MENÚ PRINCIPAL
+// ==========================================
+function regresarSubmenu() {
+    // Ocultar todas las pantallas
+    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
+    
+    // Mostrar el menú principal
+    document.getElementById('submenuPrincipal').style.display = 'grid';
+    
+    // Ocultar secciones secundarias
+    document.getElementById('seccionReingreso').style.display = 'none';
+    document.getElementById('seccionProcesarReparacion').style.display = 'none';
+}
         // ==========================================
         // SELECCIÓN DE SERVICIO
         // ==========================================
@@ -1231,7 +1243,7 @@ async function agregarHerramientaExtra() {
             }
         }
 
-     async function generarOrdenServicio(btn) {
+    async function generarOrdenServicio(btn) {
     const tecnico = document.getElementById('lugarTrabajo').value.trim();
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
 
@@ -1317,40 +1329,6 @@ async function agregarHerramientaExtra() {
         btn.disabled = false;
     }
 }
-
-    // ==========================================
-    // VALIDAR CONTRA EL INVENTARIO COMPLETO
-    // ==========================================
-    try {
-        // Obtener inventario completo desde la BD
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const inventarioCompleto = await res.json();
-        
-        // Verificar cada herramienta del carrito
-        for (const item of carritoServicios) {
-            const herramienta = inventarioCompleto.find(h => h.id === item.id);
-            
-            if (!herramienta) {
-                showToast(`❌ La herramienta "${item.nombre}" no existe en el inventario`, 'error');
-                return;
-            }
-            
-            if (herramienta.estado !== 'DISPONIBLE') {
-                showToast(`❌ "${item.nombre}" no está disponible (${herramienta.estado})`, 'error');
-                return;
-            }
-            
-            if (herramienta.disponibles <= 0) {
-                showToast(`❌ "${item.nombre}" no tiene unidades disponibles`, 'error');
-                return;
-            }
-        }
-    } catch (error) {
-        console.error('Error al validar inventario:', error);
-        showToast('Error al validar el inventario', 'error');
-        return;
-    }
-
     // Generar ID de orden
     const idsSeleccionadas = carritoServicios.map(h => h.id);
     const idOrden = `ORD-${String(Date.now().toString().slice(-4))}`;
@@ -1393,7 +1371,7 @@ async function agregarHerramientaExtra() {
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
     }
-       async function cargarOrdenesActivas() {
+    async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');
     
     container.innerHTML = `

@@ -547,73 +547,84 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 
 // DESPACHO DE HERRAMIENTAS (SALIDA)
 app.post('/api/servicios/salida', async (req, res) => {
-    const { idOrden, colaborador, idsSeleccionadas, idsAdicionales } = req.body;
-    let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
+    const { idOrden, colaborador, idsSeleccionadas, usuario } = req.body;
 
-    if (todasLasHerramientas.length === 0) {
-        return res.status(400).json({ error: "No se seleccionó ninguna herramienta." });
+    if (!idOrden || !colaborador || !idsSeleccionadas || idsSeleccionadas.length === 0) {
+        return res.status(400).json({ error: "Faltan datos obligatorios." });
     }
 
     try {
-        let despachoExitoso = [];
-        let erroresDespacho = [];
-
-        for (const id of todasLasHerramientas) {
-            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = ?', [id]);
-            
-            if (rows.length === 0) {
-                erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
-                continue; 
-            }
-
-            let herramienta = rows[0];
-
-            if (herramienta.estado !== 'DISPONIBLE') {
-                erroresDespacho.push(`La herramienta "${herramienta.nombre}" no está disponible (${herramienta.estado})`);
-                continue;
-            }
-
-            if (herramienta.disponibles < 1) {
-                erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
-            } else {
-                await db.query(
-                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = ?', 
-                    [id]
-                );
-                despachoExitoso.push({ id: id, nombre: herramienta.nombre });
-            }
+        // Verificar que no exista ya una orden con ese ID
+        const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [idOrden]);
+        if (existente.length > 0) {
+            return res.status(409).json({ error: "Ya existe una orden con ese ID." });
         }
 
-        ordenesServicioActivas[idOrden] = {
-            idOrden,
-            colaboradorResponsable: colaborador,
-            herramientasAsignadas: despachoExitoso,
-            estado: "En Campo",
-            fechaCreacion: new Date().toISOString()
-        };
+        // Descontar stock de cada herramienta
+        for (const idHerramienta of idsSeleccionadas) {
+            await db.query(
+                'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1, estado = IF(disponibles - 1 <= 0, "AGOTADO", estado) WHERE id = ? AND disponibles > 0',
+                [idHerramienta]
+            );
+        }
+
+        // Guardar la orden en BD
+        await db.query(
+            'INSERT INTO ordenes_servicio (id_orden, colaborador, estado, usuario_creacion) VALUES (?, ?, "EN_CAMPO", ?)',
+            [idOrden, colaborador, usuario || 'Sistema']
+        );
+
+        // Guardar las herramientas de la orden
+        for (const idH of idsSeleccionadas) {
+            const [hRows] = await db.query('SELECT nombre FROM inventario_uso_servicio WHERE id = ?', [idH]);
+            const nombre = hRows.length > 0 ? hRows[0].nombre : 'Desconocida';
+            await db.query(
+                'INSERT INTO ordenes_servicio_herramientas (id_orden, id_herramienta, nombre_herramienta) VALUES (?, ?, ?)',
+                [idOrden, idH, nombre]
+            );
+        }
 
         res.json({
-            mensaje: `🚀 Despacho operativo procesado para ${colaborador}.`,
-            orden: ordenesServicioActivas[idOrden],
-            alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
+            mensaje: "Orden generada correctamente.",
+            idOrden,
+            colaborador,
+            totalHerramientas: idsSeleccionadas.length
         });
 
     } catch (error) {
-        console.error("Error en el despacho:", error);
-        res.status(500).json({ error: "Error al procesar la salida en la base de datos." });
+        console.error('Error en salida:', error);
+        res.status(500).json({ error: "Error al generar la orden." });
     }
 });
 
 // REINGRESO DE HERRAMIENTAS CON ESTADO
 app.post('/api/servicios/reingreso', async (req, res) => {
-    const { idOrden, novedades } = req.body; 
+    const { idOrden, novedades } = req.body;
 
-    let orden = ordenesServicioActivas[idOrden];
-    if (!orden) return res.status(404).json({ error: "Orden de servicio no encontrada en el sistema." });
+    if (!idOrden) {
+        return res.status(400).json({ error: "Falta el ID de la orden." });
+    }
 
     try {
-        for (const hItem of orden.herramientasAsignadas) {
-            const idH = hItem.id;
+        // Cargar la orden desde BD
+        const [ordenRows] = await db.query(
+            'SELECT * FROM ordenes_servicio WHERE id_orden = ? AND estado = "EN_CAMPO"',
+            [idOrden]
+        );
+
+        if (ordenRows.length === 0) {
+            return res.status(404).json({ error: "Orden no encontrada o ya cerrada." });
+        }
+
+        // Cargar las herramientas de esa orden
+        const [herramientas] = await db.query(
+            'SELECT id_herramienta, nombre_herramienta FROM ordenes_servicio_herramientas WHERE id_orden = ?',
+            [idOrden]
+        );
+
+        // Procesar cada herramienta según la novedad
+        for (const hItem of herramientas) {
+            const idH = hItem.id_herramienta;
             const novedad = novedades && novedades[idH] ? novedades[idH].toUpperCase() : "OK";
 
             if (novedad === "OK") {
@@ -621,40 +632,37 @@ app.post('/api/servicios/reingreso', async (req, res) => {
                     'UPDATE inventario_uso_servicio SET disponibles = disponibles + 1, estado = "DISPONIBLE" WHERE id = ?',
                     [idH]
                 );
-            } 
-            else if (novedad === "DAÑO") {
+            } else if (novedad === "DAÑO") {
                 await db.query(
                     `UPDATE inventario_uso_servicio 
-                     SET estado = "EN_REPARACION", 
-                         observaciones = CONCAT(IFNULL(observaciones, ''), " - En reparación desde ", NOW()) 
+                     SET estado = "EN_REPARACION",
+                         observaciones = CONCAT(IFNULL(observaciones, ''), ' - En reparación desde ', NOW()) 
                      WHERE id = ?`,
                     [idH]
                 );
-                console.log(`🔧 ALERTA: Herramienta ID ${idH} pasó a EN_REPARACION.`);
-            } 
-            else if (novedad === "PERDIDA") {
+            } else if (novedad === "PERDIDA") {
                 await db.query(
                     `UPDATE inventario_uso_servicio 
-                     SET stock_total = 0, 
-                         disponibles = 0, 
-                         estado = "DADO_BAJA",
-                         observaciones = CONCAT(IFNULL(observaciones, ''), " - Dado de baja por pérdida ", NOW()) 
+                     SET stock_total = 0, disponibles = 0, estado = "DADO_BAJA",
+                         observaciones = CONCAT(IFNULL(observaciones, ''), ' - Dado de baja por pérdida ', NOW()) 
                      WHERE id = ?`,
                     [idH]
                 );
-                console.log(`⚠️ ALERTA DE AUDITORÍA: Herramienta ID ${idH} dada de baja por pérdida.`);
             }
         }
 
-        delete ordenesServicioActivas[idOrden];
-        res.json({ 
-            mensaje: "✓ El kit de herramientas ha sido verificado y procesado en la base de datos.",
-            estadoOrden: "CERRADA"
+        // Marcar la orden como cerrada
+        await db.query('UPDATE ordenes_servicio SET estado = "CERRADA", fecha_cierre = NOW() WHERE id_orden = ?', [idOrden]);
+
+        res.json({
+            mensaje: "Reingreso procesado correctamente.",
+            estadoOrden: "CERRADA",
+            totalProcesadas: herramientas.length
         });
 
     } catch (error) {
-        console.error("Error en el reingreso:", error);
-        res.status(500).json({ error: "Error al procesar el reingreso en la base de datos." });
+        console.error('Error en reingreso:', error);
+        res.status(500).json({ error: "Error al procesar el reingreso." });
     }
 });
 
@@ -814,29 +822,32 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 // =================================================================
 
 // Obtener órdenes activas
-app.get('/api/servicios/ordenes-activas', (req, res) => {
-    const ordenes = Object.keys(ordenesServicioActivas).map(id => {
-        const orden = ordenesServicioActivas[id];
-        return {
-            idOrden: id,
-            colaborador: orden.colaboradorResponsable,
-            totalHerramientas: orden.herramientasAsignadas.length,
-            fechaCreacion: new Date(orden.fechaCreacion).toLocaleString() || new Date().toLocaleString(),
-            estado: orden.estado
-        };
-    });
-    res.json({ ordenes });
-});
+app.get('/api/servicios/ordenes-activas', async (req, res) => {
+    try {
+        const [ordenes] = await db.query(
+            `SELECT o.id_orden, o.colaborador, o.fecha_creacion, o.estado,
+                    COUNT(h.id_herramienta) as total_herramientas
+             FROM ordenes_servicio o
+             LEFT JOIN ordenes_servicio_herramientas h ON o.id_orden = h.id_orden
+             WHERE o.estado = 'EN_CAMPO'
+             GROUP BY o.id_orden
+             ORDER BY o.fecha_creacion DESC`
+        );
 
-// Obtener una orden específica
-app.get('/api/servicios/orden/:idOrden', (req, res) => {
-    const orden = ordenesServicioActivas[req.params.idOrden];
-    if (!orden) {
-        return res.status(404).json({ error: "Orden no encontrada" });
+        res.json({
+            ordenes: ordenes.map(o => ({
+                idOrden: o.id_orden,
+                colaborador: o.colaborador,
+                totalHerramientas: o.total_herramientas,
+                fechaCreacion: o.fecha_creacion,
+                estado: o.estado
+            }))
+        });
+    } catch (error) {
+        console.error('Error al obtener órdenes activas:', error);
+        res.status(500).json({ error: "Error al consultar órdenes activas." });
     }
-    res.json(orden);
 });
-
 // ==========================================
 // DESPACHO DE HERRAMIENTAS (SALIDA)
 // ==========================================
@@ -981,12 +992,38 @@ app.get('/api/ventas/remisiones-activas', (req, res) => {
 // =================================================================
 // OBTENER UNA ORDEN DE SERVICIO ESPECÍFICA
 // =================================================================
-app.get('/api/servicios/orden/:idOrden', (req, res) => {
-    const orden = ordenesServicioActivas[req.params.idOrden];
-    if (!orden) {
-        return res.status(404).json({ error: "Orden no encontrada" });
+app.get('/api/servicios/orden/:idOrden', async (req, res) => {
+    const { idOrden } = req.params;
+
+    try {
+        const [ordenRows] = await db.query(
+            'SELECT * FROM ordenes_servicio WHERE id_orden = ?',
+            [idOrden]
+        );
+
+        if (ordenRows.length === 0) {
+            return res.status(404).json({ error: "Orden no encontrada." });
+        }
+
+        const orden = ordenRows[0];
+
+        const [herramientas] = await db.query(
+            'SELECT id_herramienta as id, nombre_herramienta as nombre FROM ordenes_servicio_herramientas WHERE id_orden = ?',
+            [idOrden]
+        );
+
+        res.json({
+            idOrden: orden.id_orden,
+            colaboradorResponsable: orden.colaborador,
+            estado: orden.estado,
+            fechaCreacion: orden.fecha_creacion,
+            herramientasAsignadas: herramientas
+        });
+
+    } catch (error) {
+        console.error('Error al obtener orden:', error);
+        res.status(500).json({ error: "Error al consultar la orden." });
     }
-    res.json(orden);
 });
 // =================================================================
 // OBTENER HERRAMIENTAS EN REPARACIÓN O BAJA

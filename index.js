@@ -796,7 +796,6 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 //   ENDPOINTS PARA SERVICIOS
 // =================================================================
 
-// Obtener órdenes activas
 // Obtener órdenes activas (DESDE LA BD)
 app.get('/api/servicios/ordenes-activas', async (req, res) => {
     try {
@@ -806,17 +805,19 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
                 id_orden as idOrden, 
                 colaborador, 
                 fecha_creacion as fechaCreacion, 
-                estado,
-                total_herramientas as totalHerramientas
+                estado
              FROM ordenes_servicio 
              WHERE estado = 'ACTIVA' OR estado = 'EN_CAMPO'
              ORDER BY fecha_creacion DESC`
         );
 
-        // Formatear la fecha para el frontend
+        // Formatear la fecha y agregar totalHerramientas (calcularlo o poner 1 por defecto)
         const ordenesFormateadas = ordenesBD.map(o => ({
-            ...o,
-            fechaCreacion: new Date(o.fechaCreacion).toLocaleString('es-CO')
+            idOrden: o.idOrden,
+            colaborador: o.colaborador,
+            fechaCreacion: new Date(o.fechaCreacion).toLocaleString('es-CO'),
+            estado: o.estado,
+            totalHerramientas: 1 // Valor por defecto
         }));
 
         res.json({ ordenes: ordenesFormateadas });

@@ -797,34 +797,36 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 // =================================================================
 
 // Obtener órdenes activas
+// Obtener órdenes activas (DESDE LA BD)
 app.get('/api/servicios/ordenes-activas', async (req, res) => {
     try {
-        const [ordenes] = await db.query(
-            `SELECT id_orden, colaborador, fecha_creacion, estado 
+        // Consultar directamente desde la BD
+        const [ordenesBD] = await db.query(
+            `SELECT 
+                id_orden as idOrden, 
+                colaborador, 
+                fecha_creacion as fechaCreacion, 
+                estado,
+                total_herramientas as totalHerramientas
              FROM ordenes_servicio 
-             WHERE estado = 'EN_CAMPO'
+             WHERE estado = 'ACTIVA' OR estado = 'EN_CAMPO'
              ORDER BY fecha_creacion DESC`
         );
 
-        const resultado = [];
-        for (const o of ordenes) {
-            const [countRows] = await db.query(
-                'SELECT COUNT(*) as total FROM ordenes_servicio_herramientas WHERE id_orden = ?',
-                [o.id_orden]
-            );
-            resultado.push({
-                idOrden: o.id_orden,
-                colaborador: o.colaborador,
-                totalHerramientas: countRows[0].total,
-                fechaCreacion: o.fecha_creacion,
-                estado: o.estado
-            });
-        }
+        // Formatear la fecha para el frontend
+        const ordenesFormateadas = ordenesBD.map(o => ({
+            ...o,
+            fechaCreacion: new Date(o.fechaCreacion).toLocaleString('es-CO')
+        }));
 
-        res.json({ ordenes: resultado });
+        res.json({ ordenes: ordenesFormateadas });
+
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: "Error al consultar órdenes activas." });
+        console.error('Error al cargar órdenes activas:', error);
+        res.status(500).json({ 
+            error: 'Error al cargar órdenes activas',
+            detalle: error.message 
+        });
     }
 });
 // ==========================================

@@ -1245,7 +1245,7 @@ async function agregarHerramientaExtra() {
 
     async function generarOrdenServicio(btn) {
     console.log("🚀 Entró a generarOrdenServicio");
-    
+
     const tecnico = document.getElementById('lugarTrabajo').value.trim();
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
 
@@ -1259,13 +1259,19 @@ async function agregarHerramientaExtra() {
         return;
     }
 
-    // VALIDACIÓN DEL INVENTARIO COMPLETO
+    // Validar inventario antes de generar la orden
     try {
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const inventarioCompleto = await res.json();
+        const resInventario = await fetch(`${API_URL}/api/servicios/inventario`);
+
+        if (!resInventario.ok) {
+            throw new Error('No fue posible consultar el inventario');
+        }
+
+        const inventarioCompleto = await resInventario.json();
 
         for (const item of carritoServicios) {
-            const herramienta = inventarioCompleto.find(h => h.id === item.id);
+
+            const herramienta = inventarioCompleto.find(h => Number(h.id) === Number(item.id));
 
             if (!herramienta) {
                 showToast(`❌ La herramienta "${item.nombre}" no existe en el inventario`, 'error');
@@ -1273,64 +1279,87 @@ async function agregarHerramientaExtra() {
             }
 
             if (herramienta.estado !== 'DISPONIBLE') {
-                showToast(`❌ "${item.nombre}" no está disponible (${herramienta.estado})`, 'error');
+                showToast(`❌ "${item.nombre}" está ${herramienta.estado}`, 'error');
                 return;
             }
 
-            if (herramienta.disponibles <= 0) {
+            if (Number(herramienta.disponibles) <= 0) {
                 showToast(`❌ "${item.nombre}" no tiene unidades disponibles`, 'error');
                 return;
             }
         }
-        
+
     } catch (error) {
-        console.error('Error al validar inventario:', error);
-        showToast('Error al validar el inventario', 'error');
+        console.error("Error validando inventario:", error);
+        showToast("Error al validar el inventario", "error");
         return;
     }
-}
-// Generar ID de orden
+
+    // Generar consecutivo
     const idsSeleccionadas = carritoServicios.map(h => h.id);
-    const idOrden = `ORD-${String(Date.now().toString().slice(-4))}`;
+
+    const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
+
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
     btn.disabled = true;
 
     try {
+
         const res = await fetch(`${API_URL}/api/servicios/salida`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
-                idOrden: idOrden,
+                idOrden,
                 colaborador: tecnico,
-                idsSeleccionadas: idsSeleccionadas,
+                idsSeleccionadas,
                 idsAdicionales: [],
-                usuario: usuario
+                usuario
             })
         });
-        const data = await res.json();
 
-        if (res.ok) {
+        const data = await res.json();
+                if (res.ok) {
+
             showToast(`🚀 Orden ${idOrden} generada con éxito`, 'success');
+
+            // Limpiar carrito
             carritoServicios = [];
             renderizarCarritoServicios();
-            const tecnico = document.getElementById('lugarTrabajo').value.trim();
-            
-            document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
-            
-            // Recargar herramientas y órdenes
+
+            // Limpiar campo
+            document.getElementById('lugarTrabajo').value = '';
+
+            // Desmarcar checkboxes
+            document
+                .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
+                .forEach(cb => cb.checked = false);
+
+            // Recargar información
             await cargarHerramientas();
             await cargarOrdenesActivas();
+
         } else {
-            showToast('Error: ' + data.error, 'error');
+
+            showToast(data.error || 'No fue posible generar la orden', 'error');
+
         }
+
     } catch (error) {
+
         console.error('❌ Error al generar orden:', error);
         showToast('Error de conexión con el servidor', 'error');
+
     } finally {
+
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
+
     }
+
+}
 
     async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');

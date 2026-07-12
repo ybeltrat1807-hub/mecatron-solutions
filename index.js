@@ -545,58 +545,90 @@ app.get('/api/servicios/recomendar', async (req, res) => {
     }
 });
 
-// DESPACHO DE HERRAMIENTAS (SALIDA)
+// DESPACHO DE HERRAMIENTAS (SALIDA) - CORREGIDO
 app.post('/api/servicios/salida', async (req, res) => {
-    const { idOrden, colaborador, idsSeleccionadas, usuario } = req.body;
+    const { idOrden, colaborador, idsSeleccionadas, idsAdicionales, usuario } = req.body;
+    let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
 
-    if (!idOrden || !colaborador || !idsSeleccionadas || idsSeleccionadas.length === 0) {
+    if (!idOrden || !colaborador || todasLasHerramientas.length === 0) {
         return res.status(400).json({ error: "Faltan datos obligatorios." });
     }
 
     try {
-        // Verificar que no exista ya una orden con ese ID
+        // Verificar que no exista una orden con ese ID
         const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [idOrden]);
         if (existente.length > 0) {
             return res.status(409).json({ error: "Ya existe una orden con ese ID." });
         }
 
-        // Descontar stock de cada herramienta
-        for (const idHerramienta of idsSeleccionadas) {
-            await db.query(
-                'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1, estado = IF(disponibles - 1 <= 0, "AGOTADO", estado) WHERE id = ? AND disponibles > 0',
-                [idHerramienta]
-            );
+        let despachoExitoso = [];
+        let erroresDespacho = [];
+
+        // Procesar cada herramienta
+        for (const id of todasLasHerramientas) {
+            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = ?', [id]);
+            
+            if (rows.length === 0) {
+                erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
+                continue; 
+            }
+
+            let herramienta = rows[0];
+
+            if (herramienta.estado !== 'DISPONIBLE') {
+                erroresDespacho.push(`La herramienta "${herramienta.nombre}" no está disponible (${herramienta.estado})`);
+                continue;
+            }
+
+            if (herramienta.disponibles < 1) {
+                erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
+            } else {
+                await db.query(
+                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = ?', 
+                    [id]
+                );
+                despachoExitoso.push({ id: id, nombre: herramienta.nombre });
+            }
         }
 
-        // Guardar la orden en BD
+        // Guardar en memoria
+        ordenesServicioActivas[idOrden] = {
+            idOrden,
+            colaboradorResponsable: colaborador,
+            herramientasAsignadas: despachoExitoso,
+            estado: "En Campo",
+            fechaCreacion: new Date().toISOString()
+        };
+
+        // ✅ GUARDAR EN LA BASE DE DATOS
+        const herramientasJSON = JSON.stringify(despachoExitoso);
         await db.query(
-            'INSERT INTO ordenes_servicio (id_orden, lugar_trabajo, estado, usuario_creacion) VALUES (?, ?, "EN_CAMPO", ?)',
-            [idOrden, colaborador, usuario || 'Sistema']
+            `INSERT INTO ordenes_servicio 
+             (id_orden, lugar_trabajo, fecha_creacion, estado, herramientas, total_herramientas, usuario_creacion) 
+             VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
+            [idOrden, colaborador, 'EN_CAMPO', herramientasJSON, despachoExitoso.length, usuario || 'Sistema']
         );
 
-        // Guardar las herramientas de la orden
-        for (const idH of idsSeleccionadas) {
-            const [hRows] = await db.query('SELECT nombre FROM inventario_uso_servicio WHERE id = ?', [idH]);
-            const nombre = hRows.length > 0 ? hRows[0].nombre : 'Desconocida';
+        // Guardar cada herramienta en la tabla de detalle
+        for (const h of despachoExitoso) {
             await db.query(
-                'INSERT INTO ordenes_servicio_herramientas (id_orden, id_herramienta, nombre_herramienta) VALUES (?, ?, ?)',
-                [idOrden, idH, nombre]
+                `INSERT INTO ordenes_servicio_herramientas (id_orden, id_herramienta, nombre_herramienta) 
+                 VALUES (?, ?, ?)`,
+                [idOrden, h.id, h.nombre]
             );
         }
 
         res.json({
-            mensaje: "Orden generada correctamente.",
-            idOrden,
-            lugar_trabajo,
-            totalHerramientas: idsSeleccionadas.length
+            mensaje: `🚀 Despacho operativo procesado para ${colaborador}.`,
+            orden: ordenesServicioActivas[idOrden],
+            alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
         });
 
     } catch (error) {
-        console.error('Error en salida:', error);
-        res.status(500).json({ error: "Error al generar la orden." });
+        console.error("Error en el despacho:", error);
+        res.status(500).json({ error: "Error al procesar la salida." });
     }
 });
-
 // REINGRESO DE HERRAMIENTAS CON ESTADO
 app.post('/api/servicios/reingreso', async (req, res) => {
     const { idOrden, novedades } = req.body;
@@ -799,15 +831,15 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 /// ==========================================
 // OBTENER ÓRDENES ACTIVAS (SOLO BD)
 // ==========================================
+// OBTENER ÓRDENES ACTIVAS
 app.get('/api/servicios/ordenes-activas', async (req, res) => {
-    console.log('📋 Consultando órdenes activas desde la BD...');
+    console.log('📋 Consultando órdenes activas...');
     
     try {
-        // Consultar SOLO desde la base de datos
         const [ordenesBD] = await db.query(
             `SELECT 
                 id_orden, 
-                lugar_trabajo, 
+                lugar_trabajo as colaborador, 
                 fecha_creacion, 
                 estado,
                 total_herramientas
@@ -818,88 +850,24 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
 
         console.log(`📊 Encontradas ${ordenesBD.length} órdenes activas`);
 
-        // Formatear para el frontend
         const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
-            lugar_trabajo: o.lugar_trabajo,
+            colaborador: o.colaborador,
             fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0
         }));
 
-        res.json({ 
-            ordenes: ordenesFormateadas 
-        });
+        res.json({ ordenes: ordenesFormateadas });
 
     } catch (error) {
-        console.error('❌ Error al cargar órdenes activas:', error);
+        console.error('❌ Error:', error);
         res.status(500).json({ 
             error: 'Error al cargar órdenes activas',
             detalle: error.message 
         });
     }
 });
-// ==========================================
-// DESPACHO DE HERRAMIENTAS (SALIDA)
-// ==========================================
-app.post('/api/servicios/salida', async (req, res) => {
-    const { idOrden, colaborador, idsSeleccionadas, idsAdicionales } = req.body;
-    let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
-
-    if (todasLasHerramientas.length === 0) {
-        return res.status(400).json({ error: "No se seleccionó ninguna herramienta." });
-    }
-
-    try {
-        let despachoExitoso = [];
-        let erroresDespacho = [];
-
-        for (const id of todasLasHerramientas) {
-            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = ?', [id]);
-            
-            if (rows.length === 0) {
-                erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
-                continue; 
-            }
-
-            let herramienta = rows[0];
-
-            if (herramienta.estado !== 'DISPONIBLE') {
-                erroresDespacho.push(`La herramienta "${herramienta.nombre}" no está disponible (${herramienta.estado})`);
-                continue;
-            }
-
-            if (herramienta.disponibles < 1) {
-                erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
-            } else {
-                await db.query(
-                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = ?', 
-                    [id]
-                );
-                despachoExitoso.push({ id: id, nombre: herramienta.nombre });
-            }
-        }
-
-        ordenesServicioActivas[idOrden] = {
-            idOrden,
-            colaboradorResponsable: colaborador,
-            herramientasAsignadas: despachoExitoso,
-            estado: "En Campo",
-            fechaCreacion: new Date().toISOString()
-        };
-
-        res.json({
-            mensaje: `🚀 Despacho operativo procesado en base de datos para ${colaborador}.`,
-            orden: ordenesServicioActivas[idOrden],
-            alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
-        });
-
-    } catch (error) {
-        console.error("Error en el despacho:", error);
-        res.status(500).json({ error: "Error al procesar la salida en la base de datos." });
-    }
-});
-
 // =================================================================
 //   ENDPOINTS PARA ESTADÍSTICAS DEL PANEL (NUEVOS)
 // =================================================================

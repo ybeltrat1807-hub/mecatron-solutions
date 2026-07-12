@@ -769,7 +769,7 @@
 
                     <div class="form-group">
                         <label>👤 Lugar de Trabajo</label>
-                        <input type="text" id="tecnicoResponsable" placeholder="Lugar de Trabajo">
+                        <input type="text" id="lugarTrabajo" placeholder="Lugar de Trabajo">
                     </div>
 
                     <div class="carrito-actions">
@@ -1405,22 +1405,22 @@ async function generarOrdenServicio(btn) {
 
         // 3. Renderizar usando la lista validada
         container.innerHTML = listaOrdenes.map(orden => `
-            <div class="orden-item">
-                <div class="orden-info">
-                    <span class="orden-id">${orden.idOrden || orden.id}</span>
-                    <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
-                    <div class="orden-detalle">
-                        👤 ${orden.colaborador || orden.tecnico} | 🔧 ${orden.totalHerramientas || 0} herramientas
-                        <span class="badge-estado campo">● En Campo</span>
-                    </div>
-                </div>
-                <div class="orden-actions">
-                    <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden || orden.id}')">
-                        🔄 Reintegrar
-                    </button>
-                </div>
+    <div class="orden-item">
+        <div class="orden-info">
+            <span class="orden-id">${orden.idOrden || orden.id}</span>
+            <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
+            <div class="orden-detalle">
+                📍 <strong>Lugar:</strong> ${orden.lugar_trabajo || 'No asignado'} | 🔧 ${orden.totalHerramientas || 0} herramientas
+                <span class="badge-estado campo">● En Campo</span>
             </div>
-        `).join('');
+        </div>
+        <div class="orden-actions">
+            <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden || orden.id}')">
+                🔄 Reintegrar
+            </button>
+        </div>
+    </div>
+`).join('');
 
     } catch (error) {
         console.error('❌ Error al cargar órdenes:', error);

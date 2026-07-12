@@ -570,7 +570,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
         // Guardar la orden en BD
         await db.query(
-            'INSERT INTO ordenes_servicio (id_orden, colaborador, estado, usuario_creacion) VALUES (?, ?, "EN_CAMPO", ?)',
+            'INSERT INTO ordenes_servicio (id_orden, lugar_trabajo, estado, usuario_creacion) VALUES (?, ?, "EN_CAMPO", ?)',
             [idOrden, colaborador, usuario || 'Sistema']
         );
 
@@ -587,7 +587,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         res.json({
             mensaje: "Orden generada correctamente.",
             idOrden,
-            colaborador,
+            lugar_trabajo,
             totalHerramientas: idsSeleccionadas.length
         });
 
@@ -807,7 +807,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         const [ordenesBD] = await db.query(
             `SELECT 
                 id_orden, 
-                colaborador, 
+                lugar_trabajo, 
                 fecha_creacion, 
                 estado,
                 total_herramientas
@@ -821,7 +821,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         // Formatear para el frontend
         const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
-            colaborador: o.colaborador,
+            lugar_trabajo: o.lugar_trabajo,
             fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0

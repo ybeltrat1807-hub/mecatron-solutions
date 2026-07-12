@@ -1550,7 +1550,7 @@ async function confirmarReingreso(idOrden, btn) {
             cerrarReingreso();
             
             // ⭐ RECARGAR TODO EN ORDEN
-            await cargarOrdenesActivas();
+            cargarOrdenesActivas();
             await cargarHerramientas();
             
             // ⭐ USAR EL INVENTARIO GENERAL EN VEZ DEL ENDPOINT ESPECÍFICO

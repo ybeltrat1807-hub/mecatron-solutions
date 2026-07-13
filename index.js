@@ -565,7 +565,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
     try {
         // Verificar que no exista una orden repetida en la tabla 'ordenes'
-        const [existente] = await db.query('SELECT id_orden FROM ordenes WHERE id_orden = ?', [finalIdOrden]);
+        const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [finalIdOrden]);
         if (existente.length > 0) {
             return res.status(409).json({ error: "Ya existe una orden con ese ID." });
         }

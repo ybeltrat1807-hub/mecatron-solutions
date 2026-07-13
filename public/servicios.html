@@ -1369,21 +1369,13 @@ async function agregarHerramientaExtra() {
     `;
 
     try {
-        // ARREGLO: Agregamos cache: 'no-store' para forzar petición fresca
-        const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`, {
-            method: 'GET',
-            cache: 'no-store', // <-- ESTA LÍNEA MATA EL CACHÉ
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-            }
-        });
-        
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        
+        // 1. Ruta corregida con /api/
+        const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
         const data = await res.json();
+
         console.log('📊 Datos recibidos:', data);
 
+        // 2. Blindaje: Detecta si los datos vienen directo en un array o dentro de una propiedad
         const listaOrdenes = Array.isArray(data) ? data : (data.ordenes || []);
 
         if (listaOrdenes.length === 0) {
@@ -1395,6 +1387,7 @@ async function agregarHerramientaExtra() {
             return;
         }
 
+        // 3. Renderizar usando la lista validada
         container.innerHTML = listaOrdenes.map(orden => `
     <div class="orden-item">
         <div class="orden-info">
@@ -1417,22 +1410,11 @@ async function agregarHerramientaExtra() {
         console.error('❌ Error al cargar órdenes:', error);
         container.innerHTML = `
             <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                ⚠ Error al cargar órdenes: ${error.message}
+                ⚠️ Error al cargar órdenes: ${error.message}
             </p>
         `;
     }
 }
-// Cuando vuelves a la pestaña/app, recarga las órdenes
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        cargarOrdenesActivas();
-    }
-});
-
-// Cuando haces click en el tab de "Órdenes Activas", también recarga
-document.querySelector('[data-tab="ordenes-activas"]')?.addEventListener('click', () => {
-    cargarOrdenesActivas();
-});
         // ==========================================
         // INICIAR REINGRESO DE HERRAMIENTAS
         // ==========================================

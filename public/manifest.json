@@ -2,7 +2,7 @@
   "name": "Mecatron Solutions",
   "short_name": "Mecatron",
   "description": "Sistema de Gestión Industrial",
-  "start_url": "http://192.168.1.2:3000/index.html",
+  "start_url": "/",
   "id": "/index.html",
   "display": "standalone",
   "background_color": "#1A3A5C",

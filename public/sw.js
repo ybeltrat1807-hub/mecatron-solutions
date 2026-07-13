@@ -1,5 +1,5 @@
 // ==========================================
-// SERVICE WORKER - MECATRON SOLUTIONS
+// SERVICE WORKER - MECATRON SOLUTIONS (CORREGIDO)
 // ==========================================
 const CACHE_NAME = 'mecatron-v1'; // YA NO LO VUELVES A TOCAR NUNCA
 const urlsToCache = [
@@ -11,6 +11,7 @@ const urlsToCache = [
     '/manifest.json',
     '/favicon.ico'
 ];
+
 // INSTALACIÓN
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -22,6 +23,7 @@ self.addEventListener('install', event => {
             .then(() => self.skipWaiting()) // toma control inmediato
     );
 });
+
 // ACTIVACIÓN - borra cachés viejos y toma control
 self.addEventListener('activate', event => {
     event.waitUntil(
@@ -37,11 +39,28 @@ self.addEventListener('activate', event => {
         }).then(() => self.clients.claim()) // controla páginas abiertas ya
     );
 });
+
 // INTERCEPTAR PETICIONES - NUEVA ESTRATEGIA
 self.addEventListener('fetch', event => {
     // Solo interceptar peticiones GET
     if (event.request.method !== 'GET') return;
+    
     const url = new URL(event.request.url);
+
+    // =========================================================================
+    // 🔥 CORRECCIÓN CRÍTICA: BYPASS PARA TU API / BASE DE DATOS 🔥
+    // Evita que las consultas de datos dinámicos se queden atrapadas en el caché.
+    // =========================================================================
+    // Si tu backend usa rutas como "/api/...", o consultas externas (Firebase, Supabase, etc.)
+    if (url.pathname.startsWith('/api/') || 
+        url.pathname.includes('firestore') || 
+        url.hostname.includes('supabase') ||
+        url.pathname.includes('/v1/')) { // Ajusta este condicional según tu backend si es necesario
+        
+        console.log('🚫 API Bypass (Fuerza Red):', url.pathname);
+        return; // Al retornar vacío, el navegador maneja la petición directo por internet
+    }
+
     // 1. Para navegaciones y HTML: NETWORK-FIRST
     // Esto hace que siempre busque la versión nueva en el servidor
     if (event.request.mode === 'navigate' || 
@@ -66,6 +85,7 @@ self.addEventListener('fetch', event => {
         );
         return;
     }
+
     // 2. Para todo lo demás: CSS, JS, imágenes, etc: CACHE-FIRST
     // Estos archivos cambian de nombre con hash cuando haces build, así que es seguro
     event.respondWith(

@@ -9,7 +9,11 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
-
+app.use(cors({
+  origin: ['https://mecatron-solutions.onrender.com'], // pon tu URL real del frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type']
+}));
 // Middleware de enrutamiento estático para Mecatron Solutions
 app.use(express.json());
 app.use(express.static('public'));

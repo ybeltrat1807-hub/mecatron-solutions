@@ -627,7 +627,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         const queryOrden = `
             INSERT INTO ordenes_servicio (
                 id_orden, 
-                lugar_trabajo, 
+                lugarTrabajo, 
                 estado, 
                 usuario_creacion, 
                 fecha_creacion, 

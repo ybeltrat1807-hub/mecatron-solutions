@@ -1250,7 +1250,7 @@ async function agregarHerramientaExtra() {
     const usuario = sessionStorage.getItem('usuario') || 'Sistema';
 
     if (!tecnico) {
-        showToast('Por favor ingresa el nombre del técnico o lugar', 'error');
+        showToast('Por favor ingresa el nombre del lugar', 'error');
         return;
     }
 
@@ -1394,7 +1394,7 @@ async function agregarHerramientaExtra() {
             <span class="orden-id">${orden.idOrden || orden.id}</span>
             <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
             <div class="orden-detalle">
-                📍 <strong>Lugar:</strong> ${orden.lugar_trabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
+                📍 <strong>Lugar:</strong> ${orden.lugarTrabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
                 <span class="badge-estado campo">● En Campo</span>
             </div>
         </div>

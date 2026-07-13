@@ -3,7 +3,8 @@
 //   Desarrollado por: Beltrán Software Solutions
 // =================================================================
 const express = require('express');
-const db = require('./conexion'); // Nuestro puente a MySQL
+const db = require('./conexion'); 
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

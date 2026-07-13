@@ -554,6 +554,7 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 // DESPACHO DE HERRAMIENTAS (SALIDA) - COMPLETO Y CORREGIDO
 // ==========================================================
 app.post('/api/servicios/salida', async (req, res) => {
+    console.log("DATOS RECIBIDOS EN EL SERVIDOR:", req.body);
     // 1. Recibimos lugarTrabajo desde tu nuevo frontend
     const { idOrden, lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
     

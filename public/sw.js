@@ -2,7 +2,7 @@
 // SERVICE WORKER - MECATRON SOLUTIONS
 // ==========================================
 
-const CACHE_NAME = 'mecatron-v1';
+const CACHE_NAME = 'mecatron-v2';
 const urlsToCache = [
     '/',
     '/index.html',

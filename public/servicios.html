@@ -1313,7 +1313,7 @@ async function agregarHerramientaExtra() {
             },
             body: JSON.stringify({
                 idOrden,
-                colaborador: tecnico,
+                lugarTrabajo: tecnico, // CORRECCIÓN CLAVE: Enviado como lugarTrabajo para que el backend lo reciba
                 idsSeleccionadas,
                 idsAdicionales: [],
                 usuario
@@ -1321,7 +1321,7 @@ async function agregarHerramientaExtra() {
         });
 
         const data = await res.json();
-                if (res.ok) {
+        if (res.ok) {
 
             showToast(`🚀 Orden ${idOrden} generada con éxito`, 'success');
 
@@ -1358,9 +1358,7 @@ async function agregarHerramientaExtra() {
         btn.disabled = false;
 
     }
-
 }
-
     async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');
     

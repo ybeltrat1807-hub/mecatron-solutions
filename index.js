@@ -888,7 +888,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
 
         const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
-            colaborador: o.colaborador,
+            colaborador: o.lugar_trabajo,
             fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0
@@ -1009,7 +1009,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
 
         res.json({
             idOrden: orden.id_orden,
-            colaboradorResponsable: orden.colaborador,
+            colaboradorResponsable: orden.lugar_trabajo,
             estado: orden.estado,
             fechaCreacion: orden.fecha_creacion,
             herramientasAsignadas: herramientas

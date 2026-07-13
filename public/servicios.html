@@ -768,17 +768,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label>👤 Lugar de Trabajo</label>
+                        <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
                         <input type="text" id="lugarTrabajo" placeholder="Lugar de Trabajo">
                     </div>
 
                     <div class="carrito-actions">
-                        <button onclick="vaciarCarritoServicios()" class="btn" style="background: var(--danger); color: white;">
-                            🗑️ Vaciar
-                        </button>
-                        <button class="btn-primary" onclick="generarOrdenServicio(this)">
-                        <i class="fas fa-save"></i> Generar Orden
-                        </button>
+                    <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
+                    🗑️ Vaciar
+                    </button>
+                    <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
+                    <i class="fas fa-paper-plane"></i> Generar Orden
+                    </button>
                     </div>
                 </div>
             </div>

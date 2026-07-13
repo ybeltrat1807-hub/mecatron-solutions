@@ -545,18 +545,27 @@ app.get('/api/servicios/recomendar', async (req, res) => {
     }
 });
 
-// DESPACHO DE HERRAMIENTAS (SALIDA) - CORREGIDO
+// ==========================================================
+// DESPACHO DE HERRAMIENTAS (SALIDA) - COMPLETO Y CORREGIDO
+// ==========================================================
 app.post('/api/servicios/salida', async (req, res) => {
-    const { idOrden, colaborador, idsSeleccionadas, idsAdicionales, usuario } = req.body;
+    // 1. Recibimos lugarTrabajo desde tu nuevo frontend
+    const { idOrden, lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
+    
+    // Juntamos todas las herramientas en un solo array
     let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
 
-    if (!idOrden || !colaborador || todasLasHerramientas.length === 0) {
-        return res.status(400).json({ error: "Faltan datos obligatorios." });
+    // Validamos que vengan los datos obligatorios
+    if (!lugarTrabajo || todasLasHerramientas.length === 0) {
+        return res.status(400).json({ error: "Faltan datos obligatorios (Lugar de trabajo o herramientas)." });
     }
 
+    // Si tu frontend no genera un idOrden, lo creamos aquí dinámicamente estilo ORD-1234
+    const finalIdOrden = idOrden || `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+
     try {
-        // Verificar que no exista una orden con ese ID
-        const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [idOrden]);
+        // Verificar que no exista una orden repetida en la tabla 'ordenes'
+        const [existente] = await db.query('SELECT id_orden FROM ordenes WHERE id_orden = ?', [finalIdOrden]);
         if (existente.length > 0) {
             return res.status(409).json({ error: "Ya existe una orden con ese ID." });
         }
@@ -564,7 +573,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         let despachoExitoso = [];
         let erroresDespacho = [];
 
-        // Procesar cada herramienta
+        // Procesar cada herramienta en el inventario
         for (const id of todasLasHerramientas) {
             const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = ?', [id]);
             
@@ -583,6 +592,7 @@ app.post('/api/servicios/salida', async (req, res) => {
             if (herramienta.disponibles < 1) {
                 erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
             } else {
+                // Restamos 1 en el inventario
                 await db.query(
                     'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = ?', 
                     [id]
@@ -591,42 +601,68 @@ app.post('/api/servicios/salida', async (req, res) => {
             }
         }
 
-        // Guardar en memoria
-        ordenesServicioActivas[idOrden] = {
-            idOrden,
-            colaboradorResponsable: colaborador,
-            herramientasAsignadas: despachoExitoso,
-            estado: "En Campo",
-            fechaCreacion: new Date().toISOString()
-        };
+        // Si ninguna herramienta pudo ser despachada, cancelamos
+        if (despachoExitoso.length === 0) {
+            return res.status(400).json({ error: "No se pudo despachar ninguna herramienta.", detalles: erroresDespacho });
+        }
 
-        // ✅ GUARDAR EN LA BASE DE DATOS
-        const herramientasJSON = JSON.stringify(despachoExitoso);
-        await db.query(
-            `INSERT INTO ordenes_servicio 
-             (id_orden, lugar_trabajo, fecha_creacion, estado, total_herramientas, usuario_creacion) 
-             VALUES (?, ?, NOW(), ?, ?, ?)`,
-            [idOrden, colaborador, 'EN_CAMPO', herramientasJSON, despachoExitoso.length, usuario || 'Sistema']
-        );
+        // 2. CORRECCIÓN CLAVE: INSERT EN LA TABLA REAL 'ordenes'
+        // Definimos exactamente 5 columnas dinámicas + 1 estática con NOW() = 6 columnas totales
+        const queryOrden = `
+            INSERT INTO ordenes (
+                id_orden, 
+                lugar_trabajo, 
+                estado, 
+                usuario_creacion, 
+                fecha_creacion, 
+                total_herramientas
+            ) 
+            VALUES (?, ?, ?, ?, NOW(), ?)
+        `;
 
-        // Guardar cada herramienta en la tabla de detalle
+        // Pasamos exactamente 5 valores correspondientes a los 5 signos de interrogación '?'
+        const valoresOrden = [
+            finalIdOrden,
+            lugarTrabajo,
+            'EN_CAMPO',
+            usuario || 'Sistema',
+            despachoExitoso.length // <-- Pasamos el NÚMERO entero (ej: 2), NO el JSON
+        ];
+
+        // Ejecutamos la inserción de la orden principal
+        await db.query(queryOrden, valoresOrden);
+
+        // 3. DETALLES: Guardar cada herramienta asignada en la tabla relacional
         for (const h of despachoExitoso) {
             await db.query(
                 `INSERT INTO ordenes_servicio_herramientas (id_orden, id_herramienta, nombre_herramienta) 
                  VALUES (?, ?, ?)`,
-                [idOrden, h.id, h.nombre]
+                [finalIdOrden, h.id, h.nombre]
             );
         }
 
+        // Opcional: Si manejas la variable en memoria 'ordenesServicioActivas'
+        if (typeof ordenesServicioActivas !== 'undefined') {
+            ordenesServicioActivas[finalIdOrden] = {
+                idOrden: finalIdOrden,
+                lugarTrabajo: lugarTrabajo,
+                herramientasAsignadas: despachoExitoso,
+                estado: "EN_CAMPO",
+                fechaCreacion: new Date().toISOString()
+            };
+        }
+
+        // Respondemos con éxito al cliente
         res.json({
-            mensaje: `🚀 Despacho operativo procesado para ${colaborador}.`,
-            orden: ordenesServicioActivas[idOrden],
+            mensaje: `🚀 Despacho operativo procesado con éxito para: ${lugarTrabajo}.`,
+            idOrden: finalIdOrden,
+            totalHerramientas: despachoExitoso.length,
             alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
         });
 
     } catch (error) {
-        console.error("Error en el despacho:", error);
-        res.status(500).json({ error: "Error al procesar la salida." });
+        console.error("❌ Error crítico en el despacho:", error);
+        res.status(500).json({ error: "Error interno al procesar la salida.", detalle: error.message });
     }
 });
 // REINGRESO DE HERRAMIENTAS CON ESTADO

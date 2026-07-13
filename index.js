@@ -561,8 +561,18 @@ app.post('/api/servicios/salida', async (req, res) => {
     }
 
     // Si tu frontend no genera un idOrden, lo creamos aquí dinámicamente estilo ORD-1234
-    const finalIdOrden = idOrden || `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-
+    let finalIdOrden = idOrden;
+if (!finalIdOrden) {
+    const [lastRow] = await db.query(
+        "SELECT id_orden FROM ordenes_servicio WHERE id_orden LIKE 'ORD-%' ORDER BY CAST(SUBSTRING(id_orden, 5) AS UNSIGNED) DESC LIMIT 1"
+    );
+    let nextNum = 1001;
+    if (lastRow.length > 0) {
+        const lastNum = parseInt(lastRow[0].id_orden.replace('ORD-', ''), 10);
+        if (!isNaN(lastNum)) nextNum = lastNum + 1;
+    }
+    finalIdOrden = `ORD-${nextNum}`;
+}
     try {
         // Verificar que no exista una orden repetida en la tabla 'ordenes'
         const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [finalIdOrden]);
@@ -875,7 +885,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         const [ordenesBD] = await db.query(
             `SELECT 
                 id_orden, 
-                lugar_trabajo as colaborador, 
+                lugar_trabajo, 
                 fecha_creacion, 
                 estado,
                 total_herramientas

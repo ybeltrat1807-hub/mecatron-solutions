@@ -609,7 +609,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         // 2. CORRECCIÓN CLAVE: INSERT EN LA TABLA REAL 'ordenes'
         // Definimos exactamente 5 columnas dinámicas + 1 estática con NOW() = 6 columnas totales
         const queryOrden = `
-            INSERT INTO ordenes (
+            INSERT INTO ordenes_servicio (
                 id_orden, 
                 lugar_trabajo, 
                 estado, 

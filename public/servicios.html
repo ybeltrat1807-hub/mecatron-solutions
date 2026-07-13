@@ -747,19 +747,13 @@
                     </div>
                     <div style="margin-top: 1rem;">
                         <div class="form-group">
-                        <label>➕ Agregar herramientas adicionales</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                        <select id="selectHerramientaExtra" style="flex: 1;" multiple size="3">
-                         <!-- Las opciones se llenan con JavaScript -->
-                        </select>
-                        <button onclick="agregarHerramientasExtra()" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> Agregar Seleccionadas
-                        </button>
-                        </div>
-                        <small style="font-size: 0.7rem; color: var(--text-light);">
-                        Mantén presionada la tecla Ctrl (Windows) o Cmd (Mac) para seleccionar varias herramientas.
-                        </small>
-                        </div>
+                            <label>➕ Agregar herramienta adicional</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="selectHerramientaExtra" style="flex: 1;"></select>
+                                <button onclick="agregarHerramientaExtra()" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1138,48 +1132,59 @@ async function mostrarHerramientasRecomendadas(servicio) {
 // ==========================================
 // AGREGAR HERRAMIENTA EXTRA (CON LOGS)
 // ==========================================
-async function agregarHerramientasExtra() {
-    const select = document.getElementById('selectHerramientaExtra');
-    const selectedOptions = select.selectedOptions;
+async function agregarHerramientaExtra() {
+    console.log('🟢 Botón + presionado');
     
-    if (selectedOptions.length === 0) {
-        showToast('Selecciona al menos una herramienta', 'error');
+    const select = document.getElementById('selectHerramientaExtra');
+    const id = parseInt(select.value);
+    
+    console.log('📦 ID seleccionado:', id);
+    
+    if (!id) {
+        showToast('Selecciona una herramienta', 'error');
         return;
     }
 
-    let agregadas = 0;
-
-    for (const option of selectedOptions) {
-        const id = parseInt(option.value);
-        if (!id) continue;
-
-        const herramienta = herramientasDisponibles.find(h => h.id === id);
-        if (!herramienta) continue;
+    try {
+        console.log('🔄 Consultando inventario completo...');
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
+        const data = await res.json();
+        
+        console.log('📊 Datos del inventario:', data);
+        
+        const herramienta = data.find(h => h.id === id);
+        
+        console.log('🔧 Herramienta encontrada:', herramienta);
+        
+        if (!herramienta) {
+            showToast('Herramienta no encontrada', 'error');
+            return;
+        }
 
         if (herramienta.estado !== 'DISPONIBLE' || herramienta.disponibles <= 0) {
             showToast(`❌ "${herramienta.nombre}" no está disponible`, 'error');
-            continue;
+            return;
         }
 
         if (carritoServicios.find(h => h.id === id)) {
             showToast(`⚠️ "${herramienta.nombre}" ya está en el carrito`, 'info');
-            continue;
+            return;
         }
 
+        console.log('✅ Agregando al carrito:', herramienta.nombre);
         carritoServicios.push({
             id: herramienta.id,
             nombre: herramienta.nombre
         });
-        agregadas++;
-    }
-
-    if (agregadas > 0) {
+        
         renderizarCarritoServicios();
-        showToast(`✅ ${agregadas} herramientas agregadas al carrito`, 'success');
-    }
+        showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+        select.value = '';
 
-    // Limpiar selección
-    select.selectedIndex = -1;
+    } catch (error) {
+        console.error('❌ Error en agregarHerramientaExtra:', error);
+        showToast('Error de conexión: ' + error.message, 'error');
+    }
 }
         // ==========================================
         // RENDERIZAR CARRITO DE SERVICIOS
@@ -1561,23 +1566,31 @@ async function confirmarReingreso(idOrden, btn) {
 // ==========================================
 async function cargarHerramientas() {
     try {
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         const data = await res.json();
         
+        // Guardar todas para referencia
         herramientasDisponibles = data;
 
-        // Herramientas disponibles para el select de extras
+        // Cargar TODAS las herramientas disponibles para el select de extras
+        // (NO filtrar por tipo_servicio, solo por estado y disponibilidad)
         const disponibles = data.filter(h => h.estado === 'DISPONIBLE' && h.disponibles > 0);
         
         const select = document.getElementById('selectHerramientaExtra');
         if (disponibles.length > 0) {
-            select.innerHTML = disponibles.map(h => `
-                <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
-            `).join('');
+            select.innerHTML = `
+                <option value="">🔧 Selecciona una herramienta extra...</option>
+                ${disponibles.map(h => `
+                    <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
+                `).join('')}
+            `;
         } else {
-            select.innerHTML = `<option value="">No hay herramientas adicionales disponibles</option>`;
+            select.innerHTML = `
+                <option value="">No hay herramientas adicionales disponibles</option>
+            `;
         }
 
+        // Si hay servicio seleccionado, actualizar recomendaciones
         if (servicioSeleccionado) {
             await mostrarHerramientasRecomendadas(servicioSeleccionado);
         }

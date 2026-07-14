@@ -745,14 +745,17 @@
                             Selecciona un servicio para ver las herramientas recomendadas
                         </p>
                     </div>
-                    <div class="mt-4 pt-3 border-top">
-                        <label class="form-label fw-bold text-secondary">
-                        <i class="fas fa-tools"></i> Agregar herramientas adicionales de la bodega:
-                        </label>
-                        <div id="listaHerramientasAdicionales" class="border rounded p-2" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
-                    <div class="text-muted small text-center py-2">Cargando inventario completo...</div>
+                    <div style="margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>➕ Agregar herramienta adicional</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="selectHerramientaExtra" style="flex: 1;"></select>
+                                <button onclick="agregarHerramientaExtra()" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>          
                 </div>
 
                 <!-- PASO 3: Carrito y Orden -->
@@ -1126,60 +1129,61 @@ async function mostrarHerramientasRecomendadas(servicio) {
             renderizarCarritoServicios();
         }
 
-// ==========================================================
-// FRONTEND: RENDERIZAR LISTA MÚLTIPLE DE ADICIONALES
-// ==========================================================
-async function cargarHerramientasAdicionales() {
+// ==========================================
+// AGREGAR HERRAMIENTA EXTRA (CON LOGS)
+// ==========================================
+async function agregarHerramientaExtra() {
+    console.log('🟢 Botón + presionado');
+
+    const select = document.getElementById('selectHerramientaExtra');
+    const id = parseInt(select.value);
+
+    console.log('📦 ID seleccionado:', id);
+
+    if (!id) {
+        showToast('Selecciona una herramienta', 'error');
+        return;
+    }
+
     try {
+        console.log('🔄 Consultando inventario completo...');
         const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        if (!res.ok) throw new Error('No se pudo obtener el inventario');
+        const data = await res.json();
 
-        const inventario = await res.json();
-        const contenedor = document.getElementById('listaHerramientasAdicionales');
+        console.log('📊 Datos del inventario:', data);
 
-        if (!contenedor) return;
-        contenedor.innerHTML = ''; // Limpiamos el cargando
+        const herramienta = data.find(h => h.id === id);
 
-        if (inventario.length === 0) {
-            contenedor.innerHTML = '<div class="text-muted small text-center py-2">No hay herramientas registradas.</div>';
+        console.log('🔧 Herramienta encontrada:', herramienta);
+
+        if (!herramienta) {
+            showToast('Herramienta no encontrada', 'error');
             return;
         }
 
-        inventario.forEach(item => {
-            // Evaluamos disponibilidad para deshabilitar si no hay stock o está dañado
-            const estaDisponible = item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0;
+        if (herramienta.estado !== 'DISPONIBLE' || herramienta.disponibles <= 0) {
+            showToast(`❌ "${herramienta.nombre}" no está disponible`, 'error');
+            return;
+        }
 
-            const divFila = document.createElement('div');
-            divFila.className = `d-flex align-items-center justify-content-between p-2 mb-1 rounded bg-white border-bottom ${!estaDisponible ? 'opacity-50' : ''}`;
+        if (carritoServicios.find(h => h.id === id)) {
+            showToast(`⚠️ "${herramienta.nombre}" ya está en el carrito`, 'info');
+            return;
+        }
 
-            divFila.innerHTML = `
-                <div class="form-check m-0">
-                    <input class="form-check-input checkbox-adicional" 
-                           type="checkbox" 
-                           value="${item.id}" 
-                           id="extra-${item.id}"
-                           data-nombre="${item.nombre}"
-                           ${!estaDisponible ? 'disabled' : ''}>
-                    <label class="form-check-label small fw-semibold text-dark" for="extra-${item.id}">
-                        ${item.nombre}
-                    </label>
-                </div>
-                <div>
-                    ${estaDisponible 
-                        ? `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small">${item.disponibles} disp.</span>`
-                        : `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 small">No disp.</span>`
-                    }
-                </div>
-            `;
-            contenedor.appendChild(divFila);
+        console.log('✅ Agregando al carrito:', herramienta.nombre);
+        carritoServicios.push({
+            id: herramienta.id,
+            nombre: herramienta.nombre
         });
 
+        renderizarCarritoServicios();
+        showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+        select.value = '';
+
     } catch (error) {
-        console.error('❌ Error al cargar herramientas adicionales:', error);
-        const contenedor = document.getElementById('listaHerramientasAdicionales');
-        if (contenedor) {
-            contenedor.innerHTML = '<div class="text-danger small text-center py-2">Error al conectar con la bodega.</div>';
-        }
+        console.error('❌ Error en agregarHerramientaExtra:', error);
+        showToast('Error de conexión: ' + error.message, 'error');
     }
 }
         // ==========================================
@@ -1292,10 +1296,7 @@ async function cargarHerramientasAdicionales() {
     }
 
     // Generar consecutivo
-    const idsAdicionales = [];
-    document.querySelectorAll('.checkbox-adicional:checked').forEach(cb => {
-        idsAdicionales.push(Number(cb.value));
-    });
+    const idsSeleccionadas = carritoServicios.map(h => h.id);
 
     const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
 
@@ -1314,7 +1315,7 @@ async function cargarHerramientasAdicionales() {
                 idOrden,
                 lugarTrabajo: tecnico, // CORRECCIÓN CLAVE: Enviado como lugarTrabajo para que el backend lo reciba
                 idsSeleccionadas,
-                idsAdicionales: idsAdicionales,
+                idsAdicionales: [],
                 usuario
             })
         });
@@ -1331,14 +1332,14 @@ async function cargarHerramientasAdicionales() {
             // Limpiar campo
             document.getElementById('lugarTrabajo').value = '';
 
-            /// Desmarcar recomendados
-        document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
+            // Desmarcar checkboxes
+            document
+                .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
+                .forEach(cb => cb.checked = false);
 
-        // 🚀 NUEVO: Desmarcar los adicionales seleccionados y recargar la lista
-        document.querySelectorAll('.checkbox-adicional').forEach(cb => cb.checked = false);
-
-        await cargarHerramientasAdicionales(); // Recargamos stock visual
-        await cargarOrdenesActivas();
+            // Recargar información
+            await cargarHerramientas();
+            await cargarOrdenesActivas();
 
         } else {
 
@@ -1559,40 +1560,45 @@ async function confirmarReingreso(idOrden, btn) {
             document.getElementById('reingresoContent').innerHTML = '';
             ordenActivaReingreso = null;
         }
-// ==========================================================
-// FRONTEND: CARGAR HERRAMIENTAS (VERSIÓN SEGURA)
-// ==========================================================
+
+// ==========================================
+// CARGAR HERRAMIENTAS DISPONIBLES (CORREGIDO)
+// ==========================================
 async function cargarHerramientas() {
     try {
         const res = await fetch(`${API_URL}/api/servicios/inventario`);
-         if (!res.ok) throw new Error('No se pudo obtener el inventario');
-        const inventario = await res.json();
+        const data = await res.json();
 
-        // 1. Buscamos el elemento viejo que usaba tu selector desplegable
-        // Reemplaza 'selectHerramientas' por el ID exacto que tenías antes si era diferente
-        const selectElement = document.getElementById('selectHerramientasAdicionales') || document.getElementById('selectHerramientas');
-        
-        // 🚀 CONTROL DE ERRORES CLAVE: Si el elemento ya no existe en el HTML,
-        // simplemente salimos de la función sin romper el resto de scripts.
-        if (!selectElement) {
-            console.warn("⚠️ El selector desplegable de herramientas ya no está en el HTML, omitiendo llenado.");
-            return; 
+        // Guardar todas para referencia
+        herramientasDisponibles = data;
+
+        // Cargar TODAS las herramientas disponibles para el select de extras
+        // (NO filtrar por tipo_servicio, solo por estado y disponibilidad)
+        const disponibles = data.filter(h => h.estado === 'DISPONIBLE' && h.disponibles > 0);
+
+        const select = document.getElementById('selectHerramientaExtra');
+        if (disponibles.length > 0) {
+            select.innerHTML = `
+                <option value="">🔧 Selecciona una herramienta extra...</option>
+                ${disponibles.map(h => `
+                    <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
+                `).join('')}
+            `;
+        } else {
+            select.innerHTML = `
+                <option value="">No hay herramientas adicionales disponibles</option>
+            `;
         }
-          // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
-        selectElement.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
-        
-        inventario.forEach(item => {
-            if (item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0) {
-                const option = document.createElement('option');
-                option.value = item.id;
-                option.textContent = `${item.nombre} (${item.disponibles} disp.)`;
-                selectElement.appendChild(option);
-            }
-        });
+
+        // Si hay servicio seleccionado, actualizar recomendaciones
+        if (servicioSeleccionado) {
+            await mostrarHerramientasRecomendadas(servicioSeleccionado);
+        }
 
     } catch (error) {
-        console.error('❌ Error al cargar herramientas:', error);
-          }
+        console.error('Error al cargar herramientas:', error);
+        showToast('Error al cargar inventario de herramientas', 'error');
+    }
 }
 // ==========================================
 // CARGAR HERRAMIENTAS EN REPARACIÓN (CORREGIDO)

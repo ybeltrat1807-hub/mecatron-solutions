@@ -735,30 +735,40 @@
             <div class="grid-2col">
                 <div class="section-card">
                     <div class="card-header">
-                        <h3>2. Herramientas Recomendadas</h3>
-                        <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm">
-                            <i class="fas fa-sync-alt"></i> Actualizar
-                        </button>
+                        <h3><i class="fas fa-toolbox"></i> 2. Selección de Herramientas</h3>
                     </div>
-                    <div id="herramientasRecomendadas">
-                        <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                            Selecciona un servicio para ver las herramientas recomendadas
-                        </p>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold text-secondary m-0" style="font-size: 0.85rem;">
+                                <i class="fas fa-magic text-warning"></i> Recomendadas por el sistema:
+                            </label>
+                            <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                <i class="fas fa-sync-alt"></i> Actualizar
+                            </button>
+                        </div>
+                        <div id="herramientasRecomendadas" class="p-2 border rounded bg-light">
+                            <p style="color: var(--text-light); text-align: center; padding: 1rem; margin: 0; font-size: 0.85rem;">
+                                Selecciona un servicio para ver las herramientas recomendadas
+                            </p>
+                        </div>
                     </div>
-                    <div class="mt-4 pt-3 border-top">
-                        <label class="form-label fw-bold text-secondary">
-                        <i class="fas fa-tools"></i> Agregar herramientas adicionales de la bodega:
+
+                    <hr class="my-3" style="border-top: 1px solid #E8ECF1;">
+
+                    <div>
+                        <label class="form-label fw-bold text-secondary mb-2" style="font-size: 0.85rem;">
+                            <i class="fas fa-warehouse text-info"></i> Otras herramientas disponibles en Bodega:
                         </label>
-                        <div id="listaHerramientasAdicionales" class="border rounded p-2" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
-                    <div class="text-muted small text-center py-2">Cargando inventario completo...</div>
+                        <div id="listaHerramientasAdicionales" class="border rounded p-1" style="max-height: 180px; overflow-y: auto; background-color: #ffffff;">
+                            <div class="text-muted small text-center py-2">Cargando herramientas disponibles...</div>
+                        </div>
                     </div>
-                </div>          
                 </div>
 
-                <!-- PASO 3: Carrito y Orden -->
                 <div class="section-card">
                     <div class="card-header">
-                        <h3>3. Confirmar Orden</h3>
+                        <h3><i class="fas fa-shopping-cart"></i> 3. Confirmar Orden</h3>
                     </div>
                     <div class="carrito-container" id="carritoServicios">
                         <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
@@ -770,16 +780,15 @@
                     </div>
 
                     <div class="carrito-actions">
-                    <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
-                    🗑️ Vaciar
-                    </button>
-                    <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
-                    <i class="fas fa-paper-plane"></i> Generar Orden
-                    </button>
+                        <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
+                            🗑️ Vaciar
+                        </button>
+                        <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
+                            <i class="fas fa-paper-plane"></i> Generar Orden
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
 
         <!-- ========================================== -->
         <!-- SUBMÓDULO 2: REINTEGRO DE HERRAMIENTAS     -->

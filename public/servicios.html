@@ -1560,43 +1560,41 @@ async function confirmarReingreso(idOrden, btn) {
             ordenActivaReingreso = null;
         }
 
-// ==========================================
-// CARGAR HERRAMIENTAS DISPONIBLES (CORREGIDO)
-// ==========================================
+// ==========================================================
+// FRONTEND: CARGAR HERRAMIENTAS (VERSIÓN SEGURA)
+// ==========================================================
 async function cargarHerramientas() {
     try {
         const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const data = await res.json();
+        if (!res.ok) throw new Error('No se pudo obtener el inventario');
         
-        // Guardar todas para referencia
-        herramientasDisponibles = data;
-
-        // Cargar TODAS las herramientas disponibles para el select de extras
-        // (NO filtrar por tipo_servicio, solo por estado y disponibilidad)
-        const disponibles = data.filter(h => h.estado === 'DISPONIBLE' && h.disponibles > 0);
+        const inventario = await res.json();
         
-        const select = document.getElementById('selectHerramientaExtra');
-        if (disponibles.length > 0) {
-            select.innerHTML = `
-                <option value="">🔧 Selecciona una herramienta extra...</option>
-                ${disponibles.map(h => `
-                    <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
-                `).join('')}
-            `;
-        } else {
-            select.innerHTML = `
-                <option value="">No hay herramientas adicionales disponibles</option>
-            `;
+        // 1. Buscamos el elemento viejo que usaba tu selector desplegable
+        // Reemplaza 'selectHerramientas' por el ID exacto que tenías antes si era diferente
+        const selectElement = document.getElementById('selectHerramientasAdicionales') || document.getElementById('selectHerramientas');
+        
+        // 🚀 CONTROL DE ERRORES CLAVE: Si el elemento ya no existe en el HTML,
+        // simplemente salimos de la función sin romper el resto de scripts.
+        if (!selectElement) {
+            console.warn("⚠️ El selector desplegable de herramientas ya no está en el HTML, omitiendo llenado.");
+            return; 
         }
 
-        // Si hay servicio seleccionado, actualizar recomendaciones
-        if (servicioSeleccionado) {
-            await mostrarHerramientasRecomendadas(servicioSeleccionado);
-        }
+        // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
+        selectElement.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
+        
+        inventario.forEach(item => {
+            if (item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0) {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.nombre} (${item.disponibles} disp.)`;
+                selectElement.appendChild(option);
+            }
+        });
 
     } catch (error) {
-        console.error('Error al cargar herramientas:', error);
-        showToast('Error al cargar inventario de herramientas', 'error');
+        console.error('❌ Error al cargar herramientas:', error);
     }
 }
 // ==========================================

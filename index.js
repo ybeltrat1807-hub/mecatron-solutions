@@ -556,7 +556,7 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 app.post('/api/servicios/salida', async (req, res) => {
     console.log("DATOS RECIBIDOS EN EL SERVIDOR:", req.body);
     // 1. Recibimos lugarTrabajo desde tu nuevo frontend
-    const { idOrden, lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
+    const { lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
     
     // Juntamos todas las herramientas en un solo array
     let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
@@ -566,21 +566,38 @@ app.post('/api/servicios/salida', async (req, res) => {
         return res.status(400).json({ error: "Faltan datos obligatorios (Lugar de trabajo o herramientas)." });
     }
 
-    // Si tu frontend no genera un idOrden, lo creamos aquí dinámicamente estilo ORD-1234
-    let finalIdOrden = idOrden;
-if (!finalIdOrden) {
-    const [lastRow] = await db.query(
-        "SELECT id_orden FROM ordenes_servicio WHERE id_orden LIKE 'ORD-%' ORDER BY CAST(SUBSTRING(id_orden, 5) AS UNSIGNED) DESC LIMIT 1"
-    );
-    let nextNum = 1001;
-    if (lastRow.length > 0) {
-        const lastNum = parseInt(lastRow[0].id_orden.replace('ORD-', ''), 10);
-        if (!isNaN(lastNum)) nextNum = lastNum + 1;
-    }
-    finalIdOrden = `ORD-${nextNum}`;
-}
+    // ==========================================================
+    // 🚀 CONTROL CONSECUTIVO FORZADO DESDE EL BACKEND
+    // ==========================================================
+    let finalIdOrden;
     try {
-        // Verificar que no exista una orden repetida en la tabla 'ordenes'
+        // Buscamos el último registro real de la tabla ordenes_servicio ordenando cronológicamente
+        const [lastRow] = await db.query(
+            "SELECT id_orden FROM ordenes_servicio WHERE id_orden LIKE 'ORD-%' ORDER BY fecha_creacion DESC, id_orden DESC LIMIT 1"
+        );
+        
+        let nextNum = 1; // Si es la primera orden de la base de datos, empieza en 1
+        
+        if (lastRow.length > 0) {
+            // Quitamos el prefijo 'ORD-' para quedarnos solo con el número puro
+            const lastNum = parseInt(lastRow[0].id_orden.replace('ORD-', ''), 10);
+            if (!isNaN(lastNum)) {
+                nextNum = lastNum + 1; // Sumamos 1 al consecutivo anterior
+            }
+        }
+        
+        // Formateamos para mantener la estructura limpia de 4 dígitos (Ej: ORD-0001, ORD-0461)
+        finalIdOrden = `ORD-${String(nextNum).padStart(4, '0')}`;
+        
+    } catch (errCon) {
+        console.error("❌ Error calculando el consecutivo:", errCon);
+        // Resguardo de emergencia por si falla la consulta del consecutivo
+        finalIdOrden = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    // ==========================================================
+
+    try {
+        // Verificar que no exista una orden repetida en la tabla
         const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [finalIdOrden]);
         if (existente.length > 0) {
             return res.status(409).json({ error: "Ya existe una orden con ese ID." });
@@ -622,8 +639,7 @@ if (!finalIdOrden) {
             return res.status(400).json({ error: "No se pudo despachar ninguna herramienta.", detalles: erroresDespacho });
         }
 
-        // 2. CORRECCIÓN CLAVE: INSERT EN LA TABLA REAL 'ordenes'
-        // Definimos exactamente 5 columnas dinámicas + 1 estática con NOW() = 6 columnas totales
+        // 2. INSERT EN LA TABLA REAL usando tu columna 'lugarTrabajo'
         const queryOrden = `
             INSERT INTO ordenes_servicio (
                 id_orden, 
@@ -636,13 +652,12 @@ if (!finalIdOrden) {
             VALUES (?, ?, ?, ?, NOW(), ?)
         `;
 
-        // Pasamos exactamente 5 valores correspondientes a los 5 signos de interrogación '?'
         const valoresOrden = [
             finalIdOrden,
             lugarTrabajo,
             'EN_CAMPO',
             usuario || 'Sistema',
-            despachoExitoso.length // <-- Pasamos el NÚMERO entero (ej: 2), NO el JSON
+            despachoExitoso.length 
         ];
 
         // Ejecutamos la inserción de la orden principal
@@ -657,7 +672,6 @@ if (!finalIdOrden) {
             );
         }
 
-        // Opcional: Si manejas la variable en memoria 'ordenesServicioActivas'
         if (typeof ordenesServicioActivas !== 'undefined') {
             ordenesServicioActivas[finalIdOrden] = {
                 idOrden: finalIdOrden,

@@ -905,7 +905,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
 
         const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
-            colaborador: o.lugarTrabajo,
+            lugarTrabajo: o.lugarTrabajo,
             fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0

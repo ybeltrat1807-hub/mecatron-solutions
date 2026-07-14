@@ -1323,7 +1323,7 @@ async function agregarHerramientaExtra() {
         const data = await res.json();
         if (res.ok) {
 
-            showToast(`🚀 Orden ${idOrden} generada con éxito`, 'success');
+            showToast(`🚀 Orden ${data.idOrden} generada con éxito`, 'success');
 
             // Limpiar carrito
             carritoServicios = [];

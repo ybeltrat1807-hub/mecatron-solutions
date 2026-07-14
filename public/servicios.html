@@ -733,61 +733,53 @@
 
             <!-- PASO 2: Herramientas -->
             <div class="grid-2col">
-    <!-- Columna 1: Herramientas Recomendadas -->
-    <div class="section-card">
-        <div class="card-header">
-            <h3>2. Herramientas Recomendadas</h3>
-            <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm">
-                <i class="fas fa-sync-alt"></i> Actualizar
-            </button>
-        </div>
-        <div id="herramientasRecomendadas">
-            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                Selecciona un servicio para ver las herramientas recomendadas
-            </p>
-        </div>
-    </div>
+                <div class="section-card">
+                    <div class="card-header">
+                        <h3>2. Herramientas Recomendadas</h3>
+                        <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
+                    </div>
+                    <div id="herramientasRecomendadas">
+                        <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                            Selecciona un servicio para ver las herramientas recomendadas
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-top">
+                        <label class="form-label fw-bold text-secondary">
+                        <i class="fas fa-tools"></i> Agregar herramientas adicionales de la bodega:
+                        </label>
+                        <div id="listaHerramientasAdicionales" class="border rounded p-2" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
+                    <div class="text-muted small text-center py-2">Cargando inventario completo...</div>
+                    </div>
+                </div>          
+                </div>
 
-    <!-- Columna 2: Herramientas Extras (Múltiple) -->
-    <div class="section-card">
-        <div class="card-header">
-            <h3>➕ Otras Herramientas Disponibles</h3>
+                <!-- PASO 3: Carrito y Orden -->
+                <div class="section-card">
+                    <div class="card-header">
+                        <h3>3. Confirmar Orden</h3>
+                    </div>
+                    <div class="carrito-container" id="carritoServicios">
+                        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
+                        <input type="text" id="lugarTrabajo" placeholder="Lugar de Trabajo">
+                    </div>
+
+                    <div class="carrito-actions">
+                    <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
+                    🗑️ Vaciar
+                    </button>
+                    <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
+                    <i class="fas fa-paper-plane"></i> Generar Orden
+                    </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Selecciona varias herramientas (Ctrl + clic)</label>
-            <select id="selectHerramientaExtra" class="form-control" multiple size="4" style="height: auto; min-height: 100px;">
-                <!-- Se llena dinámicamente -->
-            </select>
-        </div>
-        <button onclick="agregarHerramientasExtra()" class="btn btn-primary btn-block btn-sm">
-            <i class="fas fa-plus"></i> Agregar Seleccionadas al Carrito
-        </button>
-    </div>
-</div>
-<div class="section-card">
-    <div class="card-header">
-        <h3>3. Confirmar Orden</h3>
-    </div>
-    <div class="carrito-container" id="carritoServicios">
-        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
-    </div>
-
-    <div class="form-group">
-        <label>📍 Lugar de Trabajo</label>
-        <input type="text" id="tecnicoResponsable" placeholder="Ej: Taller Centro, Cliente Juan Pérez, etc.">
-    </div>
-
-    <div class="carrito-actions">
-        <button onclick="vaciarCarritoServicios()" class="btn" style="background: var(--danger); color: white;">
-            🗑️ Vaciar
-        </button>
-        <button onclick="generarOrdenServicio()" class="btn btn-success">
-            <i class="fas fa-paper-plane"></i> Generar Orden
-        </button>
-    </div>
-</div>
-
-                
 
         <!-- ========================================== -->
         <!-- SUBMÓDULO 2: REINTEGRO DE HERRAMIENTAS     -->
@@ -995,10 +987,10 @@
 function cambiarSubmodulo(idPantalla) {
     // Ocultar el menú principal
     document.getElementById('submenuPrincipal').style.display = 'none';
-    
+
     // Ocultar todas las pantallas
     document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-    
+
     // Mostrar la pantalla seleccionada
     document.getElementById(idPantalla).classList.add('active');
 
@@ -1018,10 +1010,10 @@ function cambiarSubmodulo(idPantalla) {
 function regresarSubmenu() {
     // Ocultar todas las pantallas
     document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-    
+
     // Mostrar el menú principal
     document.getElementById('submenuPrincipal').style.display = 'grid';
-    
+
     // Ocultar secciones secundarias
     document.getElementById('seccionReingreso').style.display = 'none';
     document.getElementById('seccionProcesarReparacion').style.display = 'none';
@@ -1043,7 +1035,7 @@ function regresarSubmenu() {
 // ==========================================
 async function mostrarHerramientasRecomendadas(servicio) {
     const container = document.getElementById('herramientasRecomendadas');
-    
+
     container.innerHTML = `
         <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
             <i class="fas fa-spinner fa-spin"></i> Cargando herramientas...
@@ -1115,7 +1107,7 @@ async function mostrarHerramientasRecomendadas(servicio) {
         function toggleHerramienta(id) {
             const checkbox = document.getElementById(`herramienta_${id}`);
             const herramienta = herramientasDisponibles.find(h => h.id === id);
-            
+
             if (!herramienta) return;
 
             if (checkbox.checked) {
@@ -1130,7 +1122,7 @@ async function mostrarHerramientasRecomendadas(servicio) {
                 carritoServicios = carritoServicios.filter(h => h.id !== id);
                 showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
             }
-            
+
             renderizarCarritoServicios();
         }
 
@@ -1141,10 +1133,10 @@ async function cargarHerramientasAdicionales() {
     try {
         const res = await fetch(`${API_URL}/api/servicios/inventario`);
         if (!res.ok) throw new Error('No se pudo obtener el inventario');
-        
+
         const inventario = await res.json();
         const contenedor = document.getElementById('listaHerramientasAdicionales');
-        
+
         if (!contenedor) return;
         contenedor.innerHTML = ''; // Limpiamos el cargando
 
@@ -1156,10 +1148,10 @@ async function cargarHerramientasAdicionales() {
         inventario.forEach(item => {
             // Evaluamos disponibilidad para deshabilitar si no hay stock o está dañado
             const estaDisponible = item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0;
-            
+
             const divFila = document.createElement('div');
             divFila.className = `d-flex align-items-center justify-content-between p-2 mb-1 rounded bg-white border-bottom ${!estaDisponible ? 'opacity-50' : ''}`;
-            
+
             divFila.innerHTML = `
                 <div class="form-check m-0">
                     <input class="form-check-input checkbox-adicional" 
@@ -1195,7 +1187,7 @@ async function cargarHerramientasAdicionales() {
         // ==========================================
         function renderizarCarritoServicios() {
             const container = document.getElementById('carritoServicios');
-            
+
             if (carritoServicios.length === 0) {
                 container.innerHTML = '<div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>';
                 return;
@@ -1218,11 +1210,11 @@ async function cargarHerramientasAdicionales() {
         function eliminarDelCarritoServicios(id) {
             const item = carritoServicios.find(h => h.id === id);
             if (!item) return;
-            
+
             carritoServicios = carritoServicios.filter(h => h.id !== id);
             renderizarCarritoServicios();
             showToast(`🗑️ ${item.nombre} eliminado del carrito`, 'info');
-            
+
             const checkbox = document.getElementById(`herramienta_${id}`);
             if (checkbox) checkbox.checked = false;
         }
@@ -1235,7 +1227,7 @@ async function cargarHerramientasAdicionales() {
                 showToast('El carrito ya está vacío', 'info');
                 return;
             }
-            
+
             if (confirm('⚠️ ¿Estás seguro de vaciar el carrito?')) {
                 carritoServicios.forEach(item => {
                     const checkbox = document.getElementById(`herramienta_${item.id}`);
@@ -1344,7 +1336,7 @@ async function cargarHerramientasAdicionales() {
 
         // 🚀 NUEVO: Desmarcar los adicionales seleccionados y recargar la lista
         document.querySelectorAll('.checkbox-adicional').forEach(cb => cb.checked = false);
-        
+
         await cargarHerramientasAdicionales(); // Recargamos stock visual
         await cargarOrdenesActivas();
 
@@ -1368,7 +1360,7 @@ async function cargarHerramientasAdicionales() {
 }
     async function cargarOrdenesActivas() {
     const container = document.getElementById('ordenesActivas');
-    
+
     container.innerHTML = `
         <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
             <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
@@ -1436,7 +1428,7 @@ async function cargarHerramientasAdicionales() {
                 }
 
                 ordenActivaReingreso = data;
-                
+
                 const seccion = document.getElementById('seccionReingreso');
                 seccion.style.display = 'block';
                 seccion.scrollIntoView({ behavior: 'smooth' });
@@ -1503,7 +1495,7 @@ async function confirmarReingreso(idOrden, btn) {
     });
 
     const tieneNovedad = Object.values(novedades).some(v => v !== 'OK');
-    
+
     if (!tieneNovedad) {
         if (!confirm('✅ Todas las herramientas están OK. ¿Confirmar reingreso?')) {
             return;
@@ -1516,7 +1508,7 @@ async function confirmarReingreso(idOrden, btn) {
                 const icono = estado === 'DAÑO' ? '🔧' : '❌';
                 return `${icono} ${herramienta.nombre}: ${estado}`;
             }).join('\n');
-        
+
         if (!confirm(`⚠️ Se reportaron las siguientes novedades:\n\n${mensaje}\n\n¿Confirmar reingreso?`)) {
             return;
         }
@@ -1539,11 +1531,11 @@ async function confirmarReingreso(idOrden, btn) {
         if (res.ok) {
             showToast(`✅ Reingreso de ${idOrden} completado con éxito`, 'success');
             cerrarReingreso();
-            
+
             // ⭐ RECARGAR TODO EN ORDEN
             cargarOrdenesActivas();
             await cargarHerramientas();
-            
+
             // ⭐ USAR EL INVENTARIO GENERAL EN VEZ DEL ENDPOINT ESPECÍFICO
             // Recargar herramientas en reparación desde el inventario
             await cargarHerramientasEnReparacion();
@@ -1573,22 +1565,25 @@ async function confirmarReingreso(idOrden, btn) {
 // ==========================================================
 async function cargarHerramientas() {
     try {
-        // 🔥 CORREGIDO: eliminar el '/api' extra
-        const res = await fetch(`${API_URL}/servicios/inventario`);
+        const res = await fetch(`${API_URL}/api/servicios/inventario`);
         if (!res.ok) throw new Error('No se pudo obtener el inventario');
-        
+
         const inventario = await res.json();
-        
-        // Buscar el selector de herramientas adicionales
+
+        // 1. Buscamos el elemento viejo que usaba tu selector desplegable
+        // Reemplaza 'selectHerramientas' por el ID exacto que tenías antes si era diferente
         const selectElement = document.getElementById('selectHerramientasAdicionales') || document.getElementById('selectHerramientas');
-        
+
+        // 🚀 CONTROL DE ERRORES CLAVE: Si el elemento ya no existe en el HTML,
+        // simplemente salimos de la función sin romper el resto de scripts.
         if (!selectElement) {
             console.warn("⚠️ El selector desplegable de herramientas ya no está en el HTML, omitiendo llenado.");
             return; 
         }
 
+        // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
         selectElement.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
-        
+
         inventario.forEach(item => {
             if (item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0) {
                 const option = document.createElement('option');
@@ -1634,10 +1629,10 @@ async function cargarHerramientasEnReparacion() {
         container.innerHTML = herramientasFiltradas.map(h => {
             const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
             const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
-            
+
             // 👇 NUEVA CONDICIÓN: Mostrar botón SOLO si está en reparación
             const mostrarBoton = h.estado === 'EN_REPARACION';
-            
+
             return `
                 <div class="orden-item" style="border-left: 4px solid ${color};">
                     <div class="orden-info">
@@ -1816,7 +1811,7 @@ async function cargarHerramientasEnReparacion() {
 async function cargarAgendamientos() {
     const container = document.getElementById('listaAgendamientos');
     const filtro = document.getElementById('filtroEstadoAgendamiento').value;
-    
+
     container.innerHTML = `
         <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
             <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
@@ -1841,7 +1836,7 @@ async function cargarAgendamientos() {
                                a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
             const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : 
                               a.estado === 'COMPLETADO' ? '✅' : '❌';
-            
+
             // Mostrar botones según estado
             let botones = '';
             if (a.estado === 'PENDIENTE') {
@@ -1999,6 +1994,14 @@ async function cancelarAgendamiento(id) {
         // INICIALIZACIÓN
         // ==========================================
         window.onload = async function() {
+            await cargarHerramientas();
+            
+            // Cargar automáticamente el primer servicio
+            const primerServicio = document.querySelector('.servicio-item');
+            if (primerServicio) {
+                primerServicio.click();
+            }
+        };
     console.log("⚙️ Cargando componentes de la página...");
     
     // ... conserva las otras funciones de carga que ya tengas aquí ...
@@ -2010,9 +2013,6 @@ async function cancelarAgendamiento(id) {
     if (typeof cargarHerramientasAdicionales === 'function') {
         await cargarHerramientasAdicionales();
     }
-
-    // ... conserva el resto de tu window.onload ...
-};
 
         // ==========================================
         // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)

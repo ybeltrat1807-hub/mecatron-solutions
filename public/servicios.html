@@ -1297,9 +1297,6 @@ async function agregarHerramientaExtra() {
 
     // Generar consecutivo
     const idsSeleccionadas = carritoServicios.map(h => h.id);
-
-    const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
-
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
     btn.disabled = true;
@@ -1312,7 +1309,6 @@ async function agregarHerramientaExtra() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                idOrden,
                 lugarTrabajo: tecnico, // CORRECCIÓN CLAVE: Enviado como lugarTrabajo para que el backend lo reciba
                 idsSeleccionadas,
                 idsAdicionales: [],

@@ -1158,10 +1158,9 @@ app.post('/api/auth/verificar', async (req, res) => {
     }
 
     try {
-        // CORRECCIÓN: Usamos llaves { rows } en vez de corchetes [rows] para Postgres
-        // NOTA: Si tu columna 'activo' en Supabase es Boolean, cambiamos 'activo = 1' por 'activo = true'
+        // CORRECCIÓN: Volvemos a colocar 'activo = 1' porque tu columna en Supabase es 'int4' (entero)
         const { rows } = await db.query(
-            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = $1 AND activo = true',
+            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = $1 AND activo = 1',
             [codigo]
         );
 
@@ -1185,11 +1184,6 @@ app.post('/api/auth/verificar', async (req, res) => {
         console.error('Error al verificar usuario:', error);
         res.status(500).json({ error: "Error interno al verificar." });
     }
-})
-app.get('/api/auth/verificar', (req, res) => {
-    res.status(405).json({ 
-        error: "Has intentado acceder con GET. Este endpoint requiere una petición POST." 
-    });
 });
 // =================================================================
 //   REPORTES DE COSTOS VS UTILIDAD

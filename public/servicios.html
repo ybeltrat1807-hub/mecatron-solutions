@@ -733,62 +733,61 @@
 
             <!-- PASO 2: Herramientas -->
             <div class="grid-2col">
-                <div class="section-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-toolbox"></i> 2. Selección de Herramientas</h3>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="form-label fw-bold text-secondary m-0" style="font-size: 0.85rem;">
-                                <i class="fas fa-magic text-warning"></i> Recomendadas por el sistema:
-                            </label>
-                            <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">
-                                <i class="fas fa-sync-alt"></i> Actualizar
-                            </button>
-                        </div>
-                        <div id="herramientasRecomendadas" class="p-2 border rounded bg-light">
-                            <p style="color: var(--text-light); text-align: center; padding: 1rem; margin: 0; font-size: 0.85rem;">
-                                Selecciona un servicio para ver las herramientas recomendadas
-                            </p>
-                        </div>
-                    </div>
+    <!-- Columna 1: Herramientas Recomendadas -->
+    <div class="section-card">
+        <div class="card-header">
+            <h3>2. Herramientas Recomendadas</h3>
+            <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+        </div>
+        <div id="herramientasRecomendadas">
+            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                Selecciona un servicio para ver las herramientas recomendadas
+            </p>
+        </div>
+    </div>
 
-                    <hr class="my-3" style="border-top: 1px solid #E8ECF1;">
+    <!-- Columna 2: Herramientas Extras (Múltiple) -->
+    <div class="section-card">
+        <div class="card-header">
+            <h3>➕ Otras Herramientas Disponibles</h3>
+        </div>
+        <div class="form-group">
+            <label>Selecciona varias herramientas (Ctrl + clic)</label>
+            <select id="selectHerramientaExtra" class="form-control" multiple size="4" style="height: auto; min-height: 100px;">
+                <!-- Se llena dinámicamente -->
+            </select>
+        </div>
+        <button onclick="agregarHerramientasExtra()" class="btn btn-primary btn-block btn-sm">
+            <i class="fas fa-plus"></i> Agregar Seleccionadas al Carrito
+        </button>
+    </div>
+</div>
+<div class="section-card">
+    <div class="card-header">
+        <h3>3. Confirmar Orden</h3>
+    </div>
+    <div class="carrito-container" id="carritoServicios">
+        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
+    </div>
 
-                    <div>
-                        <label class="form-label fw-bold text-secondary mb-2" style="font-size: 0.85rem;">
-                            <i class="fas fa-warehouse text-info"></i> Otras herramientas disponibles en Bodega:
-                        </label>
-                        <div id="listaHerramientasAdicionales" class="border rounded p-1" style="max-height: 180px; overflow-y: auto; background-color: #ffffff;">
-                            <div class="text-muted small text-center py-2">Cargando herramientas disponibles...</div>
-                        </div>
-                    </div>
-                </div>
+    <div class="form-group">
+        <label>📍 Lugar de Trabajo</label>
+        <input type="text" id="tecnicoResponsable" placeholder="Ej: Taller Centro, Cliente Juan Pérez, etc.">
+    </div>
 
-                <div class="section-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-shopping-cart"></i> 3. Confirmar Orden</h3>
-                    </div>
-                    <div class="carrito-container" id="carritoServicios">
-                        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
-                    </div>
+    <div class="carrito-actions">
+        <button onclick="vaciarCarritoServicios()" class="btn" style="background: var(--danger); color: white;">
+            🗑️ Vaciar
+        </button>
+        <button onclick="generarOrdenServicio()" class="btn btn-success">
+            <i class="fas fa-paper-plane"></i> Generar Orden
+        </button>
+    </div>
+</div>
 
-                    <div class="form-group">
-                        <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
-                        <input type="text" id="lugarTrabajo" placeholder="Lugar de Trabajo">
-                    </div>
-
-                    <div class="carrito-actions">
-                        <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
-                            🗑️ Vaciar
-                        </button>
-                        <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
-                            <i class="fas fa-paper-plane"></i> Generar Orden
-                        </button>
-                    </div>
-                </div>
-            </div>
+                
 
         <!-- ========================================== -->
         <!-- SUBMÓDULO 2: REINTEGRO DE HERRAMIENTAS     -->
@@ -1574,23 +1573,20 @@ async function confirmarReingreso(idOrden, btn) {
 // ==========================================================
 async function cargarHerramientas() {
     try {
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
+        // 🔥 CORREGIDO: eliminar el '/api' extra
+        const res = await fetch(`${API_URL}/servicios/inventario`);
         if (!res.ok) throw new Error('No se pudo obtener el inventario');
         
         const inventario = await res.json();
         
-        // 1. Buscamos el elemento viejo que usaba tu selector desplegable
-        // Reemplaza 'selectHerramientas' por el ID exacto que tenías antes si era diferente
+        // Buscar el selector de herramientas adicionales
         const selectElement = document.getElementById('selectHerramientasAdicionales') || document.getElementById('selectHerramientas');
         
-        // 🚀 CONTROL DE ERRORES CLAVE: Si el elemento ya no existe en el HTML,
-        // simplemente salimos de la función sin romper el resto de scripts.
         if (!selectElement) {
             console.warn("⚠️ El selector desplegable de herramientas ya no está en el HTML, omitiendo llenado.");
             return; 
         }
 
-        // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
         selectElement.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
         
         inventario.forEach(item => {

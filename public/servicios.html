@@ -1994,14 +1994,20 @@ async function cancelarAgendamiento(id) {
         // INICIALIZACIÓN
         // ==========================================
         window.onload = async function() {
-            await cargarHerramientas();
-            
-            // Cargar automáticamente el primer servicio
-            const primerServicio = document.querySelector('.servicio-item');
-            if (primerServicio) {
-                primerServicio.click();
-            }
-        };
+    console.log("⚙️ Cargando componentes de la página...");
+    
+    // ... conserva las otras funciones de carga que ya tengas aquí ...
+
+    // 1. Llamamos a la función vieja (que simplemente pasará de largo de forma segura)
+    await cargarHerramientas(); 
+
+    // 🚀 2. NUEVO: Llamamos a la nueva función para que rellene los checkboxes adicionales
+    if (typeof cargarHerramientasAdicionales === 'function') {
+        await cargarHerramientasAdicionales();
+    }
+
+    // ... conserva el resto de tu window.onload ...
+};
 
         // ==========================================
         // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)

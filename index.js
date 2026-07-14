@@ -673,6 +673,7 @@ app.post('/api/servicios/salida', async (req, res) => {
             mensaje: `🚀 Despacho operativo procesado con éxito para: ${lugarTrabajo}.`,
             idOrden: finalIdOrden,
             totalHerramientas: despachoExitoso.length,
+            lugarTrabajo: lugarTrabajo,
             alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
         });
 

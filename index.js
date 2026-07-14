@@ -1185,11 +1185,11 @@ app.post('/api/auth/verificar', async (req, res) => {
         console.error('Error al verificar usuario:', error);
         res.status(500).json({ error: "Error interno al verificar." });
     }
-});
-
-// Obtener datos del usuario actual (para el panel)
-app.get('/api/auth/usuario', async (req, res) => {
-    res.json({ mensaje: "Usuario autenticado" });
+})
+app.get('/api/auth/verificar', (req, res) => {
+    res.status(405).json({ 
+        error: "Has intentado acceder con GET. Este endpoint requiere una petición POST." 
+    });
 });
 // =================================================================
 //   REPORTES DE COSTOS VS UTILIDAD

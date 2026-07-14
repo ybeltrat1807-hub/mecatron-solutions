@@ -333,7 +333,7 @@
                 const res = await fetch('/api/auth/verificar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codigo: codigoIngresado })
+                    body: JSON.stringify({ codigo })
                 });
 
                 const data = await res.json();

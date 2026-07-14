@@ -1,0 +1,5 @@
+# Credenciales y variables de entorno
+.env
+
+# Dependencias de Node (no deben subirse nunca porque son muy pesadas)
+node_modules/

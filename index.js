@@ -164,7 +164,7 @@ app.post('/api/preventa/salida', async (req, res) => {
         // Validar y obtener datos de la BD
         for (const item of productosCarrito) {
             const [rows] = await db.query(
-                'SELECT nombre, stock, costo, precio_venta FROM inventario_venta WHERE id = ?',
+                'SELECT nombre, stock, costo, precio_venta FROM inventario_venta WHERE id = $1',
                 [item.idProducto]
             );
             
@@ -608,7 +608,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
         // Procesar cada herramienta en el inventario
         for (const id of todasLasHerramientas) {
-            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = ?', [id]);
+            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
             
             if (rows.length === 0) {
                 erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
@@ -798,7 +798,7 @@ app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
 app.get('/api/servicios/herramienta/:id', async (req, res) => {
     try {
         const [rows] = await db.query(
-            'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = ?',
+            'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = $1',
             [req.params.id]
         );
         
@@ -1074,7 +1074,7 @@ app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
 app.get('/api/servicios/herramienta/:id', async (req, res) => {
     try {
         const [rows] = await db.query(
-            'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = ?',
+            'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = $1',
             [req.params.id]
         );
         
@@ -1100,7 +1100,7 @@ app.post('/api/servicios/procesar-reparacion', async (req, res) => {
 
     try {
         const [rows] = await db.query(
-            'SELECT nombre, estado FROM inventario_uso_servicio WHERE id = ?',
+            'SELECT nombre, estado FROM inventario_uso_servicio WHERE id = $1',
             [herramientaId]
         );
 
@@ -1159,7 +1159,7 @@ app.post('/api/auth/verificar', async (req, res) => {
 
     try {
         const [rows] = await db.query(
-            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = ? AND activo = 1',
+            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = $1 AND activo = 1',
             [codigo]
         );
 
@@ -1727,7 +1727,7 @@ app.get('/api/inventario', async (req, res) => {
             } else if (tipo === 'SERVICIO') {
                 const servicioQuery = `SELECT id, nombre, "SERVICIO" as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio`;
                 const [rows] = await db.query(
-                    buscar ? `${servicioQuery} WHERE nombre LIKE ?` : servicioQuery,
+                    buscar ? `${servicioQuery} WHERE nombre LIKE $1` : servicioQuery,
                     buscar ? [`%${buscar}%`] : []
                 );
                 return res.json({ productos: rows });

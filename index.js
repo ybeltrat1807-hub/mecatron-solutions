@@ -28,7 +28,7 @@ app.get('/api/test', (req, res) => {
 app.get('/api/test-db', async (req, res) => {
     try {
         console.log('🔍 Probando conexión a la BD...');
-        const [rows] = await db.query('SELECT 1 as test');
+        const { rows } = await db.query('SELECT 1 as test');
         res.json({ 
             success: true, 
             message: 'Conexión exitosa a la BD', 
@@ -79,7 +79,7 @@ let contadorRemisiones = 0;
 // Función para inicializar el contador desde la BD
 async function inicializarContadorRemisiones() {
     try {
-        const [rows] = await db.query('SELECT COUNT(*) as total FROM remisiones');
+        const {rows} = await db.query('SELECT COUNT(*) as total FROM remisiones');
         contadorRemisiones = rows[0].total || 0;
         console.log(`📊 Contador de remisiones inicializado en: ${contadorRemisiones}`);
     } catch (error) {
@@ -112,7 +112,7 @@ async function generarIdRemisionUnico(conn = null, maxAttempts = 10) {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         // Obtener la última remisión por orden lexicográfico (se asume formato REM-####)
-        const [rows] = await query("SELECT id_remision FROM remisiones ORDER BY id_remision DESC LIMIT 1");
+        const { rows }  = await query("SELECT id_remision FROM remisiones ORDER BY id_remision DESC LIMIT 1");
         let nextNum = 1;
         if (rows && rows.length) {
             const last = rows[0].id_remision || '';
@@ -163,7 +163,7 @@ app.post('/api/preventa/salida', async (req, res) => {
 
         // Validar y obtener datos de la BD
         for (const item of productosCarrito) {
-            const [rows] = await db.query(
+            const { rows } = await db.query(
                 'SELECT nombre, stock, costo, precio_venta FROM inventario_venta WHERE id = $1',
                 [item.idProducto]
             );
@@ -608,7 +608,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
         // Procesar cada herramienta en el inventario
         for (const id of todasLasHerramientas) {
-            const [rows] = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
+            const { rows } = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
             
             if (rows.length === 0) {
                 erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
@@ -781,7 +781,7 @@ app.get('/api/servicios/inventario', async (req, res) => {
 // HERRAMIENTAS EN REPARACIÓN
 app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             `SELECT id, nombre, stock_total, disponibles, estado, observaciones 
              FROM inventario_uso_servicio 
              WHERE estado IN ('EN_REPARACION', 'DADO_BAJA')
@@ -797,7 +797,7 @@ app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
 // HERRAMIENTA ESPECÍFICA
 app.get('/api/servicios/herramienta/:id', async (req, res) => {
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = $1',
             [req.params.id]
         );
@@ -980,7 +980,7 @@ app.get('/api/servicios/stock-bajo', async (req, res) => {
 // 1. Contar productos en inventario_venta
 app.get('/api/ventas/total-productos', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT COUNT(*) as total FROM inventario_venta');
+        const { rows } = await db.query('SELECT COUNT(*) as total FROM inventario_venta');
         res.json({ total: rows[0].total || 0 });
     } catch (error) {
         console.error('Error al contar productos:', error);
@@ -991,7 +991,7 @@ app.get('/api/ventas/total-productos', async (req, res) => {
 // 2. Productos con stock bajo (menos de 5) en inventario_venta
 app.get('/api/ventas/stock-bajo', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT COUNT(*) as total FROM inventario_venta WHERE stock < 5');
+        const { rows }   = await db.query('SELECT COUNT(*) as total FROM inventario_venta WHERE stock < 5');
         res.json({ total: rows[0].total || 0 });
     } catch (error) {
         console.error('Error al contar stock bajo:', error);
@@ -1056,7 +1056,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
 // =================================================================
 app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             `SELECT id, nombre, stock_total, disponibles, estado, observaciones 
              FROM inventario_uso_servicio 
              WHERE estado IN ('EN_REPARACION', 'DADO_BAJA')
@@ -1073,7 +1073,7 @@ app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
 // =================================================================
 app.get('/api/servicios/herramienta/:id', async (req, res) => {
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             'SELECT id, nombre, disponibles, estado, observaciones FROM inventario_uso_servicio WHERE id = $1',
             [req.params.id]
         );
@@ -1099,7 +1099,7 @@ app.post('/api/servicios/procesar-reparacion', async (req, res) => {
     }
 
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             'SELECT nombre, estado FROM inventario_uso_servicio WHERE id = $1',
             [herramientaId]
         );
@@ -1158,8 +1158,10 @@ app.post('/api/auth/verificar', async (req, res) => {
     }
 
     try {
-        const [rows] = await db.query(
-            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = $1 AND activo = 1',
+        // CORRECCIÓN: Usamos llaves { rows } en vez de corchetes [rows] para Postgres
+        // NOTA: Si tu columna 'activo' en Supabase es Boolean, cambiamos 'activo = 1' por 'activo = true'
+        const { rows } = await db.query(
+            'SELECT id, nombre, codigo, rol FROM usuarios WHERE codigo = $1 AND activo = true',
             [codigo]
         );
 
@@ -1187,8 +1189,6 @@ app.post('/api/auth/verificar', async (req, res) => {
 
 // Obtener datos del usuario actual (para el panel)
 app.get('/api/auth/usuario', async (req, res) => {
-    // Este endpoint se usa para obtener el usuario desde la sesión
-    // Como no tenemos sesión persistente, usamos el sessionStorage del frontend
     res.json({ mensaje: "Usuario autenticado" });
 });
 // =================================================================
@@ -1444,7 +1444,7 @@ app.post('/api/reportes/costos-utilidad', async (req, res) => {
 // 1. Obtener resumen financiero
 app.get('/api/financiero/resumen', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
+        const { rows } = await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
         if (rows.length === 0) {
             return res.json({ total_ganado: 0, total_reinvertido: 0, total_disponible: 0 });
         }
@@ -1541,7 +1541,7 @@ app.post('/api/financiero/reinvertir', async (req, res) => {
 // 4. Historial de movimientos
 app.get('/api/financiero/historial', async (req, res) => {
     try {
-        const [rows] = await db.query(
+        const { rows } = await db.query(
             'SELECT * FROM movimientos_financieros ORDER BY fecha_movimiento DESC LIMIT 100'
         );
         res.json({ movimientos: rows });
@@ -1621,7 +1621,7 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
     query += ' ORDER BY fecha ASC, hora ASC';
 
     try {
-        const [rows] = await db.query(query, params);
+        const { rows } = await db.query(query, params);
         res.json({ agendamientos: rows });
     } catch (error) {
         console.error('Error al obtener agendamientos:', error);
@@ -1719,14 +1719,14 @@ app.get('/api/inventario', async (req, res) => {
             // Si se filtra por tipo, solo consultamos esa tabla
             if (tipo === 'VENTA') {
                 const ventaQuery = `SELECT id, nombre, "VENTA" as tipo, stock, costo, precio_venta, "DISPONIBLE" as estado FROM inventario_venta`;
-                const [rows] = await db.query(
+                const { rows } = await db.query(
                     buscar ? `${ventaQuery} WHERE nombre LIKE ?` : ventaQuery,
                     buscar ? [`%${buscar}%`] : []
                 );
                 return res.json({ productos: rows });
             } else if (tipo === 'SERVICIO') {
                 const servicioQuery = `SELECT id, nombre, "SERVICIO" as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio`;
-                const [rows] = await db.query(
+                const { rows } = await db.query(
                     buscar ? `${servicioQuery} WHERE nombre LIKE $1` : servicioQuery,
                     buscar ? [`%${buscar}%`] : []
                 );
@@ -1750,7 +1750,7 @@ app.get('/api/inventario', async (req, res) => {
         
         fullQuery += ' ORDER BY nombre';
         
-        const [rows] = await db.query(fullQuery, params);
+        const { rows } = await db.query(fullQuery, params);
         res.json({ productos: rows });
         
     } catch (error) {
@@ -1872,7 +1872,7 @@ const server = app.listen(PORT, () => {
 // Sincronizar contadorRemisiones con la BD al iniciar el servidor (opcional pero recomendable)
 (async function syncContadorRemisiones() {
     try {
-        const [rows] = await db.query("SELECT id_remision FROM remisiones ORDER BY id_remision DESC LIMIT 1");
+        const {rows} = await db.query("SELECT id_remision FROM remisiones ORDER BY id_remision DESC LIMIT 1");
         if (rows && rows.length) {
             const last = rows[0].id_remision || '';
             const m = last.match(/(\d+)$/);

@@ -188,10 +188,10 @@ app.post('/api/preventa/salida', async (req, res) => {
             });
         }
 
-        // Descontar de la BD
+        // Descontar de la BD (CORREGIDO PARA POSTGRES: $1, $2)
         for (const item of productosValidados) {
             await db.query(
-                'UPDATE inventario_venta SET stock = stock - ? WHERE id = ?',
+                'UPDATE inventario_venta SET stock = stock - $1 WHERE id = $2',
                 [item.cantidadCargadaInicial, item.idProducto]
             );
         }
@@ -208,18 +208,18 @@ app.post('/api/preventa/salida', async (req, res) => {
         remisionesVentaActivas[idRemision] = remision;
 
         // === Guardar en la base de datos ===
-        // 1. Guardar la remisión
+        // 1. Guardar la remisión (CORREGIDO PARA POSTGRES: $1, $2, $3, $4)
         await db.query(
-            'INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion) VALUES (?, ?, ?, ?)',
+            'INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion) VALUES ($1, $2, $3, $4)',
             [idRemision, new Date(), 'ACTIVA', usuario || 'Sistema']
         );
 
-        // 2. Guardar los productos de la remisión
+        // 2. Guardar los productos de la remisión (CORREGIDO PARA POSTGRES: $1 al $7)
         for (const item of productosValidados) {
             await db.query(
                 `INSERT INTO remisiones_productos 
                  (id_remision, id_producto, nombre, cantidad_cargada, cantidad_vendida, costo_unidad, precio_venta_unidad) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     idRemision,
                     item.idProducto,

@@ -56,8 +56,6 @@ self.addEventListener('fetch', event => {
         url.pathname.includes('firestore') || 
         url.hostname.includes('supabase') ||
         url.pathname.includes('/v1/')) { // Ajusta este condicional según tu backend si es necesario
-        
-        console.log('🚫 API Bypass (Fuerza Red):', url.pathname);
         return; // Al retornar vacío, el navegador maneja la petición directo por internet
     }
 

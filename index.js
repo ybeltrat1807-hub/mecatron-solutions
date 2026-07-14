@@ -568,7 +568,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
     // Si tu frontend no genera un idOrden, lo creamos aquí dinámicamente estilo ORD-1234
     let finalIdOrden = idOrden;
-    if (!finalIdOrden) {
+if (!finalIdOrden) {
     const [lastRow] = await db.query(
         "SELECT id_orden FROM ordenes_servicio WHERE id_orden LIKE 'ORD-%' ORDER BY CAST(SUBSTRING(id_orden, 5) AS UNSIGNED) DESC LIMIT 1"
     );

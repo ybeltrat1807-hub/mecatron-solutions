@@ -1559,31 +1559,28 @@ async function confirmarReingreso(idOrden, btn) {
             document.getElementById('reingresoContent').innerHTML = '';
             ordenActivaReingreso = null;
         }
-
 // ==========================================================
 // FRONTEND: CARGAR HERRAMIENTAS (VERSIÓN SEGURA)
 // ==========================================================
 async function cargarHerramientas() {
     try {
         const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        if (!res.ok) throw new Error('No se pudo obtener el inventario');
-
+         if (!res.ok) throw new Error('No se pudo obtener el inventario');
         const inventario = await res.json();
 
         // 1. Buscamos el elemento viejo que usaba tu selector desplegable
         // Reemplaza 'selectHerramientas' por el ID exacto que tenías antes si era diferente
         const selectElement = document.getElementById('selectHerramientasAdicionales') || document.getElementById('selectHerramientas');
-
+        
         // 🚀 CONTROL DE ERRORES CLAVE: Si el elemento ya no existe en el HTML,
         // simplemente salimos de la función sin romper el resto de scripts.
         if (!selectElement) {
             console.warn("⚠️ El selector desplegable de herramientas ya no está en el HTML, omitiendo llenado.");
             return; 
         }
-
-        // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
+          // Si el elemento existe, lo limpiamos y llenamos como siempre lo hacías:
         selectElement.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
-
+        
         inventario.forEach(item => {
             if (item.estado === 'DISPONIBLE' && Number(item.disponibles) > 0) {
                 const option = document.createElement('option');
@@ -1595,7 +1592,7 @@ async function cargarHerramientas() {
 
     } catch (error) {
         console.error('❌ Error al cargar herramientas:', error);
-    }
+          }
 }
 // ==========================================
 // CARGAR HERRAMIENTAS EN REPARACIÓN (CORREGIDO)
@@ -1995,24 +1992,13 @@ async function cancelarAgendamiento(id) {
         // ==========================================
         window.onload = async function() {
             await cargarHerramientas();
-            
+
             // Cargar automáticamente el primer servicio
             const primerServicio = document.querySelector('.servicio-item');
             if (primerServicio) {
                 primerServicio.click();
             }
         };
-    console.log("⚙️ Cargando componentes de la página...");
-    
-    // ... conserva las otras funciones de carga que ya tengas aquí ...
-
-    // 1. Llamamos a la función vieja (que simplemente pasará de largo de forma segura)
-    await cargarHerramientas(); 
-
-    // 🚀 2. NUEVO: Llamamos a la nueva función para que rellene los checkboxes adicionales
-    if (typeof cargarHerramientasAdicionales === 'function') {
-        await cargarHerramientasAdicionales();
-    }
 
         // ==========================================
         // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)

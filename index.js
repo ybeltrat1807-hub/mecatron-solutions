@@ -885,10 +885,13 @@ app.post('/api/servicios/procesar-reparacion', async (req, res) => {
 // ENDPOINT AUXILIAR: Trae los productos de venta para los selectores del frontend
 app.get('/api/preventa/productos-lista', async (req, res) => {
     try {
-        const [filas] = await db.query('SELECT id, nombre, stock FROM inventario_venta WHERE stock > 0');
-        res.json(filas);
+        // CORRECCIÓN: Usamos exactamente "inventario_venta"
+        const { rows } = await db.query('SELECT id, nombre, stock, costo, precio_venta FROM inventario_venta'); 
+        
+        res.json(rows);
     } catch (error) {
-        res.status(500).json({ error: "Error al leer productos de venta." });
+        console.error('Error en productos-lista:', error);
+        res.status(500).json({ error: 'Error al obtener productos' });
     }
 });
 // =================================================================

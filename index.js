@@ -1027,96 +1027,69 @@ app.get('/api/servicios/stock-bajo', async (req, res) => {
 //   ENDPOINTS PARA ESTADÍSTICAS DEL PANEL (SOLO VENTAS)
 // =================================================================
 
-// 1. Contar productos en inventario_venta
+// 📊 1. TOTAL DE PRODUCTOS EN INVENTARIO
 app.get('/api/ventas/total-productos', async (req, res) => {
     try {
+        // Cuenta el total de productos registrados en el inventario
         const { rows } = await db.query('SELECT COUNT(*) as total FROM inventario_venta');
-        res.json({ total: rows[0].total || 0 });
+        const total = parseInt(rows[0].total, 10) || 0;
+        res.json({ total });
     } catch (error) {
-        console.error('Error al contar productos:', error);
-        res.status(500).json({ error: "Error al consultar productos" });
+        console.error("Error en total-productos:", error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// 2. Productos con stock bajo (menos de 5) en inventario_venta
+// ⚠️ 2. PRODUCTOS CON STOCK BAJO (Alertas de Stock)
 app.get('/api/ventas/stock-bajo', async (req, res) => {
     try {
-        const { rows }   = await db.query('SELECT COUNT(*) as total FROM inventario_venta WHERE stock < 5');
-        res.json({ total: rows[0].total || 0 });
+        // Cuenta cuántos productos tienen stock menor o igual a 5 (ajusta este número si usas otro límite)
+        const { rows } = await db.query('SELECT COUNT(*) as total FROM inventario_venta WHERE stock <= 5');
+        const total = parseInt(rows[0].total, 10) || 0;
+        res.json({ total });
     } catch (error) {
-        console.error('Error al contar stock bajo:', error);
-        res.status(500).json({ error: "Error al consultar stock bajo" });
+        console.error("Error en stock-bajo:", error);
+        res.status(500).json({ error: error.message });
     }
 });
 
-// 3. Ventas registradas (desde remisiones activas)
-app.get('/api/ventas/ventas-hoy', (req, res) => {
-    let totalVentas = 0;
-    Object.values(remisionesVentaActivas).forEach(rem => {
-        rem.productos.forEach(p => {
-            totalVentas += p.cantidadVendidaEnCalle || 0;
-        });
-    });
-    res.json({ total: totalVentas });
-});
-
-// 4. Remisiones activas (órdenes en ruta)
-// 📋 LISTAR TODAS LAS REMISIONES ACTIVAS (CORREGIDO PARA LEER DE SUPABASE)
-app.get('/api/preventa/remisiones-activas', async (req, res) => {
+// 💰 3. VENTAS DE HOY (Suma de las ventas reales realizadas hoy)
+app.get('/api/ventas/ventas-hoy', async (req, res) => {
     try {
-        // Consultamos las remisiones activas y sus productos asociados haciendo un JOIN
+        // Obtenemos el inicio del día de hoy en hora local/UTC
+        const inicioHoy = new Date();
+        inicioHoy.setHours(0, 0, 0, 0);
+
+        // Si tienes una tabla de "ventas" o "facturas", haz la consulta allí. 
+        // Si acumulas las ventas en las remisiones cerradas, podemos sumar el total de ventas de hoy:
         const query = `
-            SELECT 
-                r.id_remision,
-                r.fecha_creacion,
-                rp.nombre,
-                rp.cantidad_cargada,
-                rp.cantidad_vendida
-            FROM remisiones r
-            LEFT JOIN remisiones_productos rp ON r.id_remision = rp.id_remision
-            WHERE r.estado = 'ACTIVA'
-            ORDER BY r.fecha_creacion DESC
+            SELECT COALESCE(SUM(cantidad_vendida * precio_venta_unidad), 0) as total 
+            FROM remisiones_productos rp
+            JOIN remisiones r ON rp.id_remision = r.id_remision
+            WHERE r.fecha_creacion >= $1
         `;
-
-        const { rows } = await db.query(query);
-
-        // Agrupamos los productos por su ID de remisión para darle el formato exacto que espera tu Frontend
-        const remisionesAgrupadas = {};
-
-        rows.forEach(row => {
-            if (!remisionesAgrupadas[row.id_remision]) {
-                remisionesAgrupadas[row.id_remision] = {
-                    idRemision: row.id_remision,
-                    fechaCreacion: row.fecha_creacion,
-                    productos: [],
-                    totalVentas: 0 // Se calculará en base a las ventas reales
-                };
-            }
-
-            // Si la remisión tiene productos asociados, los agregamos
-            if (row.nombre) {
-                const cargados = parseInt(row.cantidad_cargada, 10) || 0;
-                const vendidos = parseInt(row.cantidad_vendida, 10) || 0;
-                
-                remisionesAgrupadas[row.id_remision].productos.push({
-                    nombre: row.nombre,
-                    cargados: cargados,
-                    vendidos: vendidos,
-                    disponibles: cargados - vendidos
-                });
-            }
-        });
-
-        // Convertimos el objeto agrupado a un arreglo
-        const activas = Object.values(remisionesAgrupadas);
-
-        res.json({ activas });
-
+        
+        const { rows } = await db.query(query, [inicioHoy]);
+        const total = parseFloat(rows[0].total) || 0;
+        res.json({ total });
     } catch (error) {
-        console.error("Error al obtener remisiones activas de Supabase:", error);
-        res.status(500).json({ error: "Error interno al obtener las remisiones activas." });
+        console.error("Error en ventas-hoy:", error);
+        res.status(500).json({ error: error.message });
     }
 });
+
+// 📋 4. TOTAL DE REMISIONES ACTIVAS (Para la estadística del dashboard)
+app.get('/api/ventas/remisiones-activas', async (req, res) => {
+    try {
+        // Cuenta cuántas remisiones tienen estado 'ACTIVA' en Supabase
+        const { rows } = await db.query("SELECT COUNT(*) as total FROM remisiones WHERE estado = 'ACTIVA'");
+        const total = parseInt(rows[0].total, 10) || 0;
+        res.json({ total });
+    } catch (error) {
+        console.error("Error en remisiones-activas estadistica:", error);
+        res.status(500).json({ error: error.message });
+    }
+})
 // =================================================================
 // OBTENER UNA ORDEN DE SERVICIO ESPECÍFICA
 // =================================================================

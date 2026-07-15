@@ -959,12 +959,15 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
              ORDER BY fecha_creacion DESC`
         );
 
-        console.log(`📊 Encontradas ${ordenesBD.length} órdenes activas`);
+        // Aseguramos que ordenesBD sea un array para evitar caídas
+        const listaOrdenes = Array.isArray(ordenesBD) ? ordenesBD : [];
 
-        const ordenesFormateadas = ordenesBD.map(o => ({
+        console.log(`📊 Encontradas ${listaOrdenes.length} órdenes activas`);
+
+        const ordenesFormateadas = listaOrdenes.map(o => ({
             idOrden: o.id_orden,
             lugarTrabajo: o.lugarTrabajo,
-            fechaCreacion: new Date(o.fecha_creacion).toLocaleString('es-CO'),
+            fechaCreacion: o.fecha_creacion ? new Date(o.fecha_creacion).toLocaleString('es-CO') : 'Sin fecha',
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0
         }));
@@ -1050,35 +1053,48 @@ app.get('/api/ventas/remisiones-activas', async (req, res) => {
 // =================================================================
 app.get('/api/servicios/orden/:idOrden', async (req, res) => {
     const { idOrden } = req.params;
+    console.log(`🔍 Consultando detalles de la orden: ${idOrden}`);
 
     try {
+        // 1. Consultamos los datos generales de la orden
         const [ordenRows] = await db.query(
-            'SELECT * FROM ordenes_servicio WHERE id_orden = ?',
+            `SELECT id_orden, lugarTrabajo, colaborador_responsable, estado 
+             FROM ordenes_servicio WHERE id_orden = $1`, 
             [idOrden]
         );
 
-        if (ordenRows.length === 0) {
-            return res.status(404).json({ error: "Orden no encontrada." });
+        if (!ordenRows || ordenRows.length === 0) {
+            return res.status(404).json({ error: "Orden no encontrada" });
         }
 
         const orden = ordenRows[0];
 
-        const [herramientas] = await db.query(
-            'SELECT id_herramienta as id, nombre_herramienta as nombre FROM ordenes_servicio_herramientas WHERE id_orden = ?',
+        // 2. Traemos las herramientas unidas relacionalmente para esta orden
+        const [herramientasRows] = await db.query(
+            `SELECT h.id, h.nombre 
+             FROM orden_herramientas oh
+             JOIN inventario_uso_servicio h ON oh.id_herramienta = h.id
+             WHERE oh.id_orden = $1`,
             [idOrden]
         );
 
+        // Aseguramos que sea un array y lo formateamos de forma segura
+        const herramientasAsignadas = (herramientasRows || []).map(h => ({
+            id: h.id,
+            nombre: h.nombre
+        }));
+
+        // Devolvemos la estructura exacta que el frontend espera leer
         res.json({
             idOrden: orden.id_orden,
-            colaboradorResponsable: orden.lugarTrabajo,
+            colaboradorResponsable: orden.colaborador_responsable || orden.lugarTrabajo, // técnico o lugar
             estado: orden.estado,
-            fechaCreacion: orden.fecha_creacion,
-            herramientasAsignadas: herramientas
+            herramientasAsignadas: herramientasAsignadas
         });
 
     } catch (error) {
-        console.error('Error al obtener orden:', error);
-        res.status(500).json({ error: "Error al consultar la orden." });
+        console.error("❌ Error al obtener detalles de la orden:", error);
+        res.status(500).json({ error: "Error interno del servidor", detalle: error.message });
     }
 });
 // =================================================================

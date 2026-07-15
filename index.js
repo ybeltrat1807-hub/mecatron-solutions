@@ -947,7 +947,8 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
     console.log('📋 Consultando órdenes activas...');
     
     try {
-        const [ordenesBD] = await db.query(
+        // En Postgres, guardamos el objeto de respuesta completo (resultado)
+        const resultado = await db.query(
             `SELECT 
                 id_orden, 
                 lugarTrabajo, 
@@ -959,12 +960,12 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
              ORDER BY fecha_creacion DESC`
         );
 
-        // Aseguramos que ordenesBD sea un array para evitar caídas
-        const listaOrdenes = Array.isArray(ordenesBD) ? ordenesBD : [];
+        // En Postgres, las filas reales de la consulta están en resultado.rows
+        const ordenesBD = resultado.rows || [];
 
-        console.log(`📊 Encontradas ${listaOrdenes.length} órdenes activas`);
+        console.log(`📊 Encontradas ${ordenesBD.length} órdenes activas`);
 
-        const ordenesFormateadas = listaOrdenes.map(o => ({
+        const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
             lugarTrabajo: o.lugarTrabajo,
             fechaCreacion: o.fecha_creacion ? new Date(o.fecha_creacion).toLocaleString('es-CO') : 'Sin fecha',
@@ -975,7 +976,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         res.json({ ordenes: ordenesFormateadas });
 
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error en órdenes activas:', error);
         res.status(500).json({ 
             error: 'Error al cargar órdenes activas',
             detalle: error.message 

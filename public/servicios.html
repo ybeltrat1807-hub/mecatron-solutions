@@ -736,7 +736,7 @@
                 <div class="section-card">
                     <div class="card-header">
                         <h3>2. Herramientas Recomendadas</h3>
-                        <button onclick="cargarHerramientas()" class="btn btn-primary btn-sm">
+                        <button onclick="cargarSelectorHerramientasExtras()" class="btn btn-primary btn-sm">
                             <i class="fas fa-sync-alt"></i> Actualizar
                         </button>
                     </div>
@@ -1003,7 +1003,7 @@ function cambiarSubmodulo(idPantalla) {
     } else if (idPantalla === 'subReparaciones') {
         cargarHerramientasEnReparacion();
     } else if (idPantalla === 'subNuevaOrden') {
-        cargarHerramientas();
+        cargarSelectorHerramientasExtras();
     }
 }
 
@@ -1338,7 +1338,7 @@ async function agregarHerramientaExtra() {
                 .forEach(cb => cb.checked = false);
 
             // Recargar información
-            await cargarHerramientas();
+            await cargarSelectorHerramientasExtras();
             await cargarOrdenesActivas();
 
         } else {
@@ -1535,7 +1535,7 @@ async function confirmarReingreso(idOrden, btn) {
 
             // ⭐ RECARGAR TODO EN ORDEN
             cargarOrdenesActivas();
-            await cargarHerramientas();
+            await cargarSelectorHerramientasExtras();
 
             // ⭐ USAR EL INVENTARIO GENERAL EN VEZ DEL ENDPOINT ESPECÍFICO
             // Recargar herramientas en reparación desde el inventario
@@ -1779,7 +1779,7 @@ async function cargarHerramientasEnReparacion() {
                     }
                     cerrarProcesarReparacion();
                     await cargarHerramientasEnReparacion();
-                    await cargarHerramientas();
+                    await cargarSelectorHerramientasExtras();
                 } else {
                     showToast('Error: ' + data.error, 'error');
                 }
@@ -1989,7 +1989,7 @@ async function cancelarAgendamiento(id) {
         // INICIALIZACIÓN
         // ==========================================
         window.onload = async function() {
-            await cargarHerramientas();
+            await cargarSelectorHerramientasExtras();
 
             // Cargar automáticamente el primer servicio
             const primerServicio = document.querySelector('.servicio-item');

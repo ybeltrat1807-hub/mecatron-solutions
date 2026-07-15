@@ -1059,7 +1059,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
     try {
         // 1. Consultamos los datos generales de la orden
         const [ordenRows] = await db.query(
-            `SELECT id_orden, lugarTrabajo, colaborador_responsable, estado 
+            `SELECT id_orden, lugarTrabajo, estado 
              FROM ordenes_servicio WHERE id_orden = $1`, 
             [idOrden]
         );

@@ -228,7 +228,6 @@
             padding: 1.5rem;
             box-shadow: var(--shadow);
             margin-bottom: 1.5rem;
-            height: 100%; /* Ajuste para equilibrar alturas en la grilla */
         }
 
         .section-card .card-header {
@@ -777,46 +776,41 @@
                             </p>
                         </div>
                         
-                        <!-- Botones de acción del selector -->
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap;">
-                            <button onclick="seleccionarTodasRecomendadas()" class="btn btn-secondary btn-sm" style="flex: 1;">
-                                <i class="fas fa-check-double"></i> Recomendadas
+                        <!-- Botones de acción del selector (Simplificado sin el botón de Agregar) -->
+                        <div style="display: flex; gap: 0.8rem; margin-top: 0.8rem;">
+                            <button onclick="seleccionarTodasRecomendadas()" class="btn btn-secondary btn-sm" style="flex: 1; font-weight: 600;">
+                            <i class="fas fa-check-double"></i> Recomendadas
                             </button>
-                            <button onclick="agregarHerramientasSeleccionadas()" class="btn btn-primary btn-sm" id="btnAgregarMultiples" style="flex: 1.5;">
-                                <i class="fas fa-plus-circle"></i> Agregar (0)
-                            </button>
-                            <button onclick="limpiarSeleccionExtras()" class="btn btn-secondary btn-sm" style="flex: 0.8;">
-                                <i class="fas fa-undo"></i> Limpiar
+                            <button onclick="limpiarSeleccionExtras()" class="btn btn-secondary btn-sm" style="flex: 1; font-weight: 600;">
+                        <i class="fas fa-undo"></i> Limpiar
                             </button>
                         </div>
                     </div>
                 </div> <!-- FIN COLUMNA IZQUIERDA -->
 
                 <!-- COLUMNA DERECHA: Carrito y Confirmación de Orden -->
-                <div class="section-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-                    <div>
-                        <div class="card-header">
-                            <h3>3. Confirmar Orden</h3>
-                        </div>
-                        
-                        <!-- Lista de herramientas elegidas -->
-                        <div class="carrito-container" id="carritoServicios">
-                            <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
-                        </div>
-
-                        <!-- Lugar de trabajo -->
-                        <div class="form-group" style="margin-top: 1rem;">
-                            <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
-                            <input type="text" id="lugartrabajo" placeholder="Ej: Planta 2, Sección C">
-                        </div>
+                <div class="section-card">
+                    <div class="card-header">
+                        <h3>3. Confirmar Orden</h3>
+                    </div>
+                    
+                    <!-- Lista de herramientas elegidas -->
+                    <div class="carrito-container" id="carritoServicios" style="min-height: 150px; max-height: 220px; margin-bottom: 1rem;">
+                        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
                     </div>
 
-                    <!-- Botones Generales de Acción -->
-                    <div class="carrito-actions" style="margin-top: 1rem;">
-                        <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
+                    <!-- Lugar de trabajo -->
+                    <div class="form-group" style="margin-bottom: 1.2rem;">
+                        <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
+                        <input type="text" id="lugartrabajo" placeholder="Ej: Planta 2, Sección C">
+                    </div>
+
+                    <!-- Botones Generales de Acción (ahora fluyen justo debajo del input) -->
+                    <div class="carrito-actions">
+                        <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem; font-size: 0.85rem; border-radius: 10px;">
                             🗑️ Vaciar
                         </button>
-                        <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
+                        <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700;">
                             <i class="fas fa-paper-plane"></i> Generar Orden
                         </button>
                     </div>
@@ -989,7 +983,7 @@
 
     <!-- TOAST CONTAINER -->
     <div id="toastContainer"></div>
-    
+
     <script>
     const API_URL = "https://mecatron-solutions-production.up.railway.app";
     let carritoServicios = []; // Carrito único para la orden

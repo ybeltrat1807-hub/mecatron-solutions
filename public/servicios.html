@@ -911,8 +911,10 @@
             <!-- Formulario de agendamiento -->
             <div class="section-card" style="border-left: 4px solid var(--gold);">
                 <div class="card-header">
-                    <h3>📝 Nuevo Agendamiento</h3>
+                    <h3 id="tituloFormAgendamiento">📝 Nuevo Agendamiento</h3>
                 </div>
+                <input type="hidden" id="agId" value="">
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label>👤 Cliente</label>
@@ -942,13 +944,22 @@
                         <input type="text" id="agTecnico" placeholder="Nombre del técnico">
                     </div>
                     <div class="form-group">
+                        <label>💵 Valor del Servicio</label>
+                        <input type="number" id="agValor" placeholder="Ej: 150000" value="0">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
                         <label>📝 Observaciones</label>
                         <input type="text" id="agObservaciones" placeholder="Detalles adicionales">
                     </div>
                 </div>
-                <button onclick="agendarServicio()" class="btn btn-success btn-block">
-                    <i class="fas fa-calendar-plus"></i> Agendar Servicio
-                </button>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button onclick="agendarServicio()" class="btn btn-success" style="flex: 2; padding: 0.7rem;">
+                        <i class="fas fa-calendar-plus"></i> <span id="btnTextoAgendamiento">Agendar Servicio</span>
+                    </button>
+                    <button id="btnCancelarEdicion" onclick="resetearFormularioAgendamiento()" class="btn btn-secondary" style="display: none; flex: 1; padding: 0.7rem;">
+                        Cancelar
+                    </button>
+                </div>
             </div>
 
             <!-- Lista de agendamientos -->
@@ -1040,9 +1051,10 @@
             cargarHerramientasEnReparacion();
         } else if (idPantalla === 'subNuevaOrden') {
             cargarListaHerramientasExtras(); 
+        } else if (idPantalla === 'subAgendamiento') { // <-- Agrega este bloque
+            cargarAgendamientos();
         }
     }
-
     // ==========================================
     // VOLVER AL MENÚ PRINCIPAL
     // ==========================================
@@ -1769,122 +1781,271 @@
     // ==========================================
     // AGENDAMIENTO DE SERVICIOS
     // ==========================================
-    async function cargarAgendamientos() {
-        const container = document.getElementById('listaAgendamientos');
-        if (!container) return;
+    // ==========================================
+    // AGENDAMIENTO DE SERVICIOS (LÓGICA NUEVA)
+    // ==========================================
 
-        const filtroElement = document.getElementById('filtroEstadoAgendamiento');
-        const filtro = filtroElement ? filtroElement.value : 'TODOS';
-
-        container.innerHTML = `
-            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
-            </p>
-        `;
-        try {
-            const res = await fetch(`${API_URL}/api/servicios/agendamientos?estado=${filtro}`);
-            const data = await res.json();
-            if (!data.agendamientos || data.agendamientos.length === 0) {
-                container.innerHTML = `
-                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                        📭 No hay servicios agendados
-                    </p>
-                `;
-                return;
-            }
-            container.innerHTML = data.agendamientos.map(a => {
-                const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
-                const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : (a.estado === 'COMPLETADO' ? '✅' : '❌');
-                
-                let botones = '';
-                if (a.estado === 'PENDIENTE') {
-                    botones = `
-                        <button onclick="completarAgendamiento(${a.id})" class="btn btn-success btn-sm" style="padding: 0.2rem 0.6rem;"> ✅ Completar </button>
-                        <button onclick="cancelarAgendamiento(${a.id})" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.6rem; background: var(--danger);"> ❌ Cancelar </button>
-                    `;
-                } else {
-                    botones = `
-                        <span style="font-size: 0.7rem; color: var(--text-light);"> ${a.estado === 'COMPLETADO' ? '✅ Completado' : '❌ Cancelado'} </span>
-                    `;
-                }
-                return `
-                    <div class="orden-item" style="border-left: 4px solid ${estadoColor};">
-                        <div class="orden-info">
-                            <span style="font-weight: 700;">👤 Cliente: ${a.cliente}</span>
-                            <div style="font-size: 0.8rem;">${estadoIcon} ${a.tipo_servicio} | 📅 ${a.fecha} | ⏰ ${a.hora}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-light);">👨‍🔧 Asignado: ${a.tecnico} ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}</div>
-                        </div>
-                        <div class="orden-actions" style="display:flex; gap:0.3rem;">
-                            ${botones}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Error al cargar agendamientos:', error);
-            container.innerHTML = `<p style="color: var(--danger); text-align: center;">⚠️ Error al cargar agendamientos</p>`;
-        }
-    }
-
+    // 1. Guardar o Editar el Agendamiento (PostgreSQL / Supabase vía API_URL)
     async function agendarServicio() {
+        const id = document.getElementById('agId').value;
         const cliente = document.getElementById('agCliente').value.trim();
-        const tipoServicio = document.getElementById('agTipoServicio').value;
+        const tipo_servicio = document.getElementById('agTipoServicio').value;
         const fecha = document.getElementById('agFecha').value;
         const hora = document.getElementById('agHora').value;
         const tecnico = document.getElementById('agTecnico').value.trim();
+        const valor = parseFloat(document.getElementById('agValor').value) || 0;
         const observaciones = document.getElementById('agObservaciones').value.trim();
 
-        if (!cliente || !fecha || !hora || !tecnico) {
-            showToast('Por favor completa todos los campos obligatorios', 'error');
+        if (!cliente) {
+            showToast('⚠️ El nombre del cliente es obligatorio', 'error');
             return;
         }
 
-        try {
-            const res = await fetch(`${API_URL}/api/servicios/agendar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cliente, tipoServicio, fecha, hora, tecnico, observaciones })
-            });
+        const datos = { cliente, tipo_servicio, fecha, hora, tecnico, valor, observaciones };
 
-            if (res.ok) {
-                showToast('📅 Servicio agendado con éxito', 'success');
-                document.getElementById('agCliente').value = '';
-                document.getElementById('agFecha').value = '';
-                document.getElementById('agHora').value = '';
-                document.getElementById('agTecnico').value = '';
-                document.getElementById('agObservaciones').value = '';
-                await cargarAgendamientos();
+        try {
+            let response;
+            if (id) {
+                // Editar servicio
+                response = await fetch(`${API_URL}/api/agendamientos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datos)
+                });
             } else {
-                const err = await res.json();
-                showToast(err.error || 'No se pudo agendar el servicio', 'error');
+                // Crear servicio
+                response = await fetch(`${API_URL}/api/agendamientos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datos)
+                });
             }
-        } catch (e) {
-            showToast('Error de conexión', 'error');
+
+            if (response.ok) {
+                showToast(id ? '✅ Agendamiento actualizado con éxito' : '✅ Servicio agendado con éxito', 'success');
+                resetearFormularioAgendamiento();
+                cargarAgendamientos();
+            } else {
+                const err = await response.json();
+                showToast(`❌ Error: ${err.message || 'No se pudo guardar'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error al guardar agendamiento:', error);
+            showToast('❌ Error de conexión con el servidor', 'error');
         }
     }
 
-    async function completarAgendamiento(id) {
-        if (!confirm('¿Deseas marcar este agendamiento como COMPLETADO?')) return;
+    // 2. Limpiar el formulario y reestablecer estados normales
+    function resetearFormularioAgendamiento() {
+        document.getElementById('agId').value = '';
+        document.getElementById('agCliente').value = '';
+        document.getElementById('agTipoServicio').selectedIndex = 0;
+        document.getElementById('agFecha').value = '';
+        document.getElementById('agHora').value = '';
+        document.getElementById('agTecnico').value = '';
+        document.getElementById('agValor').value = 0;
+        document.getElementById('agObservaciones').value = '';
+
+        document.getElementById('tituloFormAgendamiento').innerText = '📝 Nuevo Agendamiento';
+        document.getElementById('btnTextoAgendamiento').innerText = 'Agendar Servicio';
+        document.getElementById('btnCancelarEdicion').style.display = 'none';
+    }
+
+    // 3. Cargar agendamientos desde el Backend con el filtro seleccionado
+    async function cargarAgendamientos() {
+        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
+        const lista = document.getElementById('listaAgendamientos');
+
         try {
-            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, { method: 'POST' });
-            if (res.ok) {
+            const response = await fetch(`${API_URL}/api/agendamientos?estado=${filtro}`);
+            if (!response.ok) throw new Error('Error al obtener agendamientos');
+            
+            const agendamientos = await response.json();
+            lista.innerHTML = '';
+
+            if (agendamientos.length === 0) {
+                lista.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">No hay servicios programados</p>';
+                return;
+            }
+
+            agendamientos.forEach(ag => {
+                const valorFormateado = Number(ag.valor || 0).toLocaleString('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0
+                });
+
+                const item = document.createElement('div');
+                item.className = 'orden-item';
+                item.style.borderLeft = `4px solid ${ag.estado === 'COMPLETADO' ? 'var(--success)' : ag.estado === 'CANCELADO' ? 'var(--danger)' : 'var(--gold)'}`;
+                item.style.marginBottom = '0.8rem';
+                item.style.padding = '1rem';
+
+                // Serialización segura para pasar el objeto al botón como parámetro string
+                const agString = JSON.stringify(ag).replace(/"/g, '&quot;');
+
+                item.innerHTML = `
+                    <div class="orden-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="orden-id" style="font-size: 1rem; font-weight: 700;">${ag.cliente}</span>
+                            <span class="badge-estado ${ag.estado.toLowerCase() === 'pendiente' ? 'campo' : ag.estado.toLowerCase()}">${ag.estado}</span>
+                        </div>
+                        <div class="orden-detalle" style="margin-top: 0.4rem; line-height: 1.4;">
+                            <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')}<br>
+                            <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'}<br>
+                            <strong>Fecha:</strong> ${ag.fecha} | <strong>Hora:</strong> ${ag.hora}<br>
+                            <strong>Valor:</strong> <span style="color: var(--success); font-weight: 700;">${valorFormateado}</span>
+                        </div>
+                    </div>
+                    <div class="orden-actions" style="display: flex; flex-direction: column; gap: 0.4rem; margin-left: 1rem; justify-content: center; min-width: 140px;">
+                        ${ag.estado === 'PENDIENTE' ? `
+                            <button onclick="cargarParaEditar(${agString})" class="btn btn-primary btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem;">
+                                <i class="fas fa-edit"></i> Editar / Liquidar
+                            </button>
+                            <button onclick="completarServicio(${ag.id})" class="btn btn-success btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary);">
+                                <i class="fas fa-check-circle"></i> Cerrar Servicio
+                            </button>
+                        ` : `
+                            <button onclick="imprimirReciboServicio(${agString})" class="btn btn-warning-custom btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary); color: white; border: none; border-radius: 4px;">
+                                <i class="fas fa-print"></i> Imprimir Recibo
+                            </button>
+                        `}
+                    </div>
+                `;
+                lista.appendChild(item);
+            });
+        } catch (error) {
+            console.error(error);
+            lista.innerHTML = '<p style="color: var(--danger); text-align: center; padding: 2rem;">⚠️ Error al cargar los agendamientos</p>';
+        }
+    }
+
+    // 4. Mapear datos al presionar "Editar / Liquidar"
+    function cargarParaEditar(ag) {
+        document.getElementById('agId').value = ag.id;
+        document.getElementById('agCliente').value = ag.cliente;
+        document.getElementById('agTipoServicio').value = ag.tipo_servicio;
+        document.getElementById('agFecha').value = ag.fecha;
+        document.getElementById('agHora').value = ag.hora;
+        document.getElementById('agTecnico').value = ag.tecnico || '';
+        document.getElementById('agValor').value = ag.valor || 0;
+        document.getElementById('agObservaciones').value = ag.observaciones || '';
+
+        document.getElementById('tituloFormAgendamiento').innerText = '🛠️ Liquidar / Editar Servicio';
+        document.getElementById('btnTextoAgendamiento').innerText = 'Actualizar Cambios';
+        document.getElementById('btnCancelarEdicion').style.display = 'block';
+        
+        document.getElementById('tituloFormAgendamiento').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 5. Cambiar estado a COMPLETADO directamente
+    async function completarServicio(id) {
+        if (!confirm('¿Estás seguro de cerrar este servicio? Al hacerlo quedará registrado como completado.')) return;
+
+        try {
+            const response = await fetch(`${API_URL}/api/agendamientos/${id}/completar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
                 showToast('✅ Servicio completado con éxito', 'success');
-                await cargarAgendamientos();
+                cargarAgendamientos();
+            } else {
+                showToast('❌ No se pudo completar el servicio', 'error');
             }
-        } catch (e) { showToast('Error de conexión', 'error'); }
+        } catch (error) {
+            console.error(error);
+            showToast('❌ Error de conexión', 'error');
+        }
     }
 
-    async function cancelarAgendamiento(id) {
-        if (!confirm('⚠️ ¿Seguro que deseas CANCELAR este servicio?')) return;
-        try {
-            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, { method: 'POST' });
-            if (res.ok) {
-                showToast('❌ Servicio cancelado', 'info');
-                await cargarAgendamientos();
-            }
-        } catch (e) { showToast('Error de conexión', 'error'); }
-    }
+    // 6. Imprimir Recibo térmico
+    function imprimirReciboServicio(ag) {
+        const ventanaImpresion = window.open('', '_blank', 'width=450,height=650');
+        
+        const formatoFecha = new Date().toLocaleString('es-CO');
+        const totalFormateado = Number(ag.valor || 0).toLocaleString('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: 0 
+        });
 
+        ventanaImpresion.document.write(`
+            <html>
+            <head>
+                <title>Recibo de Servicio - Mecatron Solutions</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+                    body {
+                        font-family: 'Courier Prime', monospace;
+                        font-size: 13px;
+                        line-height: 1.4;
+                        padding: 15px;
+                        width: 300px;
+                        color: #000;
+                        margin: 0 auto;
+                    }
+                    .text-center { text-align: center; }
+                    .bold { font-weight: bold; }
+                    .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                    .total-box { font-size: 15px; margin-top: 15px; border: 1px solid #000; padding: 8px; text-align: center; }
+                    @media print {
+                        body { width: 100%; margin: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="text-center">
+                    <span class="bold" style="font-size: 16px;">MECATRON SOLUTIONS</span><br>
+                    <span>NIT: 123456789-0</span><br>
+                    <span>El Bagre, Antioquia</span><br>
+                    <span>Tel: 312-XXXXXXX</span><br>
+                    <div class="divider"></div>
+                    <span class="bold" style="font-size: 14px;">RECIBO DE SERVICIO</span>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <div>
+                    <strong>Nro. Cita:</strong> #SER-${ag.id}<br>
+                    <strong>Fecha Emisión:</strong> ${formatoFecha}<br>
+                    <strong>Cliente:</strong> ${ag.cliente}<br>
+                    <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')}<br>
+                    <strong>Técnico:</strong> ${ag.tecnico || 'N/A'}<br>
+                    <strong>Fecha Prog.:</strong> ${ag.fecha} - ${ag.hora}<br>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <div>
+                    <span class="bold">OBSERVACIONES:</span><br>
+                    <span>${ag.observaciones || 'Sin observaciones adicionales.'}</span>
+                </div>
+                
+                <div class="total-box">
+                    <span class="bold">TOTAL PRESTADO:</span><br>
+                    <span class="bold" style="font-size: 19px; display: block; margin-top: 5px;">${totalFormateado}</span>
+                </div>
+                
+                <div class="divider" style="margin-top: 20px;"></div>
+                
+                <div class="text-center" style="font-size: 11px; margin-top: 10px;">
+                    ¡Gracias por su confianza!<br>
+                    Mecatron Solutions - Tecnología y Calidad
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() { window.close(); }, 500);
+                    };
+                </\script>
+            </body>
+            </html>
+        `);
+        ventanaImpresion.document.close();
+    }
     // ==========================================
     // INICIALIZACIÓN COMPLETA
     // ==========================================

@@ -555,6 +555,56 @@ app.get('/api/servicios/recomendar', async (req, res) => {
     }
 });
 
+// NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta
+app.get('/api/preventa/consultar/:idRemision', (req, res) => {
+    let remision = remisionesVentaActivas[req.params.idRemision];
+    if (!remision) return res.status(404).json({ error: "Remisión no encontrada." });
+    res.json(remision);
+});
+
+// =================================================================
+//      MÓDULO DE SERVICIOS (RECOMENDADOR Y HERRAMIENTAS)
+// =================================================================
+
+// RECOMENDADOR DE HERRAMIENTAS POR TIPO DE SERVICIO
+app.get('/api/servicios/recomendar', async (req, res) => {
+    const { tipo_servicio } = req.query;
+
+    if (!tipo_servicio) {
+        return res.status(400).json({ error: "Debe especificar el tipo_servicio." });
+    }
+
+    try {
+        const [filas] = await db.query(
+            'SELECT id, nombre, disponibles, estado FROM inventario_uso_servicio WHERE tipo_servicio = ? AND estado = "DISPONIBLE" ORDER BY nombre',
+            [tipo_servicio]
+        );
+
+        if (filas.length === 0) {
+            return res.status(404).json({ 
+                error: "No hay herramientas disponibles para este tipo de servicio",
+                tipo_servicio: tipo_servicio
+            });
+        }
+
+        res.json({
+            tipo_servicio: tipo_servicio,
+            totalHerramientas: filas.length,
+            herramientas: filas.map(h => ({
+                id: h.id,
+                nombre: h.nombre,
+                disponible: h.disponibles > 0,
+                disponibles: h.disponibles,
+                estado: h.estado
+            }))
+        });
+
+    } catch (error) {
+        console.error("Error al consultar la BD:", error);
+        res.status(500).json({ error: "Error interno al conectar con la base de datos." });
+    }
+});
+
 // ==========================================================
 // DESPACHO DE HERRAMIENTAS (SALIDA) - COMPLETO Y CORREGIDO
 // ==========================================================

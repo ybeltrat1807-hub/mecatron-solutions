@@ -1645,6 +1645,10 @@ app.post('/api/financiero/reporte-periodo', async (req, res) => {
 //   AGENDAMIENTO DE SERVICIOS (SOPORTE PARA LIQUIDACIÓN)
 // =================================================================
 
+// =================================================================
+//   AGENDAMIENTO DE SERVICIOS (SOPORTE POSTGRESQL / SUPABASE)
+// =================================================================
+
 // Obtener agendamientos
 app.get('/api/servicios/agendamientos', async (req, res) => {
     const { estado } = req.query;
@@ -1652,15 +1656,14 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
     let params = [];
 
     if (estado && estado !== 'TODOS') {
-        query += ' WHERE estado = ?';
+        query += ' WHERE estado = $1';
         params.push(estado);
     }
 
     query += ' ORDER BY fecha ASC, hora ASC';
 
     try {
-        // Adaptado a tu estructura de base de datos
-        const [rows] = await db.query(query, params);
+        const { rows } = await db.query(query, params);
         res.json({ agendamientos: rows });
     } catch (error) {
         console.error('Error al obtener agendamientos:', error);
@@ -1680,7 +1683,7 @@ app.post('/api/servicios/agendar', async (req, res) => {
         await db.query(
             `INSERT INTO agendamientos 
              (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario_creacion) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor || 0, usuario || 'Sistema']
         );
         res.json({ mensaje: 'Servicio agendado exitosamente' });
@@ -1690,7 +1693,7 @@ app.post('/api/servicios/agendar', async (req, res) => {
     }
 });
 
-// NUEVA RUTA: Actualizar/Editar/Liquidar agendamiento
+// Actualizar/Editar/Liquidar agendamiento
 app.put('/api/servicios/agendamiento/:id', async (req, res) => {
     const { id } = req.params;
     const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor } = req.body;
@@ -1700,14 +1703,14 @@ app.put('/api/servicios/agendamiento/:id', async (req, res) => {
     }
 
     try {
-        const [result] = await db.query(
+        const { rowCount } = await db.query(
             `UPDATE agendamientos 
-             SET cliente = ?, tipo_servicio = ?, fecha = ?, hora = ?, tecnico = ?, observaciones = ?, valor = ?
-             WHERE id = ?`,
+             SET cliente = $1, tipo_servicio = $2, fecha = $3, hora = $4, tecnico = $5, observaciones = $6, valor = $7
+             WHERE id = $8`,
             [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor || 0, id]
         );
 
-        if (result.affectedRows === 0) {
+        if (rowCount === 0) {
             return res.status(404).json({ error: 'Agendamiento no encontrado' });
         }
 
@@ -1723,12 +1726,12 @@ app.put('/api/servicios/agendamiento/:id/completar', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const [result] = await db.query(
-            'UPDATE agendamientos SET estado = "COMPLETADO" WHERE id = ?',
+        const { rowCount } = await db.query(
+            "UPDATE agendamientos SET estado = 'COMPLETADO' WHERE id = $1",
             [id]
         );
 
-        if (result.affectedRows === 0) {
+        if (rowCount === 0) {
             return res.status(404).json({ error: 'Agendamiento no encontrado' });
         }
 
@@ -1744,12 +1747,12 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const [result] = await db.query(
-            'UPDATE agendamientos SET estado = "CANCELADO" WHERE id = ?',
+        const { rowCount } = await db.query(
+            "UPDATE agendamientos SET estado = 'CANCELADO' WHERE id = $1",
             [id]
         );
 
-        if (result.affectedRows === 0) {
+        if (rowCount === 0) {
             return res.status(404).json({ error: 'Agendamiento no encontrado' });
         }
 

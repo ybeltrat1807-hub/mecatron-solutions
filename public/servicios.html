@@ -228,6 +228,7 @@
             padding: 1.5rem;
             box-shadow: var(--shadow);
             margin-bottom: 1.5rem;
+            height: 100%; /* Ajuste para equilibrar alturas en la grilla */
         }
 
         .section-card .card-header {
@@ -250,8 +251,9 @@
 
         .grid-2col {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1.2fr 0.8fr; /* Ajuste para darle más peso a la sección de selección */
             gap: 1.5rem;
+            align-items: stretch;
         }
 
         @media (max-width: 900px) {
@@ -385,8 +387,12 @@
 
         /* HERRAMIENTAS RECOMENDADAS */
         .herramientas-container {
-            max-height: 200px;
+            max-height: 180px;
             overflow-y: auto;
+            border: 1px solid #E8ECF1;
+            border-radius: 8px;
+            background: #F8F9FA;
+            padding: 0.5rem;
         }
 
         .herramienta-item {
@@ -395,10 +401,14 @@
             padding: 0.5rem 0.8rem;
             border-bottom: 1px solid #E8ECF1;
             gap: 0.8rem;
+            background: white;
+            margin-bottom: 0.3rem;
+            border-radius: 6px;
         }
 
         .herramienta-item:last-child {
             border-bottom: none;
+            margin-bottom: 0;
         }
 
         .herramienta-item input[type="checkbox"] {
@@ -416,8 +426,8 @@
         }
 
         .herramienta-item .estado {
-            font-size: 0.7rem;
-            padding: 0.1rem 0.6rem;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.6rem;
             border-radius: 50px;
             font-weight: 600;
         }
@@ -435,9 +445,11 @@
         /* CARRITO DE SERVICIOS */
         .carrito-container {
             background: #F8F9FA;
+            border: 1px solid #E8ECF1;
             border-radius: 10px;
             padding: 0.8rem;
-            max-height: 150px;
+            min-height: 180px;
+            max-height: 280px;
             overflow-y: auto;
             margin-bottom: 1rem;
         }
@@ -446,11 +458,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.4rem 0.5rem;
+            padding: 0.5rem;
             border-bottom: 1px solid #E8ECF1;
             font-size: 0.85rem;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 0.4rem;
         }
-        .carrito-item:last-child { border-bottom: none; }
+        .carrito-item:last-child { border-bottom: none; margin-bottom: 0; }
 
         .carrito-item .badge-qty {
             background: var(--secondary);
@@ -463,8 +478,8 @@
         .carrito-vacio {
             color: var(--text-light);
             text-align: center;
-            padding: 0.5rem;
-            font-size: 0.85rem;
+            padding: 2rem 1rem;
+            font-size: 0.9rem;
         }
 
         .carrito-actions {
@@ -474,8 +489,8 @@
 
         .carrito-actions .btn {
             flex: 1;
-            padding: 0.5rem;
-            font-size: 0.8rem;
+            padding: 0.7rem;
+            font-size: 0.85rem;
         }
 
         /* ÓRDENES ACTIVAS */
@@ -677,14 +692,15 @@
                     <i class="fas fa-arrow-right"></i> Crear Orden
                 </button>
             </div>
+            
             <div class="submenu-card" onclick="cambiarSubmodulo('subAgendamiento')">
-    <div class="icon">📅</div>
-    <h3>Agendamiento de Servicios</h3>
-    <p>Programa servicios futuros, asigna técnicos y da seguimiento a tus citas.</p>
-    <button class="btn-role warning">
-        <i class="fas fa-arrow-right"></i> Gestionar
-    </button>
-</div>
+                <div class="icon">📅</div>
+                <h3>Agendamiento de Servicios</h3>
+                <p>Programa servicios futuros, asigna técnicos y da seguimiento a tus citas.</p>
+                <button class="btn-role warning">
+                    <i class="fas fa-arrow-right"></i> Gestionar
+                </button>
+            </div>
 
             <div class="submenu-card" onclick="cambiarSubmodulo('subReintegro')">
                 <div class="icon">🔄</div>
@@ -731,8 +747,10 @@
                 </div>
             </div>
 
-            <!-- PASO 2: Herramientas -->
+            <!-- GRILLA DE 2 COLUMNAS PARA EL PASO 2 Y EL PASO 3 -->
             <div class="grid-2col">
+                
+                <!-- COLUMNA IZQUIERDA: Herramientas -->
                 <div class="section-card">
                     <div class="card-header">
                         <h3>2. Herramientas Recomendadas</h3>
@@ -740,62 +758,72 @@
                             <i class="fas fa-sync-alt"></i> Actualizar
                         </button>
                     </div>
-                    <div id="herramientasRecomendadas">
+                    
+                    <div id="herramientasRecomendadas" class="herramientas-container" style="margin-bottom: 1.5rem;">
                         <p style="color: var(--text-light); text-align: center; padding: 1rem;">
                             Selecciona un servicio para ver las herramientas recomendadas
                         </p>
                     </div>
-                    <div style="margin-top: 1rem;">
-                <div class="form-group">
-                    <label>➕ Selecciona herramientas adicionales</label>
-        
-                    <!-- Contenedor para todas las herramientas con checkboxes -->
-                    <div id="listaHerramientasExtras" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f9f9f9;">
-                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                    Cargando herramientas...
-                    </p>
-                </div>
-        
-        <!-- Botones de acción -->
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-            <button onclick="seleccionarTodasRecomendadas()" class="btn btn-info btn-sm">
-                <i class="fas fa-check-double"></i> Seleccionar recomendadas
-            </button>
-            <button onclick="agregarHerramientasSeleccionadas()" class="btn btn-primary btn-sm" id="btnAgregarMultiples">
-                <i class="fas fa-plus-circle"></i> Agregar seleccionadas (0)
-            </button>
-            <button onclick="limpiarSeleccionExtras()" class="btn btn-secondary btn-sm">
-                <i class="fas fa-undo"></i> Limpiar
-            </button>
-        </div>
-    </div>
-</div>
+                    
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label style="font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--primary);">
+                            ➕ Selecciona herramientas adicionales
+                        </label>
+                        
+                        <!-- Contenedor scrollable para herramientas extras -->
+                        <div id="listaHerramientasExtras" style="max-height: 180px; overflow-y: auto; border: 2px solid #E8ECF1; border-radius: 10px; padding: 10px; background: #F8F9FA;">
+                            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                                Cargando herramientas...
+                            </p>
+                        </div>
+                        
+                        <!-- Botones de acción del selector -->
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap;">
+                            <button onclick="seleccionarTodasRecomendadas()" class="btn btn-secondary btn-sm" style="flex: 1;">
+                                <i class="fas fa-check-double"></i> Recomendadas
+                            </button>
+                            <button onclick="agregarHerramientasSeleccionadas()" class="btn btn-primary btn-sm" id="btnAgregarMultiples" style="flex: 1.5;">
+                                <i class="fas fa-plus-circle"></i> Agregar (0)
+                            </button>
+                            <button onclick="limpiarSeleccionExtras()" class="btn btn-secondary btn-sm" style="flex: 0.8;">
+                                <i class="fas fa-undo"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div> <!-- FIN COLUMNA IZQUIERDA -->
 
-                <!-- PASO 3: Carrito y Orden -->
-                <div class="section-card">
-                    <div class="card-header">
-                        <h3>3. Confirmar Orden</h3>
-                    </div>
-                    <div class="carrito-container" id="carritoServicios">
-                        <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
+                <!-- COLUMNA DERECHA: Carrito y Confirmación de Orden -->
+                <div class="section-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="card-header">
+                            <h3>3. Confirmar Orden</h3>
+                        </div>
+                        
+                        <!-- Lista de herramientas elegidas -->
+                        <div class="carrito-container" id="carritoServicios">
+                            <div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>
+                        </div>
+
+                        <!-- Lugar de trabajo -->
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
+                            <input type="text" id="lugartrabajo" placeholder="Ej: Planta 2, Sección C">
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
-                        <input type="text" id="lugartrabajo" placeholder="Lugar de Trabajo">
+                    <!-- Botones Generales de Acción -->
+                    <div class="carrito-actions" style="margin-top: 1rem;">
+                        <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
+                            🗑️ Vaciar
+                        </button>
+                        <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
+                            <i class="fas fa-paper-plane"></i> Generar Orden
+                        </button>
                     </div>
+                </div> <!-- FIN COLUMNA DERECHA -->
 
-                    <div class="carrito-actions">
-                    <button onclick="vaciarCarritoServicios()" class="btn btn-danger" style="flex: 1; padding: 0.7rem 1rem; font-size: 0.85rem; border-radius: 10px;">
-                    🗑️ Vaciar
-                    </button>
-                    <button onclick="generarOrdenServicio(this)" class="btn btn-success" style="flex: 2; padding: 0.7rem 1rem; font-size: 0.9rem; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.35);">
-                    <i class="fas fa-paper-plane"></i> Generar Orden
-                    </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+            </div> <!-- FIN GRID-2COL -->
+        </div> <!-- FIN SUBMÓDULO 1 -->
 
         <!-- ========================================== -->
         <!-- SUBMÓDULO 2: REINTEGRO DE HERRAMIENTAS     -->
@@ -874,83 +902,84 @@
                 </div>
             </div>
         </div>
+
         <!-- ========================================== -->
-<!-- SUBMÓDULO 4: AGENDAMIENTO DE SERVICIOS     -->
-<!-- ========================================== -->
-<div id="subAgendamiento" class="pantalla">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">📅 Agendamiento de Servicios</h2>
-        <button onclick="regresarSubmenu()" class="btn-back-menu">
-            <i class="fas fa-arrow-left"></i> Volver
-        </button>
-    </div>
-
-    <!-- Formulario de agendamiento -->
-    <div class="section-card" style="border-left: 4px solid var(--gold);">
-        <div class="card-header">
-            <h3>📝 Nuevo Agendamiento</h3>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div class="form-group">
-                <label>👤 Cliente</label>
-                <input type="text" id="agCliente" placeholder="Nombre del cliente">
-            </div>
-            <div class="form-group">
-                <label>🔧 Tipo de Servicio</label>
-                <select id="agTipoServicio">
-                    <option value="MANTENIMIENTO_ELECTRICO">⚡ Mantenimiento Eléctrico</option>
-                    <option value="MANTENIMIENTO_AIRE">❄️ Mantenimiento de Aires</option>
-                    <option value="MONTAJE_ELECTRICO">🔌 Montaje Eléctrico</option>
-                    <option value="MONTAJE_AIRE">🏗️ Montaje de Aires</option>
-                    <option value="REPARACION_ELECTRICA">🔧 Reparaciones Eléctricas</option>
-                    <option value="REPARACION_AIRE">🛠️ Reparación de Aires</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>📅 Fecha</label>
-                <input type="date" id="agFecha">
-            </div>
-            <div class="form-group">
-                <label>⏰ Hora</label>
-                <input type="time" id="agHora">
-            </div>
-            <div class="form-group">
-                <label>👨‍🔧 Técnico Asignado</label>
-                <input type="text" id="agTecnico" placeholder="Nombre del técnico">
-            </div>
-            <div class="form-group">
-                <label>📝 Observaciones</label>
-                <input type="text" id="agObservaciones" placeholder="Detalles adicionales">
-            </div>
-        </div>
-        <button onclick="agendarServicio()" class="btn btn-success btn-block">
-            <i class="fas fa-calendar-plus"></i> Agendar Servicio
-        </button>
-    </div>
-
-    <!-- Lista de agendamientos -->
-    <div class="section-card">
-        <div class="card-header">
-            <h3>📋 Servicios Agendados</h3>
-            <div style="display: flex; gap: 0.5rem;">
-                <select id="filtroEstadoAgendamiento" onchange="cargarAgendamientos()" style="padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #E8ECF1; font-size: 0.8rem;">
-                    <option value="TODOS">📌 Todos</option>
-                    <option value="PENDIENTE">🟡 Pendientes</option>
-                    <option value="COMPLETADO">✅ Completados</option>
-                    <option value="CANCELADO">❌ Cancelados</option>
-                </select>
-                <button onclick="cargarAgendamientos()" class="btn btn-primary btn-sm">
-                    <i class="fas fa-sync-alt"></i>
+        <!-- SUBMÓDULO 4: AGENDAMIENTO DE SERVICIOS     -->
+        <!-- ========================================== -->
+        <div id="subAgendamiento" class="pantalla">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">📅 Agendamiento de Servicios</h2>
+                <button onclick="regresarSubmenu()" class="btn-back-menu">
+                    <i class="fas fa-arrow-left"></i> Volver
                 </button>
             </div>
+
+            <!-- Formulario de agendamiento -->
+            <div class="section-card" style="border-left: 4px solid var(--gold);">
+                <div class="card-header">
+                    <h3>📝 Nuevo Agendamiento</h3>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>👤 Cliente</label>
+                        <input type="text" id="agCliente" placeholder="Nombre del cliente">
+                    </div>
+                    <div class="form-group">
+                        <label>🔧 Tipo de Servicio</label>
+                        <select id="agTipoServicio">
+                            <option value="MANTENIMIENTO_ELECTRICO">⚡ Mantenimiento Eléctrico</option>
+                            <option value="MANTENIMIENTO_AIRE">❄️ Mantenimiento de Aires</option>
+                            <option value="MONTAJE_ELECTRICO">🔌 Montaje Eléctrico</option>
+                            <option value="MONTAJE_AIRE">🏗️ Montaje de Aires</option>
+                            <option value="REPARACION_ELECTRICA">🔧 Reparaciones Eléctricas</option>
+                            <option value="REPARACION_AIRE">🛠️ Reparación de Aires</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Fecha</label>
+                        <input type="date" id="agFecha">
+                    </div>
+                    <div class="form-group">
+                        <label>⏰ Hora</label>
+                        <input type="time" id="agHora">
+                    </div>
+                    <div class="form-group">
+                        <label>👨‍🔧 Técnico Asignado</label>
+                        <input type="text" id="agTecnico" placeholder="Nombre del técnico">
+                    </div>
+                    <div class="form-group">
+                        <label>📝 Observaciones</label>
+                        <input type="text" id="agObservaciones" placeholder="Detalles adicionales">
+                    </div>
+                </div>
+                <button onclick="agendarServicio()" class="btn btn-success btn-block">
+                    <i class="fas fa-calendar-plus"></i> Agendar Servicio
+                </button>
+            </div>
+
+            <!-- Lista de agendamientos -->
+            <div class="section-card">
+                <div class="card-header">
+                    <h3>📋 Servicios Agendados</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="filtroEstadoAgendamiento" onchange="cargarAgendamientos()" style="padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #E8ECF1; font-size: 0.8rem;">
+                            <option value="TODOS">📌 Todos</option>
+                            <option value="PENDIENTE">🟡 Pendientes</option>
+                            <option value="COMPLETADO">✅ Completados</option>
+                            <option value="CANCELADO">❌ Cancelados</option>
+                        </select>
+                        <button onclick="cargarAgendamientos()" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="listaAgendamientos">
+                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
+                    </p>
+                </div>
+            </div>
         </div>
-        <div id="listaAgendamientos">
-            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
-            </p>
-        </div>
-    </div>
-</div>
 
         <div class="footer">
             <p>Desarrollado por <strong>Beltrán Software Solutions</strong> &copy; 2026</p>
@@ -960,7 +989,7 @@
 
     <!-- TOAST CONTAINER -->
     <div id="toastContainer"></div>
-
+    
     <script>
     const API_URL = "https://mecatron-solutions-production.up.railway.app";
     let carritoServicios = []; // Carrito único para la orden

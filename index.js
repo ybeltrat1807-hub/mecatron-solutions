@@ -369,33 +369,33 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
 
     // === GUARDAR EN LA BASE DE DATOS ===
     try {
-        // 1. Guardar la venta individual
-        await db.query(
-            `INSERT INTO ventas_individuales 
-             (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [
-                idRemision,
-                parseInt(idProducto),
-                item.nombre,
-                cantidad,
-                precio,
-                total,
-                vendedor || 'Sistema'
-            ]
-        );
+    // 1. Guardar la venta individual (PostgreSQL utiliza $1, $2, etc.)
+    await db.query(
+        `INSERT INTO ventas_individuales 
+         (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [
+            idRemision,
+            parseInt(idProducto),
+            item.nombre,
+            cantidad,
+            precio,
+            total,
+            vendedor || 'Sistema'
+        ]
+    );
 
-        // 2. Actualizar cantidad vendida en remisiones_productos
-        await db.query(
-            'UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + ? WHERE id_remision = ? AND id_producto = ?',
-            [cantidad, idRemision, parseInt(idProducto)]
-        );
+    // 2. Actualizar cantidad vendida en remisiones_productos
+    await db.query(
+        'UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision = $2 AND id_producto = $3',
+        [cantidad, idRemision, parseInt(idProducto)]
+    );
 
-        // 3. Actualizar total de la remisión
-        await db.query(
-            'UPDATE remisiones SET total_ventas = total_ventas + ? WHERE id_remision = ?',
-            [total, idRemision]
-        );
+    // 3. Actualizar total de la remisión
+    await db.query(
+        'UPDATE remisiones SET total_ventas = total_ventas + $1 WHERE id_remision = $2',
+        [total, idRemision]
+    );
 
         console.log(`✅ Venta guardada en BD: ${item.nombre} x${cantidad} - $${total}`);
 

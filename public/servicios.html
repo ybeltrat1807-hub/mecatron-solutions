@@ -769,7 +769,7 @@
 
                     <div class="form-group">
                         <label><i class="fas fa-map-marker-alt"></i> Lugar de Trabajo</label>
-                        <input type="text" id="lugarTrabajo" placeholder="Lugar de Trabajo">
+                        <input type="text" id="lugartrabajo" placeholder="Lugar de Trabajo">
                     </div>
 
                     <div class="carrito-actions">
@@ -1240,7 +1240,7 @@
     // ==========================================
     async function generarOrdenServicio(btn) {
         console.log("🚀 Entró a generarOrdenServicio");
-        const tecnico = document.getElementById('lugarTrabajo').value.trim();
+        const tecnico = document.getElementById('lugartrabajo').value.trim();
         const usuario = sessionStorage.getItem('usuario') || 'Sistema';
         if (!tecnico) {
             showToast('Por favor ingresa el nombre del lugar', 'error');
@@ -1299,7 +1299,7 @@
                 },
                 body: JSON.stringify({
                     idOrden,
-                    lugarTrabajo: tecnico,
+                    lugartrabajo: tecnico,
                     idsSeleccionadas,
                     idsAdicionales: [],
                     usuario
@@ -1312,7 +1312,7 @@
                 carritoServicios = [];
                 renderizarCarritoServicios();
                 // Limpiar campo
-                document.getElementById('lugarTrabajo').value = '';
+                document.getElementById('lugartrabajo').value = '';
                 // Desmarcar checkboxes
                 document
                     .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
@@ -1366,7 +1366,7 @@
                         <span class="orden-id">${orden.idOrden || orden.id}</span>
                         <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
                         <div class="orden-detalle">
-                            📍 <strong>Lugar:</strong> ${orden.lugarTrabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
+                            📍 <strong>Lugar:</strong> ${orden.lugartrabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
                             <span class="badge-estado campo">● En Campo</span>
                         </div>
                     </div>

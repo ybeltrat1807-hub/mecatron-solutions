@@ -607,11 +607,11 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 // ==========================================================
 app.post('/api/servicios/salida', async (req, res) => {
     console.log("DATOS RECIBIDOS EN EL SERVIDOR:", req.body);
-    const { lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
+    const { lugartrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
     
     let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
 
-    if (!lugarTrabajo || todasLasHerramientas.length === 0) {
+    if (!lugartrabajo || todasLasHerramientas.length === 0) {
         return res.status(400).json({ error: "Faltan datos obligatorios (Lugar de trabajo o herramientas)." });
     }
 
@@ -686,7 +686,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         const queryOrden = `
             INSERT INTO ordenes_servicio (
                 id_orden, 
-                lugarTrabajo, 
+                lugartrabajo, 
                 estado, 
                 usuario_creacion, 
                 fecha_creacion, 
@@ -697,7 +697,7 @@ app.post('/api/servicios/salida', async (req, res) => {
 
         const valoresOrden = [
             finalIdOrden,
-            lugarTrabajo,
+            lugartrabajo,
             'EN_CAMPO',
             usuario || 'Sistema',
             despachoExitoso.length 
@@ -717,7 +717,7 @@ app.post('/api/servicios/salida', async (req, res) => {
         if (typeof ordenesServicioActivas !== 'undefined') {
             ordenesServicioActivas[finalIdOrden] = {
                 idOrden: finalIdOrden,
-                lugarTrabajo: lugarTrabajo,
+                lugartrabajo: lugartrabajo,
                 herramientasAsignadas: despachoExitoso,
                 estado: "EN_CAMPO",
                 fechaCreacion: new Date().toISOString()
@@ -725,10 +725,10 @@ app.post('/api/servicios/salida', async (req, res) => {
         }
 
         res.json({
-            mensaje: `🚀 Despacho operativo procesado con éxito para: ${lugarTrabajo}.`,
+            mensaje: `🚀 Despacho operativo procesado con éxito para: ${lugartrabajo}.`,
             idOrden: finalIdOrden,
             totalHerramientas: despachoExitoso.length,
-            lugarTrabajo: lugarTrabajo,
+            lugartrabajo: lugartrabajo,
             alertas: erroresDespacho.length > 0 ? erroresDespacho : "Ninguna. Todo el kit salió completo."
         });
 
@@ -951,7 +951,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         const resultado = await db.query(
             `SELECT 
                 id_orden, 
-                lugarTrabajo, 
+                lugartrabajo, 
                 fecha_creacion, 
                 estado,
                 total_herramientas
@@ -967,7 +967,7 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
 
         const ordenesFormateadas = ordenesBD.map(o => ({
             idOrden: o.id_orden,
-            lugarTrabajo: o.lugarTrabajo,
+            lugartrabajo: o.lugartrabajo,
             fechaCreacion: o.fecha_creacion ? new Date(o.fecha_creacion).toLocaleString('es-CO') : 'Sin fecha',
             estado: o.estado,
             totalHerramientas: o.total_herramientas || 0
@@ -1059,7 +1059,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
     try {
         // 1. Consultamos los datos generales de la orden (Sin usar [ordenRows] para Postgres)
         const resultadoOrden = await db.query(
-            `SELECT id_orden, lugarTrabajo, estado 
+            `SELECT id_orden, lugartrabajo, estado 
              FROM ordenes_servicio 
              WHERE id_orden = $1`, 
             [idOrden]
@@ -1076,7 +1076,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
         // 2. Traemos las herramientas unidas relacionalmente (Sin desestructuración array)
         const resultadoHerramientas = await db.query(
             `SELECT h.id, h.nombre 
-             FROM orden_herramientas oh
+             FROM ordenes_servicio_herramientas oh
              JOIN inventario_uso_servicio h ON oh.id_herramienta = h.id
              WHERE oh.id_orden = $1`,
             [idOrden]
@@ -1093,7 +1093,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
         // Devolvemos la estructura exacta que tu frontend espera leer
         res.json({
             idOrden: orden.id_orden,
-            colaboradorResponsable: orden.lugarTrabajo, // Se usa el lugar de trabajo como responsable en la interfaz
+            lugartrabajo: orden.lugartrabajo, // Se usa el lugar de trabajo como responsable en la interfaz
             estado: orden.estado,
             herramientasAsignadas: herramientasAsignadas
         });

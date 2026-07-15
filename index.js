@@ -379,28 +379,28 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
     }
 
     try {
-        // 1. Reingresar lo no vendido a MySQL
+        // 1. Reingresar lo no vendido a Postgres (CORREGIDO: $1, $2)
         for (const item of remision.productos) {
             let cantidadSobrante = item.cantidadCargadaInicial - item.cantidadVendidaEnCalle;
             if (cantidadSobrante > 0) {
                 await db.query(
-                    'UPDATE inventario_venta SET stock = stock + ? WHERE id = ?',
+                    'UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2',
                     [cantidadSobrante, item.idProducto]
                 );
             }
         }
 
-        // 2. Actualizar estado de la remisión en BD
-        const [result] = await db.query(
-            'UPDATE remisiones SET estado = "CERRADA", fecha_cierre = ? WHERE id_remision = ?',
+        // 2. Actualizar estado de la remisión en BD (CORREGIDO: comillas simples, $1, $2 y desestructuración rowCount)
+        const { rowCount } = await db.query(
+            "UPDATE remisiones SET estado = 'CERRADA', fecha_cierre = $1 WHERE id_remision = $2",
             [new Date(), idRemision]
         );
 
-        // 3. Si no se actualizó, insertar la remisión en la BD
-        if (result.affectedRows === 0) {
+        // 3. Si no se actualizó, insertar la remisión en la BD (CORREGIDO: rowCount en lugar de affectedRows)
+        if (rowCount === 0) {
             await db.query(
                 `INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion, total_ventas, fecha_cierre) 
-                 VALUES (?, ?, ?, ?, ?, ?)`,
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                     idRemision,
                     remision.fechaCreacion || new Date(),
@@ -411,12 +411,12 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
                 ]
             );
 
-            // Insertar los productos
+            // Insertar los productos (CORREGIDO: $1 al $7)
             for (const item of remision.productos) {
                 await db.query(
                     `INSERT INTO remisiones_productos 
                      (id_remision, id_producto, nombre, cantidad_cargada, cantidad_vendida, costo_unidad, precio_venta_unidad) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                     [
                         idRemision,
                         item.idProducto,
@@ -453,39 +453,43 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
 
         // 6. Eliminar de memoria activa
         delete remisionesVentaActivas[idRemision];
-// Dentro de /api/preventa/cierre-jornada, después de calcular balanceCierreFinal
 
-// === AUTOMATIZAR: Registrar utilidad en el módulo financiero ===
-try {
-    const utilidad = remision.preFactura.gananciaPreviaCalculada || 0;
-    if (utilidad > 0) {
-        // 1. Registrar el movimiento
-        await db.query(
-            `INSERT INTO movimientos_financieros 
-             (tipo, monto, descripcion, fecha_movimiento, usuario) 
-             VALUES (?, ?, ?, NOW(), ?)`,
-            ['UTILIDAD', utilidad, `Utilidad de remisión ${idRemision}`, 'Sistema']
-        );
+        // === AUTOMATIZAR: Registrar utilidad en el módulo financiero ===
+        try {
+            const utilidad = remision.preFactura.gananciaPreviaCalculada || 0;
+            if (utilidad > 0) {
+                // 1. Registrar el movimiento (CORREGIDO: $1 al $4 y CURRENT_TIMESTAMP de Postgres)
+                await db.query(
+                    `INSERT INTO movimientos_financieros 
+                     (tipo, monto, descripcion, fecha_movimiento, usuario) 
+                     VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)`,
+                    ['UTILIDAD', utilidad, `Utilidad de remisión ${idRemision}`, 'Sistema']
+                );
 
-        // 2. Actualizar el balance
-        const [balance] = await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
-        let total_ganado = parseFloat(balance[0].total_ganado || 0) + utilidad;
-        let total_reinvertido = parseFloat(balance[0].total_reinvertido || 0);
-        let total_disponible = total_ganado - total_reinvertido;
+                // 2. Actualizar el balance (CORREGIDO: { rows } y LIMIT 1 de Postgres)
+                const { rows: balanceRows } = await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
+                
+                if (balanceRows.length > 0) {
+                    let total_ganado = parseFloat(balanceRows[0].total_ganado || 0) + utilidad;
+                    let total_reinvertido = parseFloat(balanceRows[0].total_reinvertido || 0);
+                    let total_disponible = total_ganado - total_reinvertido;
 
-        await db.query(
-            `UPDATE balance_financiero 
-             SET total_ganado = ?, total_reinvertido = ?, total_disponible = ?, ultima_actualizacion = NOW() 
-             WHERE id = ?`,
-            [total_ganado, total_reinvertido, total_disponible, balance[0].id]
-        );
+                    // (CORREGIDO: $1 al $4 y CURRENT_TIMESTAMP de Postgres)
+                    await db.query(
+                        `UPDATE balance_financiero 
+                         SET total_ganado = $1, total_reinvertido = $2, total_disponible = $3, ultima_actualizacion = CURRENT_TIMESTAMP 
+                         WHERE id = $4`,
+                        [total_ganado, total_reinvertido, total_disponible, balanceRows[0].id]
+                    );
+                }
 
-        console.log(`💰 Utilidad de ${utilidad} registrada automáticamente en módulo financiero`);
-    }
-} catch (error) {
-    console.error('Error al registrar utilidad automática:', error);
-    // No detenemos el proceso si falla
-}
+                console.log(`💰 Utilidad de ${utilidad} registrada automáticamente en módulo financiero`);
+            }
+        } catch (error) {
+            console.error('Error al registrar utilidad automática:', error);
+            // No detenemos el proceso si falla
+        }
+
         res.json({
             mensaje: "🏁 Cierre de ruta procesado con éxito.",
             auditoriaFinal: balanceCierreFinal
@@ -520,12 +524,13 @@ app.get('/api/servicios/recomendar', async (req, res) => {
     }
 
     try {
-        const [filas] = await db.query(
-            'SELECT id, nombre, disponibles, estado FROM inventario_uso_servicio WHERE tipo_servicio = ? AND estado = "DISPONIBLE" ORDER BY nombre',
+        // CORREGIDO: { rows } y $1 con comillas simples en el SQL
+        const { rows } = await db.query(
+            "SELECT id, nombre, disponibles, estado FROM inventario_uso_servicio WHERE tipo_servicio = $1 AND estado = 'DISPONIBLE' ORDER BY nombre",
             [tipo_servicio]
         );
 
-        if (filas.length === 0) {
+        if (rows.length === 0) {
             return res.status(404).json({ 
                 error: "No hay herramientas disponibles para este tipo de servicio",
                 tipo_servicio: tipo_servicio
@@ -534,8 +539,8 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 
         res.json({
             tipo_servicio: tipo_servicio,
-            totalHerramientas: filas.length,
-            herramientas: filas.map(h => ({
+            totalHerramientas: rows.length,
+            herramientas: rows.map(h => ({
                 id: h.id,
                 nombre: h.nombre,
                 disponible: h.disponibles > 0,

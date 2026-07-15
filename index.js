@@ -1061,9 +1061,61 @@ app.get('/api/ventas/ventas-hoy', (req, res) => {
 });
 
 // 4. Remisiones activas (órdenes en ruta)
-app.get('/api/ventas/remisiones-activas', (req, res) => {
-    const activas = Object.keys(remisionesVentaActivas).length;
-    res.json({ total: activas });
+// 📋 LISTAR TODAS LAS REMISIONES ACTIVAS (CORREGIDO PARA LEER DE SUPABASE)
+app.get('/api/preventa/remisiones-activas', async (req, res) => {
+    try {
+        // Consultamos las remisiones activas y sus productos asociados haciendo un JOIN
+        const query = `
+            SELECT 
+                r.id_remision,
+                r.fecha_creacion,
+                rp.nombre,
+                rp.cantidad_cargada,
+                rp.cantidad_vendida
+            FROM remisiones r
+            LEFT JOIN remisiones_productos rp ON r.id_remision = rp.id_remision
+            WHERE r.estado = 'ACTIVA'
+            ORDER BY r.fecha_creacion DESC
+        `;
+
+        const { rows } = await db.query(query);
+
+        // Agrupamos los productos por su ID de remisión para darle el formato exacto que espera tu Frontend
+        const remisionesAgrupadas = {};
+
+        rows.forEach(row => {
+            if (!remisionesAgrupadas[row.id_remision]) {
+                remisionesAgrupadas[row.id_remision] = {
+                    idRemision: row.id_remision,
+                    fechaCreacion: row.fecha_creacion,
+                    productos: [],
+                    totalVentas: 0 // Se calculará en base a las ventas reales
+                };
+            }
+
+            // Si la remisión tiene productos asociados, los agregamos
+            if (row.nombre) {
+                const cargados = parseInt(row.cantidad_cargada, 10) || 0;
+                const vendidos = parseInt(row.cantidad_vendida, 10) || 0;
+                
+                remisionesAgrupadas[row.id_remision].productos.push({
+                    nombre: row.nombre,
+                    cargados: cargados,
+                    vendidos: vendidos,
+                    disponibles: cargados - vendidos
+                });
+            }
+        });
+
+        // Convertimos el objeto agrupado a un arreglo
+        const activas = Object.values(remisionesAgrupadas);
+
+        res.json({ activas });
+
+    } catch (error) {
+        console.error("Error al obtener remisiones activas de Supabase:", error);
+        res.status(500).json({ error: "Error interno al obtener las remisiones activas." });
+    }
 });
 // =================================================================
 // OBTENER UNA ORDEN DE SERVICIO ESPECÍFICA

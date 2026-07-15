@@ -1121,77 +1121,35 @@
     // TOGGLE HERRAMIENTA EN CARRITO
     // ==========================================
     function toggleHerramienta(id) {
-        const checkbox = document.getElementById(`herramienta_${id}`);
-        const herramienta = herramientasDisponibles.find(h => h.id === id);
+    const checkbox = document.getElementById(`recomendada_${id}`);
+    const checkboxExtra = document.getElementById(`extra_${id}`);
+    const herramienta = herramientasDisponibles.find(h => h.id === id);
 
-        if (!herramienta) return;
-        if (checkbox.checked) {
-            if (!carritoServicios.find(h => h.id === id)) {
-                carritoServicios.push({
-                    id: herramienta.id,
-                    nombre: herramienta.nombre
-                });
-                showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
-            }
-        } else {
-            carritoServicios = carritoServicios.filter(h => h.id !== id);
-            showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
-        }
+    if (!herramienta) return;
 
-        renderizarCarritoServicios();
-    }
-
-    // ==========================================
-    // AGREGAR HERRAMIENTA EXTRA
-    // ==========================================
-    async function agregarHerramientaExtra() {
-        console.log('🟢 Botón + presionado');
-        const select = document.getElementById('selectHerramientaExtra');
-        const id = parseInt(select.value);
-
-        console.log('📦 ID seleccionado:', id);
-        if (!id) {
-            showToast('Selecciona una herramienta', 'error');
-            return;
-        }
-
-        try {
-            console.log('🔄 Consultando inventario completo...');
-            const res = await fetch(`${API_URL}/api/servicios/inventario`);
-            const data = await res.json();
-
-            console.log('📊 Datos del inventario:', data);
-            const herramienta = data.find(h => h.id === id);
-
-            console.log('🔧 Herramienta encontrada:', herramienta);
-            if (!herramienta) {
-                showToast('Herramienta no encontrada', 'error');
-                return;
-            }
-
-            if (herramienta.estado !== 'DISPONIBLE' || herramienta.disponibles <= 0) {
-                showToast(`❌ "${herramienta.nombre}" no está disponible`, 'error');
-                return;
-            }
-
-            if (carritoServicios.find(h => h.id === id)) {
-                showToast(`⚠️ "${herramienta.nombre}" ya está en el carrito`, 'info');
-                return;
-            }
-
-            console.log('✅ Agregando al carrito:', herramienta.nombre);
+    // Si el checkbox está marcado
+    if (checkbox && checkbox.checked) {
+        if (!carritoServicios.find(h => h.id === id)) {
             carritoServicios.push({
                 id: herramienta.id,
                 nombre: herramienta.nombre
             });
-            renderizarCarritoServicios();
             showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
-            select.value = '';
-        } catch (error) {
-            console.error('❌ Error en agregarHerramientaExtra:', error);
-            showToast('Error de conexión: ' + error.message, 'error');
         }
+    } else {
+        // Si está desmarcado, eliminar del carrito
+        carritoServicios = carritoServicios.filter(h => h.id !== id);
+        showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
+        
+        // También desmarcar el checkbox extra si existe
+        if (checkboxExtra) checkboxExtra.checked = false;
     }
+
+    renderizarCarritoServicios();
+    
+    // Actualizar la lista de herramientas extras para reflejar cambios
+    cargarListaHerramientasExtras();
+}
 
     // ==========================================
     // RENDERIZAR CARRITO DE SERVICIOS
@@ -1537,7 +1495,7 @@
         document.getElementById('reingresoContent').innerHTML = '';
         ordenActivaReingreso = null;
     }
-
+    /*
     // ==========================================
     // CARGAR HERRAMIENTAS ADICIONALES (SELECT CORREGIDO)
     // ==========================================
@@ -1565,7 +1523,7 @@
             console.error("Error al cargar el selector de extras:", error);
         }
     }
-
+    */
     // ==========================================
     // CARGAR HERRAMIENTAS EN REPARACIÓN
     // ==========================================
@@ -2138,67 +2096,23 @@ function actualizarContadorExtras() {
     }
 }
 
-// Modificar el renderizado de herramientas recomendadas para que funcione con la selección múltiple
-// Asegúrate de que las herramientas recomendadas tengan checkboxes también
-function renderizarHerramientasRecomendadas(herramientas) {
-    const container = document.getElementById('herramientasRecomendadas');
-    if (!container) return;
-    
-    if (!herramientas || herramientas.length === 0) {
-        container.innerHTML = `
-            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                No hay herramientas recomendadas para este servicio
-            </p>
-        `;
-        return;
-    }
-    
-    let html = `<div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
-    herramientas.forEach(h => {
-        const enCarrito = carritoServicios.some(item => item.id === h.id);
-        html += `
-            <div class="herramienta-item" style="
-                padding: 8px 12px; 
-                background: #e3f2fd; 
-                border-radius: 4px; 
-                border-left: 3px solid #2196f3;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                ${enCarrito ? 'opacity: 0.6;' : ''}
-            ">
-                <input type="checkbox" 
-                       id="recomendada_${h.id}" 
-                       value="${h.id}"
-                       ${enCarrito ? 'disabled' : ''}
-                       onchange="toggleHerramientaExtra(${h.id})"
-                       ${herramientasSeleccionadasExtras.includes(h.id) ? 'checked' : ''}>
-                <label for="recomendada_${h.id}" style="cursor: pointer; ${enCarrito ? 'color: #999;' : ''}">
-                    ⭐ ${h.nombre} 
-                    <span style="font-size: 0.8em; color: #666;">(${h.disponibles} disp.)</span>
-                    ${enCarrito ? '✅' : ''}
-                </label>
-            </div>
-        `;
-    });
-    html += `</div>`;
-    container.innerHTML = html;
-}
-    renderizarHerramientasRecomendadas(herramientasRecomendadas);
-
     // ==========================================
     // INICIALIZACIÓN
     // ==========================================
     window.onload = async function() {
-        await cargarSelectorHerramientasExtras();
-        await cargarListaHerramientasExtras();
-
-        // Cargar automáticamente el primer servicio
-        const primerServicio = document.querySelector('.servicio-item');
-        if (primerServicio) {
-            primerServicio.click();
-        }
-    };
+    console.log('🚀 Inicializando módulo de servicios...');
+    
+    // Cargar herramientas extras (nuevo sistema)
+    await cargarListaHerramientasExtras();
+    
+    // Cargar automáticamente el primer servicio
+    const primerServicio = document.querySelector('.servicio-item');
+    if (primerServicio) {
+        primerServicio.click();
+    }
+    
+    console.log('✅ Módulo de servicios inicializado');
+};
 
     // ==========================================
     // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)

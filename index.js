@@ -1671,28 +1671,51 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
     }
 });
 
-// Crear agendamiento
+// Crear agendamiento (Ajustado a la estructura exacta de Supabase)
 app.post('/api/servicios/agendar', async (req, res) => {
     const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario } = req.body;
 
+    // Validación básica de campos obligatorios
     if (!cliente || !tipo_servicio || !fecha || !hora) {
-        return res.status(400).json({ error: 'Faltan datos obligatorios' });
+        return res.status(400).json({ error: 'Faltan datos obligatorios: cliente, tipo_servicio, fecha y hora son necesarios.' });
     }
+
+    // Convertir el valor a un número válido para evitar fallas con strings vacíos
+    const valorNumerico = isNaN(parseFloat(valor)) ? 0.00 : parseFloat(valor);
 
     try {
+        // En Postgres insertamos explícitamente el 'PENDIENTE' en la columna "estado"
         await db.query(
             `INSERT INTO agendamientos 
-             (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario_creacion) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor || 0, usuario || 'Sistema']
+             (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, estado, usuario_creacion, valor) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+                cliente, 
+                tipo_servicio, 
+                fecha, 
+                hora, 
+                tecnico || null, 
+                observaciones || null, 
+                'PENDIENTE', // <-- Forzamos el estado inicial para que no falle el NOT NULL de Postgres
+                usuario || 'Sistema', 
+                valorNumerico
+            ]
         );
+        
         res.json({ mensaje: 'Servicio agendado exitosamente' });
     } catch (error) {
-        console.error('Error al agendar:', error);
-        res.status(500).json({ error: 'Error al agendar servicio' });
+        console.error('--- ERROR DETALLADO AL AGENDAR EN SUPABASE ---');
+        console.error('Código Postgres:', error.code);
+        console.error('Mensaje:', error.message);
+        console.error('Detalle:', error.detail);
+        console.error('----------------------------------------------');
+        
+        res.status(500).json({ 
+            error: 'Error interno al guardar en la base de datos', 
+            detalle: error.message 
+        });
     }
 });
-
 // Actualizar/Editar/Liquidar agendamiento
 app.put('/api/servicios/agendamiento/:id', async (req, res) => {
     const { id } = req.params;
@@ -1722,23 +1745,29 @@ app.put('/api/servicios/agendamiento/:id', async (req, res) => {
 });
 
 // Completar agendamiento
+// Completar y Liquidar agendamiento (PostgreSQL)
 app.put('/api/servicios/agendamiento/:id/completar', async (req, res) => {
     const { id } = req.params;
+    const { valor, observaciones } = req.body;
+
+    const valorNumerico = isNaN(parseFloat(valor)) ? 0.00 : parseFloat(valor);
 
     try {
         const { rowCount } = await db.query(
-            "UPDATE agendamientos SET estado = 'COMPLETADO' WHERE id = $1",
-            [id]
+            `UPDATE agendamientos 
+             SET estado = 'COMPLETADO', valor = $1, observaciones = $2 
+             WHERE id = $3`,
+            [valorNumerico, observaciones || null, id]
         );
 
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Agendamiento no encontrado' });
         }
 
-        res.json({ mensaje: 'Servicio completado' });
+        res.json({ mensaje: 'Servicio completado y liquidado exitosamente' });
     } catch (error) {
-        console.error('Error al completar:', error);
-        res.status(500).json({ error: 'Error al completar servicio' });
+        console.error('Error al completar y liquidar:', error);
+        res.status(500).json({ error: 'Error al completar y liquidar el servicio' });
     }
 });
 

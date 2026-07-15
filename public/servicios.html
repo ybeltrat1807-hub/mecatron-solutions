@@ -948,1073 +948,1016 @@
     <!-- TOAST CONTAINER -->
     <div id="toastContainer"></div>
 
-    <!-- ========================================== -->
-    <!-- SCRIPTS COMPLETOS                         -->
-    <!-- ========================================== -->
     <script>
-        const API_URL = "https://mecatron-solutions-production.up.railway.app";
-        let carritoServicios = [];
-        let herramientasDisponibles = [];
-        let servicioSeleccionado = null;
-        let ordenActivaReingreso = null;
+    const API_URL = "https://mecatron-solutions-production.up.railway.app";
+    let carritoServicios = [];
+    let herramientasDisponibles = [];
+    let servicioSeleccionado = null;
+    let ordenActivaReingreso = null;
 
-        // ==========================================
-        // VALIDACIÓN DE SESIÓN
-        // ==========================================
-        if (sessionStorage.getItem('autorizado') !== 'true') {
-            window.location.href = "index.html";
-        }
-
-        // ==========================================
-        // TOAST NOTIFICATIONS
-        // ==========================================
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                <span>${message}</span>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        // ==========================================
-// NAVEGACIÓN ENTRE SUBMÓDULOS
-// ==========================================
-function cambiarSubmodulo(idPantalla) {
-    // Ocultar el menú principal
-    document.getElementById('submenuPrincipal').style.display = 'none';
-
-    // Ocultar todas las pantallas
-    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-
-    // Mostrar la pantalla seleccionada
-    document.getElementById(idPantalla).classList.add('active');
-
-    // Cargar datos según el submódulo
-    if (idPantalla === 'subReintegro') {
-        cargarOrdenesActivas();
-    } else if (idPantalla === 'subReparaciones') {
-        cargarHerramientasEnReparacion();
-    } else if (idPantalla === 'subNuevaOrden') {
-        cargarSelectorHerramientasExtras();
+    // ==========================================
+    // VALIDACIÓN DE SESIÓN
+    // ==========================================
+    if (sessionStorage.getItem('autorizado') !== 'true') {
+        window.location.href = "index.html";
     }
-}
 
-// ==========================================
-// VOLVER AL MENÚ PRINCIPAL
-// ==========================================
-function regresarSubmenu() {
-    // Ocultar todas las pantallas
-    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-
-    // Mostrar el menú principal
-    document.getElementById('submenuPrincipal').style.display = 'grid';
-
-    // Ocultar secciones secundarias
-    document.getElementById('seccionReingreso').style.display = 'none';
-    document.getElementById('seccionProcesarReparacion').style.display = 'none';
-}
-        // ==========================================
-        // SELECCIÓN DE SERVICIO
-        // ==========================================
-        document.querySelectorAll('.servicio-item').forEach(el => {
-            el.addEventListener('click', function() {
-                document.querySelectorAll('.servicio-item').forEach(s => s.classList.remove('seleccionado'));
-                this.classList.add('seleccionado');
-                servicioSeleccionado = this.dataset.servicio;
-                mostrarHerramientasRecomendadas(servicioSeleccionado);
-            });
-        });
-
-// ==========================================
-// MOSTRAR HERRAMIENTAS RECOMENDADAS (FILTRADO LOCAL)
-// ==========================================
-async function mostrarHerramientasRecomendadas(servicio) {
-    const container = document.getElementById('herramientasRecomendadas');
-
-    container.innerHTML = `
-        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando herramientas...
-        </p>
-    `;
-
-    try {
-        // Cargar TODAS las herramientas del inventario
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const data = await res.json();
-
-        if (!res.ok) {
-            container.innerHTML = `
-                <p style="color: var(--danger); text-align: center; padding: 1rem;">
-                    ⚠️ Error al cargar el inventario
-                </p>
-            `;
-            return;
-        }
-
-        // Filtrar por tipo_servicio y estado DISPONIBLE
-        const herramientasFiltradas = data.filter(h => 
-            h.tipo_servicio === servicio && 
-            h.estado === 'DISPONIBLE'
-        );
-
-        if (herramientasFiltradas.length === 0) {
-            container.innerHTML = `
-                <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                    No hay herramientas disponibles para este servicio
-                </p>
-            `;
-            return;
-        }
-
-        // Actualizar herramientas disponibles global
-        herramientasDisponibles = herramientasFiltradas;
-
-        container.innerHTML = `
-            <div class="herramientas-container">
-                ${herramientasFiltradas.map(h => `
-                    <div class="herramienta-item">
-                        <input type="checkbox" id="herramienta_${h.id}" value="${h.id}" 
-                               ${h.disponibles > 0 ? '' : 'disabled'}
-                               onchange="toggleHerramienta(${h.id})">
-                        <label for="herramienta_${h.id}">${h.nombre}</label>
-                        <span class="estado ${h.disponibles > 0 ? 'disponible' : 'no-disponible'}">
-                            ${h.disponibles > 0 ? `✅ ${h.disponibles} disponibles` : '❌ No disponible'}
-                        </span>
-                    </div>
-                `).join('')}
-            </div>
-            <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-light);">
-                💡 Selecciona las herramientas que deseas llevar (${herramientasFiltradas.length} disponibles)
-            </div>
+    // ==========================================
+    // TOAST NOTIFICATIONS
+    // ==========================================
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span>${message}</span>
         `;
-    } catch (error) {
-        console.error('Error al cargar herramientas:', error);
-        container.innerHTML = `
-            <p style="color: var(--danger); text-align: center; padding: 1rem;">
-                ⚠️ Error de conexión con el servidor
-            </p>
-        `;
-    }
-}
-        // ==========================================
-        // TOGGLE HERRAMIENTA EN CARRITO
-        // ==========================================
-        function toggleHerramienta(id) {
-            const checkbox = document.getElementById(`herramienta_${id}`);
-            const herramienta = herramientasDisponibles.find(h => h.id === id);
-
-            if (!herramienta) return;
-
-            if (checkbox.checked) {
-                if (!carritoServicios.find(h => h.id === id)) {
-                    carritoServicios.push({
-                        id: herramienta.id,
-                        nombre: herramienta.nombre
-                    });
-                    showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
-                }
-            } else {
-                carritoServicios = carritoServicios.filter(h => h.id !== id);
-                showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
-            }
-
-            renderizarCarritoServicios();
-        }
-
-// ==========================================
-// AGREGAR HERRAMIENTA EXTRA (CON LOGS)
-// ==========================================
-async function agregarHerramientaExtra() {
-    console.log('🟢 Botón + presionado');
-
-    const select = document.getElementById('selectHerramientaExtra');
-    const id = parseInt(select.value);
-
-    console.log('📦 ID seleccionado:', id);
-
-    if (!id) {
-        showToast('Selecciona una herramienta', 'error');
-        return;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 
-    try {
-        console.log('🔄 Consultando inventario completo...');
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const data = await res.json();
+    // ==========================================
+    // NAVEGACIÓN ENTRE SUBMÓDULOS
+    // ==========================================
+    function cambiarSubmodulo(idPantalla) {
+        // Ocultar el menú principal
+        document.getElementById('submenuPrincipal').style.display = 'none';
+        // Ocultar todas las pantallas
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
 
-        console.log('📊 Datos del inventario:', data);
-
-        const herramienta = data.find(h => h.id === id);
-
-        console.log('🔧 Herramienta encontrada:', herramienta);
-
-        if (!herramienta) {
-            showToast('Herramienta no encontrada', 'error');
-            return;
+        // Mostrar la pantalla seleccionada
+        document.getElementById(idPantalla).classList.add('active');
+        // Cargar datos según el submódulo
+        if (idPantalla === 'subReintegro') {
+            cargarOrdenesActivas();
+        } else if (idPantalla === 'subReparaciones') {
+            cargarHerramientasEnReparacion();
+        } else if (idPantalla === 'subNuevaOrden') {
+            cargarSelectorHerramientasExtras();
         }
+    }
 
-        if (herramienta.estado !== 'DISPONIBLE' || herramienta.disponibles <= 0) {
-            showToast(`❌ "${herramienta.nombre}" no está disponible`, 'error');
-            return;
-        }
+    // ==========================================
+    // VOLVER AL MENÚ PRINCIPAL
+    // ==========================================
+    function regresarSubmenu() {
+        // Ocultar todas las pantallas
+        document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
+        // Mostrar el menú principal
+        document.getElementById('submenuPrincipal').style.display = 'grid';
+        // Ocultar secciones secundarias
+        document.getElementById('seccionReingreso').style.display = 'none';
+        document.getElementById('seccionProcesarReparacion').style.display = 'none';
+    }
 
-        if (carritoServicios.find(h => h.id === id)) {
-            showToast(`⚠️ "${herramienta.nombre}" ya está en el carrito`, 'info');
-            return;
-        }
-
-        console.log('✅ Agregando al carrito:', herramienta.nombre);
-        carritoServicios.push({
-            id: herramienta.id,
-            nombre: herramienta.nombre
+    // ==========================================
+    // SELECCIÓN DE SERVICIO
+    // ==========================================
+    document.querySelectorAll('.servicio-item').forEach(el => {
+        el.addEventListener('click', function() {
+            document.querySelectorAll('.servicio-item').forEach(s => s.classList.remove('seleccionado'));
+            this.classList.add('seleccionado');
+         
+            servicioSeleccionado = this.dataset.servicio;
+            mostrarHerramientasRecomendadas(servicioSeleccionado);
         });
-
-        renderizarCarritoServicios();
-        showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
-        select.value = '';
-
-    } catch (error) {
-        console.error('❌ Error en agregarHerramientaExtra:', error);
-        showToast('Error de conexión: ' + error.message, 'error');
-    }
-}
-        // ==========================================
-        // RENDERIZAR CARRITO DE SERVICIOS
-        // ==========================================
-        function renderizarCarritoServicios() {
-            const container = document.getElementById('carritoServicios');
-
-            if (carritoServicios.length === 0) {
-                container.innerHTML = '<div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>';
-                return;
-            }
-
-            container.innerHTML = carritoServicios.map(item => `
-                <div class="carrito-item">
-                    <span>🔹 ${item.nombre}</span>
-                    <button onclick="eliminarDelCarritoServicios(${item.id})" 
-                            style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.7rem;">
-                        ✕
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        // ==========================================
-        // ELIMINAR DEL CARRITO DE SERVICIOS
-        // ==========================================
-        function eliminarDelCarritoServicios(id) {
-            const item = carritoServicios.find(h => h.id === id);
-            if (!item) return;
-
-            carritoServicios = carritoServicios.filter(h => h.id !== id);
-            renderizarCarritoServicios();
-            showToast(`🗑️ ${item.nombre} eliminado del carrito`, 'info');
-
-            const checkbox = document.getElementById(`herramienta_${id}`);
-            if (checkbox) checkbox.checked = false;
-        }
-
-        // ==========================================
-        // VACIAR CARRITO DE SERVICIOS
-        // ==========================================
-        function vaciarCarritoServicios() {
-            if (carritoServicios.length === 0) {
-                showToast('El carrito ya está vacío', 'info');
-                return;
-            }
-
-            if (confirm('⚠️ ¿Estás seguro de vaciar el carrito?')) {
-                carritoServicios.forEach(item => {
-                    const checkbox = document.getElementById(`herramienta_${item.id}`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                carritoServicios = [];
-                renderizarCarritoServicios();
-                showToast('🗑️ Carrito vaciado completamente', 'info');
-            }
-        }
-
-    async function generarOrdenServicio(btn) {
-    console.log("🚀 Entró a generarOrdenServicio");
-
-    const tecnico = document.getElementById('lugarTrabajo').value.trim();
-    const usuario = sessionStorage.getItem('usuario') || 'Sistema';
-
-    if (!tecnico) {
-        showToast('Por favor ingresa el nombre del lugar', 'error');
-        return;
-    }
-
-    if (carritoServicios.length === 0) {
-        showToast('Selecciona al menos una herramienta', 'error');
-        return;
-    }
-
-    // Validar inventario antes de generar la orden
-    try {
-        const resInventario = await fetch(`${API_URL}/api/servicios/inventario`);
-
-        if (!resInventario.ok) {
-            throw new Error('No fue posible consultar el inventario');
-        }
-
-        const inventarioCompleto = await resInventario.json();
-
-        for (const item of carritoServicios) {
-
-            const herramienta = inventarioCompleto.find(h => Number(h.id) === Number(item.id));
-
-            if (!herramienta) {
-                showToast(`❌ La herramienta "${item.nombre}" no existe en el inventario`, 'error');
-                return;
-            }
-
-            if (herramienta.estado !== 'DISPONIBLE') {
-                showToast(`❌ "${item.nombre}" está ${herramienta.estado}`, 'error');
-                return;
-            }
-
-            if (Number(herramienta.disponibles) <= 0) {
-                showToast(`❌ "${item.nombre}" no tiene unidades disponibles`, 'error');
-                return;
-            }
-        }
-
-    } catch (error) {
-        console.error("Error validando inventario:", error);
-        showToast("Error al validar el inventario", "error");
-        return;
-    }
-
-    // Generar consecutivo
-    const idsSeleccionadas = carritoServicios.map(h => h.id);
-
-    const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
-
-    const textoOriginal = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
-    btn.disabled = true;
-
-    try {
-
-        const res = await fetch(`${API_URL}/api/servicios/salida`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                idOrden,
-                lugarTrabajo: tecnico, // CORRECCIÓN CLAVE: Enviado como lugarTrabajo para que el backend lo reciba
-                idsSeleccionadas,
-                idsAdicionales: [],
-                usuario
-            })
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-
-            showToast(`🚀 Orden ${data.idOrden} generada con éxito`, 'success');
-
-            // Limpiar carrito
-            carritoServicios = [];
-            renderizarCarritoServicios();
-
-            // Limpiar campo
-            document.getElementById('lugarTrabajo').value = '';
-
-            // Desmarcar checkboxes
-            document
-                .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
-                .forEach(cb => cb.checked = false);
-
-            // Recargar información
-            await cargarSelectorHerramientasExtras();
-            await cargarOrdenesActivas();
-
-        } else {
-
-            showToast(data.error || 'No fue posible generar la orden', 'error');
-
-        }
-
-    } catch (error) {
-
-        console.error('❌ Error al generar orden:', error);
-        showToast('Error de conexión con el servidor', 'error');
-
-    } finally {
-
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
-
-    }
-}
-    async function cargarOrdenesActivas() {
-    const container = document.getElementById('ordenesActivas');
-
-    container.innerHTML = `
-        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
-        </p>
-    `;
-
-    try {
-        // 1. Ruta corregida con /api/
-        const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
-        const data = await res.json();
-
-        console.log('📊 Datos recibidos:', data);
-
-        // 2. Blindaje: Detecta si los datos vienen directo en un array o dentro de una propiedad
-        const listaOrdenes = Array.isArray(data) ? data : (data.ordenes || []);
-
-        if (listaOrdenes.length === 0) {
-            container.innerHTML = `
-                <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                    🚫 No hay órdenes activas
-                </p>
-            `;
-            return;
-        }
-
-        // 3. Renderizar usando la lista validada
-        container.innerHTML = listaOrdenes.map(orden => `
-    <div class="orden-item">
-        <div class="orden-info">
-            <span class="orden-id">${orden.idOrden || orden.id}</span>
-            <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
-            <div class="orden-detalle">
-                📍 <strong>Lugar:</strong> ${orden.lugarTrabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
-                <span class="badge-estado campo">● En Campo</span>
-            </div>
-        </div>
-        <div class="orden-actions">
-            <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden || orden.id}')">
-                🔄 Reintegrar
-            </button>
-        </div>
-    </div>
-`).join('');
-
-    } catch (error) {
-        console.error('❌ Error al cargar órdenes:', error);
-        container.innerHTML = `
-            <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                ⚠️ Error al cargar órdenes: ${error.message}
-            </p>
-        `;
-    }
-}
-        // ==========================================
-        // INICIAR REINGRESO DE HERRAMIENTAS
-        // ==========================================
-        async function iniciarReingreso(idOrden) {
-            try {
-                const res = await fetch(`${API_URL}/api/servicios/orden/${idOrden}`);
-                const data = await res.json();
-
-                if (!res.ok) {
-                    showToast('Error al obtener la orden', 'error');
-                    return;
-                }
-
-                ordenActivaReingreso = data;
-
-                const seccion = document.getElementById('seccionReingreso');
-                seccion.style.display = 'block';
-                seccion.scrollIntoView({ behavior: 'smooth' });
-
-                const container = document.getElementById('reingresoContent');
-                container.innerHTML = `
-                    <div style="margin-bottom: 1rem;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                                <div style="font-size: 0.7rem; color: var(--text-light);">Orden</div>
-                                <div style="font-weight: 700;">${data.idOrden}</div>
-                            </div>
-                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                                <div style="font-size: 0.7rem; color: var(--text-light);">Técnico</div>
-                                <div style="font-weight: 700;">${data.colaboradorResponsable}</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 0.5rem; padding: 0.8rem; background: #FFF8E1; border-radius: 8px; border-left: 4px solid var(--gold);">
-                            <strong>📋 Registrar novedades:</strong>
-                            <p style="font-size: 0.8rem; color: var(--text-light);">
-                                Selecciona el estado de cada herramienta al reingresar
-                            </p>
-                        </div>
-                    </div>
-                    <div class="herramientas-container">
-                        ${data.herramientasAsignadas.map(h => `
-                            <div class="novedad-item">
-                                <span class="nombre-herramienta">🔹 ${h.nombre}</span>
-                                <select id="novedad_${h.id}">
-                                    <option value="OK">✅ OK - Devuelta</option>
-                                    <option value="DAÑO">⚠️ DAÑO - A mantenimiento</option>
-                                    <option value="PERDIDA">❌ PÉRDIDA - Baja inventario</option>
-                                </select>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                        <button onclick="confirmarReingreso('${data.idOrden}', this)" class="btn btn-success" style="flex: 1;">
-                            ✓ Confirmar Reingreso
-                        </button>
-                        <button onclick="cerrarReingreso()" class="btn btn-secondary">
-                            Cancelar
-                        </button>
-                    </div>
-                `;
-
-            } catch (error) {
-                showToast('Error de conexión', 'error');
-            }
-        }
-
-        // ==========================================
-// CONFIRMAR REINGRESO (CORREGIDO)
-// ==========================================
-async function confirmarReingreso(idOrden, btn) {
-    const novedades = {};
-
-    const orden = ordenActivaReingreso;
-    orden.herramientasAsignadas.forEach(h => {
-        const select = document.getElementById(`novedad_${h.id}`);
-        if (select) {
-            novedades[h.id] = select.value;
-        }
     });
 
-    const tieneNovedad = Object.values(novedades).some(v => v !== 'OK');
-
-    if (!tieneNovedad) {
-        if (!confirm('✅ Todas las herramientas están OK. ¿Confirmar reingreso?')) {
-            return;
-        }
-    } else {
-        const mensaje = Object.entries(novedades)
-            .filter(([id, estado]) => estado !== 'OK')
-            .map(([id, estado]) => {
-                const herramienta = orden.herramientasAsignadas.find(h => h.id === parseInt(id));
-                const icono = estado === 'DAÑO' ? '🔧' : '❌';
-                return `${icono} ${herramienta.nombre}: ${estado}`;
-            }).join('\n');
-
-        if (!confirm(`⚠️ Se reportaron las siguientes novedades:\n\n${mensaje}\n\n¿Confirmar reingreso?`)) {
-            return;
-        }
-    }
-    const textoOriginal = btn.textContent;
-    btn.textContent = '⏳ Procesando...';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/reingreso`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                idOrden,
-                novedades
-            })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            showToast(`✅ Reingreso de ${idOrden} completado con éxito`, 'success');
-            cerrarReingreso();
-
-            // ⭐ RECARGAR TODO EN ORDEN
-            cargarOrdenesActivas();
-            await cargarSelectorHerramientasExtras();
-
-            // ⭐ USAR EL INVENTARIO GENERAL EN VEZ DEL ENDPOINT ESPECÍFICO
-            // Recargar herramientas en reparación desde el inventario
-            await cargarHerramientasEnReparacion();
-        } else {
-            showToast('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        console.error('Error en reingreso:', error);
-        showToast('Error de conexión', 'error');
-    } finally {
-        btn.textContent = textoOriginal;
-        btn.disabled = false;
-    }
-}
-
-        // ==========================================
-        // CERRAR REINGRESO
-        // ==========================================
-        function cerrarReingreso() {
-            document.getElementById('seccionReingreso').style.display = 'none';
-            document.getElementById('reingresoContent').innerHTML = '';
-            ordenActivaReingreso = null;
-        }
-
-// ==========================================
-// CARGAR HERRAMIENTAS DISPONIBLES (CORREGIDO)
-// ==========================================
-// Función para llenar el select de herramientas adicionales
-async function cargarSelectorHerramientasExtras() {
-    try {
-        // Consultamos la ruta que ahora trae herramientas únicas sin duplicados
-        const respuesta = await fetch('/api/servicios/inventario');
-        const herramientas = await respuesta.json();
-        
-        const select = document.getElementById('select-herramientas-extras'); // Cambia por el ID real de tu select
-        if (!select) return;
-
-        // Limpiamos el select y dejamos la opción por defecto
-        select.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
-
-        herramientas.forEach(h => {
-            // Creamos la opción usando el ID único de la herramienta
-            const opcion = document.createElement('option');
-            opcion.value = h.id; // Aquí se guarda el ID único (ej: 1 para Destornillador)
-            opcion.textContent = `${h.nombre} (${h.disponibles} disp.)`;
-            
-            // Opcional: Si la herramienta ya está en las recomendadas de arriba, no la muestres como extra
-            if (h.disponibles > 0) {
-                select.appendChild(opcion);
-            }
-        });
-    } catch (error) {
-        console.error("Error al cargar el selector de extras:", error);
-    }
-}
-// ==========================================
-// CARGAR HERRAMIENTAS EN REPARACIÓN (CORREGIDO)
-// ==========================================
-async function cargarHerramientasEnReparacion() {
-    const container = document.getElementById('herramientasReparacion');
-    container.innerHTML = `
-        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando herramientas en reparación...
-        </p>
-    `;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const data = await res.json();
-
-        // Filtrar herramientas en reparación o baja
-        const herramientasFiltradas = data.filter(h => 
-            h.estado === 'EN_REPARACION' || h.estado === 'DADO_BAJA'
-        );
-
-        if (herramientasFiltradas.length === 0) {
-            container.innerHTML = `
-                <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                    ✅ No hay herramientas en reparación o baja
-                </p>
-            `;
-            return;
-        }
-
-        container.innerHTML = herramientasFiltradas.map(h => {
-            const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
-            const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
-
-            // 👇 NUEVA CONDICIÓN: Mostrar botón SOLO si está en reparación
-            const mostrarBoton = h.estado === 'EN_REPARACION';
-
-            return `
-                <div class="orden-item" style="border-left: 4px solid ${color};">
-                    <div class="orden-info">
-                        <span style="font-weight: 700; font-size: 1rem;">🔹 ${h.nombre}</span>
-                        <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;">
-                            ID: #${h.id}
-                        </span>
-                        <div style="font-size: 0.8rem; margin-top: 0.2rem;">
-                            <span style="color: ${color}; font-weight: 600;">
-                                ${estadoDisplay}
-                            </span>
-                            ${h.observaciones ? ` | 📝 ${h.observaciones}` : ''}
-                        </div>
-                        ${h.estado === 'DADO_BAJA' ? `
-                            <div style="font-size: 0.7rem; color: var(--danger); font-weight: 600; margin-top: 0.2rem;">
-                                ⚠️ Esta herramienta ya fue dada de baja definitivamente
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="orden-actions">
-                        ${mostrarBoton ? `
-                            <button onclick="procesarReparacion(${h.id}, '${h.nombre}')" 
-                                    class="btn-icon reingreso" 
-                                    style="background: var(--gradient-secondary); color: white; padding: 0.3rem 1rem;">
-                                🛠️ Procesar
-                            </button>
-                        ` : `
-                            <span style="font-size: 0.7rem; color: var(--text-light);">
-                                🔒 Procesamiento no disponible
-                            </span>
-                        `}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-    } catch (error) {
-        console.error('Error al cargar herramientas en reparación:', error);
+    // ==========================================
+    // MOSTRAR HERRAMIENTAS RECOMENDADAS (VÍA BACKEND RELACIONAL)
+    // ==========================================
+    async function mostrarHerramientasRecomendadas(servicio) {
+        const container = document.getElementById('herramientasRecomendadas');
         container.innerHTML = `
-            <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                ⚠️ Error al cargar herramientas en reparación
+            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando herramientas recomendadas...
             </p>
         `;
-    }
-}
-        // ==========================================
-        // PROCESAR REPARACIÓN DE HERRAMIENTA
-        // ==========================================
-        async function procesarReparacion(id, nombre) {
-            try {
-                const res = await fetch(`${API_URL}/api/servicios/herramienta/${id}`);
-                const data = await res.json();
+        try {
+            // Consultamos la nueva ruta relacional filtrando en el servidor
+            const res = await fetch(`${API_URL}/api/servicios/recomendar?tipo_servicio=${servicio}`);
+            const data = await res.json();
 
-                if (!res.ok) {
-                    showToast('Error al obtener datos de la herramienta', 'error');
-                    return;
-                }
-
-                const seccion = document.getElementById('seccionProcesarReparacion');
-                seccion.style.display = 'block';
-                seccion.scrollIntoView({ behavior: 'smooth' });
-
-                const container = document.getElementById('procesarReparacionContent');
+            if (!res.ok) {
                 container.innerHTML = `
-                    <div style="margin-bottom: 1rem;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                                <div style="font-size: 0.7rem; color: var(--text-light);">Herramienta</div>
-                                <div style="font-weight: 700; font-size: 1.1rem;">🔹 ${data.nombre}</div>
-                            </div>
-                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                                <div style="font-size: 0.7rem; color: var(--text-light);">Estado actual</div>
-                                <div style="font-weight: 600; color: var(--gold);">${data.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja'}</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 1rem; background: #FFF8E1; padding: 0.8rem; border-radius: 8px; border-left: 4px solid var(--gold);">
-                            <strong>📋 Procesar herramienta</strong>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Selecciona el estado final</label>
-                        <select id="estadoFinalHerramienta">
-                            <option value="REPARADO">✅ Reparado - Devuelto a stock</option>
-                            <option value="NO_REPARABLE">❌ No reparable - Dar de baja definitiva</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>📝 Observaciones</label>
-                        <textarea id="observacionesReparacion" rows="2" 
-                                  placeholder="Describe la reparación o motivo de la baja..."></textarea>
-                    </div>
-
-                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                        <button onclick="confirmarProcesarReparacion(${id})" class="btn btn-success" style="flex: 1;">
-                            ✓ Confirmar y Procesar
-                        </button>
-                        <button onclick="cerrarProcesarReparacion()" class="btn btn-secondary">
-                            Cancelar
-                        </button>
-                    </div>
+                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                        No hay herramientas recomendadas disponibles para este servicio
+                    </p>
                 `;
-                    // 👇 Si ya está DADO_BAJA, no permitir procesar
-        if (data.estado === 'DADO_BAJA') {
-            showToast(`❌ La herramienta "${nombre}" ya fue dada de baja definitivamente`, 'error');
-            return;
-        }
-            } catch (error) {
-                showToast('Error de conexión', 'error');
-            }
-        }
-
-        // ==========================================
-        // CONFIRMAR PROCESAR REPARACIÓN
-        // ==========================================
-        async function confirmarProcesarReparacion(id) {
-            const estadoFinal = document.getElementById('estadoFinalHerramienta').value;
-            const observaciones = document.getElementById('observacionesReparacion').value.trim();
-
-            if (!observaciones) {
-                showToast('Por favor, escribe una observación', 'error');
                 return;
             }
 
-            const btn = event.target;
-            const textoOriginal = btn.textContent;
-            btn.textContent = '⏳ Procesando...';
-            btn.disabled = true;
+            // Mapeamos los datos recibidos a nuestro array local de disponibilidad
+            const herramientasFiltradas = data.herramientas || [];
+            herramientasDisponibles = herramientasFiltradas;
 
-            try {
-                const res = await fetch(`${API_URL}/api/servicios/procesar-reparacion`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        herramientaId: id,
-                        estadoFinal: estadoFinal,
-                        observaciones: observaciones,
-                        tecnico: document.getElementById('tecnicoResponsable').value || 'Administrador'
-                    })
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    if (estadoFinal === 'REPARADO') {
-                        showToast(`✅ ${data.nombre} reparado y devuelto a stock`, 'success');
-                    } else {
-                        showToast(`📋 ${data.nombre} dado de baja definitivamente`, 'info');
-                    }
-                    cerrarProcesarReparacion();
-                    await cargarHerramientasEnReparacion();
-                    await cargarSelectorHerramientasExtras();
-                } else {
-                    showToast('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showToast('Error de conexión', 'error');
-            } finally {
-                btn.textContent = textoOriginal;
-                btn.disabled = false;
+            if (herramientasFiltradas.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                        No hay herramientas disponibles para este servicio
+                    </p>
+                `;
+                return;
             }
-        }
 
-        // ==========================================
-        // CERRAR PROCESAR REPARACIÓN
-        // ==========================================
-        function cerrarProcesarReparacion() {
-            document.getElementById('seccionProcesarReparacion').style.display = 'none';
-            document.getElementById('procesarReparacionContent').innerHTML = '';
-        }
-        // ==========================================
-// AGENDAMIENTO DE SERVICIOS
-// ==========================================
-
-// Cargar agendamientos
-async function cargarAgendamientos() {
-    const container = document.getElementById('listaAgendamientos');
-    const filtro = document.getElementById('filtroEstadoAgendamiento').value;
-
-    container.innerHTML = `
-        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
-        </p>
-    `;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/agendamientos?estado=${filtro}`);
-        const data = await res.json();
-
-        if (!data.agendamientos || data.agendamientos.length === 0) {
             container.innerHTML = `
-                <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                    📭 No hay servicios agendados
+                <div class="herramientas-container">
+                    ${herramientasFiltradas.map(h => `
+                        <div class="herramienta-item">
+                            <input type="checkbox" id="herramienta_${h.id}" value="${h.id}" 
+                                   ${h.disponibles > 0 ? '' : 'disabled'}
+                                   onchange="toggleHerramienta(${h.id})">
+                            <label for="herramienta_${h.id}">${h.nombre}</label>
+                            <span class="estado ${h.disponibles > 0 ? 'disponible' : 'no-disponible'}">
+                                ${h.disponibles > 0 ? `✅ ${h.disponibles} disponibles` : '❌ No disponible'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-light);">
+                    💡 Selecciona las herramientas que deseas llevar (${herramientasFiltradas.length} sugeridas)
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error al cargar herramientas recomendadas:', error);
+            container.innerHTML = `
+                <p style="color: var(--danger); text-align: center; padding: 1rem;">
+                    ⚠️ Error de conexión con el servidor
                 </p>
             `;
+        }
+    }
+
+    // ==========================================
+    // EXPORTAR FUNCIÓN PARA BOTÓN ACTUALIZAR
+    // ==========================================
+    async function obtenerRecomendadas() {
+        if (servicioSeleccionado) {
+            await mostrarHerramientasRecomendadas(servicioSeleccionado);
+        } else {
+            showToast('Selecciona un servicio primero', 'info');
+        }
+    }
+
+    // ==========================================
+    // TOGGLE HERRAMIENTA EN CARRITO
+    // ==========================================
+    function toggleHerramienta(id) {
+        const checkbox = document.getElementById(`herramienta_${id}`);
+        const herramienta = herramientasDisponibles.find(h => h.id === id);
+
+        if (!herramienta) return;
+        if (checkbox.checked) {
+            if (!carritoServicios.find(h => h.id === id)) {
+                carritoServicios.push({
+                    id: herramienta.id,
+                    nombre: herramienta.nombre
+                });
+                showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+            }
+        } else {
+            carritoServicios = carritoServicios.filter(h => h.id !== id);
+            showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
+        }
+
+        renderizarCarritoServicios();
+    }
+
+    // ==========================================
+    // AGREGAR HERRAMIENTA EXTRA
+    // ==========================================
+    async function agregarHerramientaExtra() {
+        console.log('🟢 Botón + presionado');
+        const select = document.getElementById('selectHerramientaExtra');
+        const id = parseInt(select.value);
+
+        console.log('📦 ID seleccionado:', id);
+        if (!id) {
+            showToast('Selecciona una herramienta', 'error');
             return;
         }
 
-        container.innerHTML = data.agendamientos.map(a => {
-            const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : 
-                               a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
-            const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : 
-                              a.estado === 'COMPLETADO' ? '✅' : '❌';
+        try {
+            console.log('🔄 Consultando inventario completo...');
+            const res = await fetch(`${API_URL}/api/servicios/inventario`);
+            const data = await res.json();
 
-            // Mostrar botones según estado
-            let botones = '';
-            if (a.estado === 'PENDIENTE') {
-                botones = `
-                    <button onclick="completarAgendamiento(${a.id})" class="btn btn-success btn-sm" style="padding: 0.2rem 0.6rem;">
-                        ✅ Completar
-                    </button>
-                    <button onclick="cancelarAgendamiento(${a.id})" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.6rem; background: var(--danger);">
-                        ❌ Cancelar
-                    </button>
-                `;
-            } else {
-                botones = `
-                    <span style="font-size: 0.7rem; color: var(--text-light);">
-                        ${a.estado === 'COMPLETADO' ? '✅ Completado' : '❌ Cancelado'}
-                    </span>
-                `;
+            console.log('📊 Datos del inventario:', data);
+            const herramienta = data.find(h => h.id === id);
+
+            console.log('🔧 Herramienta encontrada:', herramienta);
+            if (!herramienta) {
+                showToast('Herramienta no encontrada', 'error');
+                return;
             }
 
-            return `
-                <div class="orden-item" style="border-left: 4px solid ${estadoColor};">
+            if (herramienta.estado !== 'DISPONIBLE' || herramienta.disponibles <= 0) {
+                showToast(`❌ "${herramienta.nombre}" no está disponible`, 'error');
+                return;
+            }
+
+            if (carritoServicios.find(h => h.id === id)) {
+                showToast(`⚠️ "${herramienta.nombre}" ya está en el carrito`, 'info');
+                return;
+            }
+
+            console.log('✅ Agregando al carrito:', herramienta.nombre);
+            carritoServicios.push({
+                id: herramienta.id,
+                nombre: herramienta.nombre
+            });
+            renderizarCarritoServicios();
+            showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+            select.value = '';
+        } catch (error) {
+            console.error('❌ Error en agregarHerramientaExtra:', error);
+            showToast('Error de conexión: ' + error.message, 'error');
+        }
+    }
+
+    // ==========================================
+    // RENDERIZAR CARRITO DE SERVICIOS
+    // ==========================================
+    function renderizarCarritoServicios() {
+        const container = document.getElementById('carritoServicios');
+        if (carritoServicios.length === 0) {
+            container.innerHTML = '<div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>';
+            return;
+        }
+
+        container.innerHTML = carritoServicios.map(item => `
+            <div class="carrito-item">
+                <span>🔹 ${item.nombre}</span>
+                <button onclick="eliminarDelCarritoServicios(${item.id})" 
+                        style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.7rem;">
+                    ✕
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // ==========================================
+    // ELIMINAR DEL CARRITO DE SERVICIOS
+    // ==========================================
+    function eliminarDelCarritoServicios(id) {
+        const item = carritoServicios.find(h => h.id === id);
+        if (!item) return;
+
+        carritoServicios = carritoServicios.filter(h => h.id !== id);
+        renderizarCarritoServicios();
+        showToast(`🗑️ ${item.nombre} eliminado del carrito`, 'info');
+        const checkbox = document.getElementById(`herramienta_${id}`);
+        if (checkbox) checkbox.checked = false;
+    }
+
+    // ==========================================
+    // VACIAR CARRITO DE SERVICIOS
+    // ==========================================
+    function vaciarCarritoServicios() {
+        if (carritoServicios.length === 0) {
+            showToast('El carrito ya está vacío', 'info');
+            return;
+        }
+
+        if (confirm('⚠️ ¿Estás seguro de vaciar el carrito?')) {
+            carritoServicios.forEach(item => {
+                const checkbox = document.getElementById(`herramienta_${item.id}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            carritoServicios = [];
+            renderizarCarritoServicios();
+            showToast('🗑️ Carrito vaciado completamente', 'info');
+        }
+    }
+
+    // ==========================================
+    // GENERAR ORDEN DE SERVICIO
+    // ==========================================
+    async function generarOrdenServicio(btn) {
+        console.log("🚀 Entró a generarOrdenServicio");
+        const tecnico = document.getElementById('lugarTrabajo').value.trim();
+        const usuario = sessionStorage.getItem('usuario') || 'Sistema';
+        if (!tecnico) {
+            showToast('Por favor ingresa el nombre del lugar', 'error');
+            return;
+        }
+
+        if (carritoServicios.length === 0) {
+            showToast('Selecciona al menos una herramienta', 'error');
+            return;
+        }
+
+        // Validar inventario antes de generar la orden
+        try {
+            const resInventario = await fetch(`${API_URL}/api/servicios/inventario`);
+            if (!resInventario.ok) {
+                throw new Error('No fue posible consultar el inventario');
+            }
+
+            const inventarioCompleto = await resInventario.json();
+            for (const item of carritoServicios) {
+                const herramienta = inventarioCompleto.find(h => Number(h.id) === Number(item.id));
+                if (!herramienta) {
+                    showToast(`❌ La herramienta "${item.nombre}" no existe en el inventario`, 'error');
+                    return;
+                }
+
+                if (herramienta.estado !== 'DISPONIBLE') {
+                    showToast(`❌ "${item.nombre}" está ${herramienta.estado}`, 'error');
+                    return;
+                }
+
+                if (Number(herramienta.disponibles) <= 0) {
+                    showToast(`❌ "${item.nombre}" no tiene unidades disponibles`, 'error');
+                    return;
+                }
+            }
+
+        } catch (error) {
+            console.error("Error validando inventario:", error);
+            showToast("Error al validar el inventario", "error");
+            return;
+        }
+
+        // Generar consecutivo
+        const idsSeleccionadas = carritoServicios.map(h => h.id);
+        const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
+
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/salida`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    idOrden,
+                    lugarTrabajo: tecnico,
+                    idsSeleccionadas,
+                    idsAdicionales: [],
+                    usuario
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`🚀 Orden ${data.idOrden} generada con éxito`, 'success');
+                // Limpiar carrito
+                carritoServicios = [];
+                renderizarCarritoServicios();
+                // Limpiar campo
+                document.getElementById('lugarTrabajo').value = '';
+                // Desmarcar checkboxes
+                document
+                    .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
+                    .forEach(cb => cb.checked = false);
+                // Recargar información
+                await cargarSelectorHerramientasExtras();
+                await cargarOrdenesActivas();
+            } else {
+                showToast(data.error || 'No fue posible generar la orden', 'error');
+            }
+
+        } catch (error) {
+            console.error('❌ Error al generar orden:', error);
+            showToast('Error de conexión con el servidor', 'error');
+        } finally {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // CARGAR ÓRDENES ACTIVAS
+    // ==========================================
+    async function cargarOrdenesActivas() {
+        const container = document.getElementById('ordenesActivas');
+        container.innerHTML = `
+            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
+            </p>
+        `;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
+            const data = await res.json();
+
+            console.log('📊 Datos recibidos:', data);
+
+            const listaOrdenes = Array.isArray(data) ? data : (data.ordenes || []);
+
+            if (listaOrdenes.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                        🚫 No hay órdenes activas
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = listaOrdenes.map(orden => `
+                <div class="orden-item">
                     <div class="orden-info">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                            <span style="font-weight: 700; color: var(--primary);">
-                                ${a.cliente}
-                            </span>
-                            <span style="font-size: 0.7rem; color: var(--text-light);">
-                                ${a.fecha} ${a.hora}
-                            </span>
-                            <span style="font-size: 0.7rem; background: #F8F9FA; padding: 0.1rem 0.5rem; border-radius: 50px;">
-                                ${a.tipo_servicio}
-                            </span>
-                            <span style="font-size: 0.7rem; color: ${estadoColor}; font-weight: 600;">
-                                ${estadoIcon} ${a.estado}
-                            </span>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.2rem;">
-                            👨‍🔧 ${a.tecnico || 'Sin asignar'} 
-                            ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}
+                        <span class="orden-id">${orden.idOrden || orden.id}</span>
+                        <span class="orden-fecha">📅 ${orden.fechaCreacion || orden.fecha}</span>
+                        <div class="orden-detalle">
+                            📍 <strong>Lugar:</strong> ${orden.lugarTrabajo} | 🔧 ${orden.totalHerramientas || 0} herramientas
+                            <span class="badge-estado campo">● En Campo</span>
                         </div>
                     </div>
                     <div class="orden-actions">
-                        ${botones}
+                        <button class="btn-icon reingreso" onclick="iniciarReingreso('${orden.idOrden || orden.id}')">
+                            🔄 Reintegrar
+                        </button>
                     </div>
                 </div>
+            `).join('');
+        } catch (error) {
+            console.error('❌ Error al cargar órdenes:', error);
+            container.innerHTML = `
+                <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
+                    ⚠️ Error al cargar órdenes: ${error.message}
+                </p>
             `;
-        }).join('');
+        }
+    }
 
-    } catch (error) {
-        console.error('Error al cargar agendamientos:', error);
+    // ==========================================
+    // INICIAR REINGRESO DE HERRAMIENTAS
+    // ==========================================
+    async function iniciarReingreso(idOrden) {
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/orden/${idOrden}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                showToast('Error al obtener la orden', 'error');
+                return;
+            }
+
+            ordenActivaReingreso = data;
+            const seccion = document.getElementById('seccionReingreso');
+            seccion.style.display = 'block';
+            seccion.scrollIntoView({ behavior: 'smooth' });
+
+            const container = document.getElementById('reingresoContent');
+            container.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-light);">Orden</div>
+                            <div style="font-weight: 700;">${data.idOrden}</div>
+                        </div>
+                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-light);">Técnico</div>
+                            <div style="font-weight: 700;">${data.colaboradorResponsable}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem; padding: 0.8rem; background: #FFF8E1; border-radius: 8px; border-left: 4px solid var(--gold);">
+                        <strong>📋 Registrar novedades:</strong>
+                        <p style="font-size: 0.8rem; color: var(--text-light);">
+                            Selecciona el estado de cada herramienta al reingresar
+                        </p>
+                    </div>
+                </div>
+                <div class="herramientas-container">
+                    ${data.herramientasAsignadas.map(h => `
+                        <div class="novedad-item">
+                            <span class="nombre-herramienta">🔹 ${h.nombre}</span>
+                            <select id="novedad_${h.id}">
+                                <option value="OK">✅ OK - Devuelta</option>
+                                <option value="DAÑO">⚠️ DAÑO - A mantenimiento</option>
+                                <option value="PERDIDA">❌ PÉRDIDA - Baja inventario</option>
+                            </select>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <button onclick="confirmarReingreso('${data.idOrden}', this)" class="btn btn-success" style="flex: 1;">
+                        ✓ Confirmar Reingreso
+                    </button>
+                    <button onclick="cerrarReingreso()" class="btn btn-secondary">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        }
+    }
+
+    // ==========================================
+    // CONFIRMAR REINGRESO
+    // ==========================================
+    async function confirmarReingreso(idOrden, btn) {
+        const novedades = {};
+
+        const orden = ordenActivaReingreso;
+        orden.herramientasAsignadas.forEach(h => {
+            const select = document.getElementById(`novedad_${h.id}`);
+            if (select) {
+                novedades[h.id] = select.value;
+            }
+        });
+
+        const tieneNovedad = Object.values(novedades).some(v => v !== 'OK');
+        if (!tieneNovedad) {
+            if (!confirm('✅ Todas las herramientas están OK. ¿Confirmar reingreso?')) {
+                return;
+            }
+        } else {
+            const mensaje = Object.entries(novedades)
+                .filter(([id, estado]) => estado !== 'OK')
+                .map(([id, estado]) => {
+                    const herramienta = orden.herramientasAsignadas.find(h => h.id === parseInt(id));
+                    const icono = estado === 'DAÑO' ? '🔧' : '❌';
+                    return `${icono} ${herramienta.nombre}: ${estado}`;
+                }).join('\n');
+            if (!confirm(`⚠️ Se reportaron las siguientes novedades:\n\n${mensaje}\n\n¿Confirmar reingreso?`)) {
+                return;
+            }
+        }
+        const textoOriginal = btn.textContent;
+        btn.textContent = '⏳ Procesando...';
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/reingreso`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idOrden,
+                    novedades
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✅ Reingreso de ${idOrden} completado con éxito`, 'success');
+                cerrarReingreso();
+
+                // RECARGAR EN ORDEN
+                cargarOrdenesActivas();
+                await cargarSelectorHerramientasExtras();
+                await cargarHerramientasEnReparacion();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error en reingreso:', error);
+            showToast('Error de conexión', 'error');
+        } finally {
+            btn.textContent = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // CERRAR REINGRESO
+    // ==========================================
+    function cerrarReingreso() {
+        document.getElementById('seccionReingreso').style.display = 'none';
+        document.getElementById('reingresoContent').innerHTML = '';
+        ordenActivaReingreso = null;
+    }
+
+    // ==========================================
+    // CARGAR HERRAMIENTAS ADICIONALES (SELECT CORREGIDO)
+    // ==========================================
+    async function cargarSelectorHerramientasExtras() {
+        try {
+            // Consultamos apuntando a la URL del backend correcto de Railway
+            const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
+            const herramientas = await respuesta.json();
+            
+            // Usamos el ID correcto que lee agregarHerramientaExtra ('selectHerramientaExtra')
+            const select = document.getElementById('selectHerramientaExtra'); 
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
+            herramientas.forEach(h => {
+                const opcion = document.createElement('option');
+                opcion.value = h.id; 
+                opcion.textContent = `${h.nombre} (${h.disponibles} disp.)`;
+                
+                if (h.disponibles > 0) {
+                    select.appendChild(opcion);
+                }
+            });
+        } catch (error) {
+            console.error("Error al cargar el selector de extras:", error);
+        }
+    }
+
+    // ==========================================
+    // CARGAR HERRAMIENTAS EN REPARACIÓN
+    // ==========================================
+    async function cargarHerramientasEnReparacion() {
+        const container = document.getElementById('herramientasReparacion');
         container.innerHTML = `
-            <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                ⚠️ Error al cargar agendamientos
+            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando herramientas en reparación...
             </p>
         `;
-    }
-}
-
-// Agendar servicio
-async function agendarServicio() {
-    const cliente = document.getElementById('agCliente').value.trim();
-    const tipo_servicio = document.getElementById('agTipoServicio').value;
-    const fecha = document.getElementById('agFecha').value;
-    const hora = document.getElementById('agHora').value;
-    const tecnico = document.getElementById('agTecnico').value.trim();
-    const observaciones = document.getElementById('agObservaciones').value.trim();
-
-    if (!cliente || !fecha || !hora) {
-        showToast('Por favor complete los campos obligatorios (Cliente, Fecha, Hora)', 'error');
-        return;
-    }
-
-    const btn = event.target;
-    const textoOriginal = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agendando...';
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/agendar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                cliente,
-                tipo_servicio,
-                fecha,
-                hora,
-                tecnico: tecnico || null,
-                observaciones: observaciones || null,
-                usuario: sessionStorage.getItem('usuario') || 'Sistema'
-            })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            showToast(`✅ Servicio agendado para ${cliente} el ${fecha}`, 'success');
-            document.getElementById('agCliente').value = '';
-            document.getElementById('agFecha').value = '';
-            document.getElementById('agHora').value = '';
-            document.getElementById('agTecnico').value = '';
-            document.getElementById('agObservaciones').value = '';
-            cargarAgendamientos();
-        } else {
-            showToast('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showToast('Error de conexión', 'error');
-    } finally {
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
-    }
-}
-
-// Completar agendamiento
-async function completarAgendamiento(id) {
-    if (!confirm('¿Marcar este servicio como completado?')) return;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, {
-            method: 'PUT'
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            showToast('✅ Servicio marcado como completado', 'success');
-            cargarAgendamientos();
-        } else {
-            showToast('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showToast('Error de conexión', 'error');
-    }
-}
-
-// Cancelar agendamiento
-async function cancelarAgendamiento(id) {
-    if (!confirm('¿Cancelar este servicio?')) return;
-
-    try {
-        const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, {
-            method: 'PUT'
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            showToast('❌ Servicio cancelado', 'info');
-            cargarAgendamientos();
-        } else {
-            showToast('Error: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showToast('Error de conexión', 'error');
-    }
-}
-        // ==========================================
-        // INICIALIZACIÓN
-        // ==========================================
-        window.onload = async function() {
-            await cargarSelectorHerramientasExtras();
-
-            // Cargar automáticamente el primer servicio
-            const primerServicio = document.querySelector('.servicio-item');
-            if (primerServicio) {
-                primerServicio.click();
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/inventario`);
+            const data = await res.json();
+            const herramientasFiltradas = data.filter(h => 
+                h.estado === 'EN_REPARACION' || h.estado === 'DADO_BAJA'
+            );
+            if (herramientasFiltradas.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                        ✅ No hay herramientas en reparación o baja
+                    </p>
+                `;
+                return;
             }
-        };
 
-        // ==========================================
-        // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)
-        // ==========================================
-        setInterval(() => {
-            // Solo recargar si estamos en el submodulo correspondiente
-            const subReintegro = document.getElementById('subReintegro');
-            if (subReintegro.classList.contains('active')) {
-                cargarOrdenesActivas();
-            }
-            const subReparaciones = document.getElementById('subReparaciones');
-            if (subReparaciones.classList.contains('active')) {
-                cargarHerramientasEnReparacion();
-            }
-        }, 30000);
+            container.innerHTML = herramientasFiltradas.map(h => {
+                const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
+                const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
+                const mostrarBoton = h.estado === 'EN_REPARACION';
 
-        console.log('🔧 Módulo de Servicios cargado correctamente');
-    </script>
+                return `
+                    <div class="orden-item" style="border-left: 4px solid ${color};">
+                        <div class="orden-info">
+                            <span style="font-weight: 700; font-size: 1rem;">🔹 ${h.nombre}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;">
+                                ID: #${h.id}
+                            </span>
+                            <div style="font-size: 0.8rem; margin-top: 0.2rem;">
+                                <span style="color: ${color}; font-weight: 600;">
+                                    ${estadoDisplay}
+                                </span>
+                                ${h.observaciones ? ` | 📝 ${h.observaciones}` : ''}
+                            </div>
+                            ${h.estado === 'DADO_BAJA' ? `
+                                <div style="font-size: 0.7rem; color: var(--danger); font-weight: 600; margin-top: 0.2rem;">
+                                    ⚠️ Esta herramienta ya fue dada de baja definitivamente
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="orden-actions">
+                            ${mostrarBoton ? `
+                                <button onclick="procesarReparacion(${h.id}, '${h.nombre}')" 
+                                        class="btn-icon reingreso" 
+                                        style="background: var(--gradient-secondary); color: white; padding: 0.3rem 1rem;">
+                                    🛠️ Procesar
+                                </button>
+                            ` : `
+                                <span style="font-size: 0.7rem; color: var(--text-light);">
+                                    🔒 Procesamiento no disponible
+                                </span>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error al cargar herramientas en reparación:', error);
+            container.innerHTML = `
+                <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
+                    ⚠️ Error al cargar herramientas en reparación
+                </p>
+            `;
+        }
+    }
+
+    // ==========================================
+    // PROCESAR REPARACIÓN DE HERRAMIENTA
+    // ==========================================
+    async function procesarReparacion(id, nombre) {
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/herramienta/${id}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                showToast('Error al obtener datos de la herramienta', 'error');
+                return;
+            }
+
+            const seccion = document.getElementById('seccionProcesarReparacion');
+            seccion.style.display = 'block';
+            seccion.scrollIntoView({ behavior: 'smooth' });
+
+            const container = document.getElementById('procesarReparacionContent');
+            container.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-light);">Herramienta</div>
+                            <div style="font-weight: 700; font-size: 1.1rem;">🔹 ${data.nombre}</div>
+                        </div>
+                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-light);">Estado actual</div>
+                            <div style="font-weight: 600; color: var(--gold);">${data.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja'}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; background: #FFF8E1; padding: 0.8rem; border-radius: 8px; border-left: 4px solid var(--gold);">
+                        <strong>📋 Procesar herramienta</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Selecciona el estado final</label>
+                    <select id="estadoFinalHerramienta">
+                        <option value="REPARADO">✅ Reparado - Devuelto a stock</option>
+                        <option value="NO_REPARABLE">❌ No reparable - Dar de baja definitiva</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 Observaciones</label>
+                    <textarea id="observacionesReparacion" rows="2" placeholder="Describe la reparación o motivo de la baja..."></textarea>
+                </div>
+
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <button onclick="confirmarProcesarReparacion(${id})" class="btn btn-success" style="flex: 1;">
+                        ✓ Confirmar y Procesar
+                    </button>
+                    <button onclick="cerrarProcesarReparacion()" class="btn btn-secondary">
+                        Cancelar
+                    </button>
+                </div>
+            `;
+            if (data.estado === 'DADO_BAJA') {
+                showToast(`❌ La herramienta "${nombre}" ya fue dada de baja definitivamente`, 'error');
+                return;
+            }
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        }
+    }
+
+    // ==========================================
+    // CONFIRMAR PROCESAR REPARACIÓN
+    // ==========================================
+    async function confirmarProcesarReparacion(id) {
+        const estadoFinal = document.getElementById('estadoFinalHerramienta').value;
+        const observaciones = document.getElementById('observacionesReparacion').value.trim();
+
+        if (!observaciones) {
+            showToast('Por favor, escribe una observación', 'error');
+            return;
+        }
+
+        const btn = event.target;
+        const textoOriginal = btn.textContent;
+        btn.textContent = '⏳ Procesando...';
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/procesar-reparacion`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    herramientaId: id,
+                    estadoFinal: estadoFinal,
+                    observaciones: observaciones,
+                    tecnico: document.getElementById('tecnicoResponsable').value || 'Administrador'
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                if (estadoFinal === 'REPARADO') {
+                    showToast(`✅ ${data.nombre} reparado y devuelto a stock`, 'success');
+                } else {
+                    showToast(`📋 ${data.nombre} dado de baja definitivamente`, 'info');
+                }
+                cerrarProcesarReparacion();
+                await cargarHerramientasEnReparacion();
+                await cargarSelectorHerramientasExtras();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        } finally {
+            btn.textContent = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // CERRAR PROCESAR REPARACIÓN
+    // ==========================================
+    function cerrarProcesarReparacion() {
+        document.getElementById('seccionProcesarReparacion').style.display = 'none';
+        document.getElementById('procesarReparacionContent').innerHTML = '';
+    }
+
+    // ==========================================
+    // AGENDAMIENTO DE SERVICIOS
+    // ==========================================
+    async function cargarAgendamientos() {
+        const container = document.getElementById('listaAgendamientos');
+        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
+
+        container.innerHTML = `
+            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
+            </p>
+        `;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/agendamientos?estado=${filtro}`);
+            const data = await res.json();
+            if (!data.agendamientos || data.agendamientos.length === 0) {
+                container.innerHTML = `
+                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                        📭 No hay servicios agendados
+                    </p>
+                `;
+                return;
+            }
+
+            container.innerHTML = data.agendamientos.map(a => {
+                const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : 
+                                   a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
+                const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : 
+                                   a.estado === 'COMPLETADO' ? '✅' : '❌';
+
+                let botones = '';
+                if (a.estado === 'PENDIENTE') {
+                    botones = `
+                        <button onclick="completarAgendamiento(${a.id})" class="btn btn-success btn-sm" style="padding: 0.2rem 0.6rem;">
+                            ✅ Completar
+                        </button>
+                        <button onclick="cancelarAgendamiento(${a.id})" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.6rem; background: var(--danger);">
+                            ❌ Cancelar
+                        </button>
+                    `;
+                } else {
+                    botones = `
+                        <span style="font-size: 0.7rem; color: var(--text-light);">
+                            ${a.estado === 'COMPLETADO' ? '✅ Completado' : '❌ Cancelado'}
+                        </span>
+                    `;
+                }
+
+                return `
+                    <div class="orden-item" style="border-left: 4px solid ${estadoColor};">
+                        <div class="orden-info">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-weight: 700; color: var(--primary);">${a.cliente}</span>
+                                <span style="font-size: 0.7rem; color: var(--text-light);">${a.fecha} ${a.hora}</span>
+                                <span style="font-size: 0.7rem; background: #F8F9FA; padding: 0.1rem 0.5rem; border-radius: 50px;">
+                                    ${a.tipo_servicio}
+                                </span>
+                                <span style="font-size: 0.7rem; color: ${estadoColor}; font-weight: 600;">
+                                    ${estadoIcon} ${a.estado}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.2rem;">
+                                👨‍🔧 ${a.tecnico || 'Sin asignar'} 
+                                ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}
+                            </div>
+                        </div>
+                        <div class="orden-actions">
+                            ${botones}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error al cargar agendamientos:', error);
+            container.innerHTML = `
+                <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
+                    ⚠️ Error al cargar agendamientos
+                </p>
+            `;
+        }
+    }
+
+    // Agendar servicio
+    async function agendarServicio() {
+        const cliente = document.getElementById('agCliente').value.trim();
+        const tipo_servicio = document.getElementById('agTipoServicio').value;
+        const fecha = document.getElementById('agFecha').value;
+        const hora = document.getElementById('agHora').value;
+        const tecnico = document.getElementById('agTecnico').value.trim();
+        const observaciones = document.getElementById('agObservaciones').value.trim();
+
+        if (!cliente || !fecha || !hora) {
+            showToast('Por favor complete los campos obligatorios (Cliente, Fecha, Hora)', 'error');
+            return;
+        }
+
+        const btn = event.target;
+        const textoOriginal = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agendando...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/agendar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cliente,
+                    tipo_servicio,
+                    fecha,
+                    hora,
+                    tecnico: tecnico || null,
+                    observaciones: observaciones || null,
+                    usuario: sessionStorage.getItem('usuario') || 'Sistema'
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showToast(`✅ Servicio agendado para ${cliente} el ${fecha}`, 'success');
+                document.getElementById('agCliente').value = '';
+                document.getElementById('agFecha').value = '';
+                document.getElementById('agHora').value = '';
+                document.getElementById('agTecnico').value = '';
+                document.getElementById('agObservaciones').value = '';
+                cargarAgendamientos();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        } finally {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+        }
+    }
+
+    // Completar agendamiento
+    async function completarAgendamiento(id) {
+        if (!confirm('¿Marcar este servicio como completado?')) return;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, {
+                method: 'PUT'
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showToast('✅ Servicio marcado como completado', 'success');
+                cargarAgendamientos();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        }
+    }
+
+    // Cancelar agendamiento
+    async function cancelarAgendamiento(id) {
+        if (!confirm('¿Cancelar este servicio?')) return;
+        try {
+            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, {
+                method: 'PUT'
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showToast('❌ Servicio cancelado', 'info');
+                cargarAgendamientos();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (error) {
+            showToast('Error de conexión', 'error');
+        }
+    }
+
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+    window.onload = async function() {
+        await cargarSelectorHerramientasExtras();
+
+        // Cargar automáticamente el primer servicio
+        const primerServicio = document.querySelector('.servicio-item');
+        if (primerServicio) {
+            primerServicio.click();
+        }
+    };
+
+    // ==========================================
+    // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)
+    // ==========================================
+    setInterval(() => {
+        const subReintegro = document.getElementById('subReintegro');
+        if (subReintegro && subReintegro.classList.contains('active')) {
+            cargarOrdenesActivas();
+        }
+        const subReparaciones = document.getElementById('subReparaciones');
+        if (subReparaciones && subReparaciones.classList.contains('active')) {
+            cargarHerramientasEnReparacion();
+        }
+    }, 30000);
+
+    console.log('🔧 Módulo de Servicios cargado correctamente');
+</script>
 
 </body>
 </html>

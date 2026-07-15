@@ -11,7 +11,7 @@ app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
 app.use(cors({
-  origin: ['https://mecatron-solutions.onrender.com'], // pon tu URL real del frontend
+  origin: ['mecatron-solutions-production.up.railway.app'], // pon tu URL real del frontend
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type']
 }));
@@ -1918,7 +1918,7 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
     }
 });
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Servidor de Mecatron Solutions corriendo en'https://mecatron-solutions.onrender.com;${PORT}`);
+    console.log(`🚀 Servidor de Mecatron Solutions corriendo en'mecatron-solutions-production.up.railway.app;${PORT}`);
 });
 
 // Sincronizar contadorRemisiones con la BD al iniciar el servidor (opcional pero recomendable)

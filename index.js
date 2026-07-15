@@ -154,10 +154,23 @@ app.post('/api/preventa/salida', async (req, res) => {
         return res.status(400).json({ error: "El carrito está vacío." });
     }
 
+    // Usamos un cliente de base de datos transaccional si es posible, o consultas seguras
     try {
-        // Generar ID de remisión usando el contador
-        contadorRemisiones++;
-        const idRemision = `REM-${String(contadorRemisiones).padStart(4, '0')}`;
+        // 1. Obtener dinámicamente el último número de remisión directo de Supabase
+        // Esto evita que se dupliquen IDs si el servidor de Railway se reinicia
+        const { rows: ultimoRegistro } = await db.query(
+            'SELECT id_remision FROM remisiones ORDER BY fecha_creacion DESC LIMIT 1'
+        );
+        
+        let nuevoNumero = 1;
+        if (ultimoRegistro.length > 0) {
+            const ultimoId = ultimoRegistro[0].id_remision; // Ejemplo: "REM-0015"
+            const numeroExtraido = parseInt(ultimoId.replace('REM-', ''), 10);
+            if (!isNaN(numeroExtraido)) {
+                nuevoNumero = numeroExtraido + 1;
+            }
+        }
+        const idRemision = `REM-${String(nuevoNumero).padStart(4, '0')}`;
 
         let productosValidados = [];
 
@@ -177,18 +190,25 @@ app.post('/api/preventa/salida', async (req, res) => {
                 return res.status(400).json({ error: `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.stock}` });
             }
 
+            // Aseguramos valores numéricos válidos para PostgreSQL (evitando NaNs)
+            const costoFijo = Number(prod.costo) || 0;
+            const precioFijo = Number(prod.precio_venta) || 0;
+
             productosValidados.push({
                 idProducto: item.idProducto,
                 nombre: prod.nombre,
-                cantidadCargadaInicial: item.cantidadSalida,
+                cantidadCargadaInicial: parseInt(item.cantidadSalida, 10),
                 cantidadVendidaEnCalle: 0,
-                costoUnidadFijo: parseFloat(prod.costo || 0),
-                precioVentaUnidadFijo: parseFloat(prod.precio_venta || 0),
+                costoUnidadFijo: costoFijo,
+                precioVentaUnidadFijo: precioFijo,
                 precioVentaRealCalle: 0
             });
         }
 
-        // Descontar de la BD (CORREGIDO PARA POSTGRES: $1, $2)
+        // --- INICIO DE TRANSACCIÓN ---
+        await db.query('BEGIN');
+
+        // Descontar de la BD en Supabase
         for (const item of productosValidados) {
             await db.query(
                 'UPDATE inventario_venta SET stock = stock - $1 WHERE id = $2',
@@ -196,25 +216,13 @@ app.post('/api/preventa/salida', async (req, res) => {
             );
         }
 
-        // Guardar en memoria activa
-        const remision = {
-            idRemision,
-            productos: productosValidados,
-            preFactura: { totalVentasEmitidas: 0, totalCostosOperativos: 0, gananciaPreviaCalculada: 0 },
-            fechaCreacion: new Date().toISOString(),
-            estado: 'ACTIVA'
-        };
-
-        remisionesVentaActivas[idRemision] = remision;
-
-        // === Guardar en la base de datos ===
-        // 1. Guardar la remisión (CORREGIDO PARA POSTGRES: $1, $2, $3, $4)
+        // Guardar la remisión en la tabla principal de Supabase
         await db.query(
             'INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion) VALUES ($1, $2, $3, $4)',
             [idRemision, new Date(), 'ACTIVA', usuario || 'Sistema']
         );
 
-        // 2. Guardar los productos de la remisión (CORREGIDO PARA POSTGRES: $1 al $7)
+        // Guardar cada producto en la tabla de detalles en Supabase
         for (const item of productosValidados) {
             await db.query(
                 `INSERT INTO remisiones_productos 
@@ -232,6 +240,19 @@ app.post('/api/preventa/salida', async (req, res) => {
             );
         }
 
+        // Si todo salió bien, confirmamos los cambios en Supabase
+        await db.query('COMMIT');
+
+        // Guardar también en la memoria RAM por si acaso el frontend aún la utiliza para mapear
+        const remisionMemoria = {
+            idRemision,
+            productos: productosValidados,
+            preFactura: { totalVentasEmitidas: 0, totalCostosOperativos: 0, gananciaPreviaCalculada: 0 },
+            fechaCreacion: new Date().toISOString(),
+            estado: 'ACTIVA'
+        };
+        remisionesVentaActivas[idRemision] = remisionMemoria;
+
         res.json({ 
             mensaje: `✓ Remisión ${idRemision} generada con éxito con ${productosValidados.length} productos.`, 
             idRemision,
@@ -239,40 +260,11 @@ app.post('/api/preventa/salida', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error en salida de preventa:", error);
-        res.status(500).json({ error: "Error en el servidor al despachar la remisión." });
+        // Si algo falla, revertimos todos los cambios para no dejar datos corruptos
+        await db.query('ROLLBACK');
+        console.error("Error crítico en salida de preventa:", error);
+        res.status(500).json({ error: "Error interno: " + error.message });
     }
-});
-
-// 📋 LISTAR TODAS LAS REMISIONES ACTIVAS
-app.get('/api/preventa/remisiones-activas', (req, res) => {
-    const activas = Object.keys(remisionesVentaActivas).map(id => ({
-        idRemision: id,
-        productos: remisionesVentaActivas[id].productos.map(p => ({
-            nombre: p.nombre,
-            cargados: p.cantidadCargadaInicial,
-            vendidos: p.cantidadVendidaEnCalle,
-            disponibles: p.cantidadCargadaInicial - p.cantidadVendidaEnCalle
-        })),
-        totalVentas: remisionesVentaActivas[id].preFactura.totalVentasEmitidas || 0,
-        fechaCreacion: remisionesVentaActivas[id].fechaCreacion
-    }));
-    res.json({ activas });
-});
-
-// 📋 OBTENER HISTORIAL COMPLETO
-app.get('/api/preventa/historial', (req, res) => {
-    res.json({ 
-        total: historialRemisiones.length,
-        remisiones: historialRemisiones.map(r => ({
-            idRemision: r.idRemision,
-            estado: r.estado,
-            fechaCreacion: r.fechaCreacion,
-            fechaCierre: r.fechaCierre || null,
-            totalProductos: r.productos.length,
-            totalVentas: r.preFactura.totalVentasEmitidas || 0
-        }))
-    });
 });
 
 // 🚚 SUBMÓDULO 2: REGISTRO DE VENTA EXTERNA (CON GUARDADO EN BD)

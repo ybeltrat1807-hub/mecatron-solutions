@@ -963,24 +963,25 @@
 
     <script>
     const API_URL = "https://mecatron-solutions-production.up.railway.app";
-    let carritoServicios = []; // Este es nuestro "carrito" único para la orden [cite: 311]
-    let herramientasDisponibles = []; // Herramientas que se recomiendan según el servicio [cite: 311, 325]
+    let carritoServicios = []; // Carrito único para la orden
+    let herramientasDisponibles = []; // Herramientas recomendadas según el servicio
     let todasLasHerramientasExtras = []; // Herramientas del inventario para los adicionales
-    let servicioSeleccionado = null; // Servicio seleccionado actualmente [cite: 311]
-    let ordenActivaReingreso = null; // Orden seleccionada para reingreso [cite: 311]
+    let servicioSeleccionado = null; // Servicio seleccionado actualmente
+    let ordenActivaReingreso = null; // Orden seleccionada para reingreso
 
     // ==========================================
-    // VALIDACIÓN DE SESIÓN [cite: 311]
+    // VALIDACIÓN DE SESIÓN
     // ==========================================
     if (sessionStorage.getItem('autorizado') !== 'true') {
         window.location.href = "index.html";
     }
 
     // ==========================================
-    // TOAST NOTIFICATIONS [cite: 311]
+    // TOAST NOTIFICATIONS
     // ==========================================
     function showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
+        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.innerHTML = `
@@ -996,34 +997,47 @@
     }
 
     // ==========================================
-    // NAVEGACIÓN ENTRE SUBMÓDULOS [cite: 314]
+    // NAVEGACIÓN ENTRE SUBMÓDULOS
     // ==========================================
     function cambiarSubmodulo(idPantalla) {
-        document.getElementById('submenuPrincipal').style.display = 'none';
+        // Ocultar menú principal
+        const menu = document.getElementById('submenuPrincipal');
+        if (menu) menu.style.display = 'none';
+
+        // Desactivar todas las pantallas y activar la seleccionada
         document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-        document.getElementById(idPantalla).classList.add('active');
         
-        if (idPantalla === 'subReintegro') {
+        const pantallaActiva = document.getElementById(idPantalla);
+        if (pantallaActiva) pantallaActiva.classList.add('active');
+        
+        // Carga de datos según el módulo abierto
+        if (idPantalla === 'subReintegro' || idPantalla === 'subReingreso') {
             cargarOrdenesActivas();
         } else if (idPantalla === 'subReparaciones') {
             cargarHerramientasEnReparacion();
         } else if (idPantalla === 'subNuevaOrden') {
-            cargarListaHerramientasExtras(); // Cargar la nueva lista de extras al abrir
+            cargarListaHerramientasExtras(); 
         }
     }
 
     // ==========================================
-    // VOLVER AL MENÚ PRINCIPAL [cite: 317]
+    // VOLVER AL MENÚ PRINCIPAL
     // ==========================================
     function regresarSubmenu() {
         document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-        document.getElementById('submenuPrincipal').style.display = 'grid';
-        document.getElementById('seccionReingreso').style.display = 'none';
-        document.getElementById('seccionProcesarReparacion').style.display = 'none';
+        
+        const menu = document.getElementById('submenuPrincipal');
+        if (menu) menu.style.display = 'grid';
+        
+        const secReingreso = document.getElementById('seccionReingreso');
+        if (secReingreso) secReingreso.style.display = 'none';
+        
+        const secReparacion = document.getElementById('seccionProcesarReparacion');
+        if (secReparacion) secReparacion.style.display = 'none';
     }
 
     // ==========================================
-    // SELECCIÓN DE SERVICIO [cite: 319]
+    // SELECCIÓN DE SERVICIO
     // ==========================================
     document.querySelectorAll('.servicio-item').forEach(el => {
         el.addEventListener('click', function() {
@@ -1036,10 +1050,12 @@
     });
 
     // ==========================================
-    // MOSTRAR HERRAMIENTAS RECOMENDADAS [cite: 320]
+    // MOSTRAR HERRAMIENTAS RECOMENDADAS
     // ==========================================
     async function mostrarHerramientasRecomendadas(servicio) {
         const container = document.getElementById('herramientasRecomendadas');
+        if (!container) return;
+
         container.innerHTML = `
             <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando herramientas recomendadas...
@@ -1070,7 +1086,6 @@
                 return;
             }
 
-            // Pintamos las recomendadas con un prefijo id "reco_" para evitar colisiones
             container.innerHTML = `
                 <div class="herramientas-container">
                     ${herramientasFiltradas.map(h => {
@@ -1094,7 +1109,6 @@
                 </div>
             `;
 
-            // Refrescamos la lista de adicionales para ocultar las recomendadas
             await cargarListaHerramientasExtras();
 
         } catch (error) {
@@ -1107,7 +1121,6 @@
         }
     }
 
-    // Botón de actualización manual
     async function obtenerRecomendadas() {
         if (servicioSeleccionado) {
             await mostrarHerramientasRecomendadas(servicioSeleccionado);
@@ -1127,7 +1140,6 @@
             const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
             const herramientas = await respuesta.json();
 
-            // Excluimos las herramientas que ya están sugeridas en "Recomendadas"
             const idsRecomendados = herramientasDisponibles.map(h => h.id);
             todasLasHerramientasExtras = herramientas.filter(h => !idsRecomendados.includes(h.id));
 
@@ -1169,10 +1181,9 @@
     }
 
     // ==========================================
-    // AGREGAR / REMOVER DEL CARRITO (CON REGLA DE DOS VÍAS)
+    // AGREGAR / REMOVER DEL CARRITO
     // ==========================================
     function toggleHerramienta(id, tipo) {
-        // Encontramos la herramienta en cualquiera de los dos lados
         let herramienta = herramientasDisponibles.find(h => h.id === id);
         if (!herramienta) {
             herramienta = todasLasHerramientasExtras.find(h => h.id === id);
@@ -1180,28 +1191,24 @@
 
         if (!herramienta) return;
 
-        // Buscamos el checkbox correspondiente
         const chkReco = document.getElementById(`reco_${id}`);
         const chkExtra = document.getElementById(`extra_${id}`);
         const estaMarcado = (tipo === 'recomendada' && chkReco && chkReco.checked) || 
                             (tipo === 'extra' && chkExtra && chkExtra.checked);
 
         if (estaMarcado) {
-            // Añadir al carrito si no está
             if (!carritoServicios.some(h => h.id === id)) {
                 carritoServicios.push({
                     id: herramienta.id,
                     nombre: herramienta.nombre
                 });
-                showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+                showToast(`✅ ${herramienta.nombre} agregado`, 'success');
             }
         } else {
-            // Eliminar del carrito si se desmarca
             carritoServicios = carritoServicios.filter(h => h.id !== id);
-            showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
+            showToast(`🗑️ ${herramienta.nombre} removido`, 'info');
         }
 
-        // Mantener sincronizados ambos checkboxes visualmente por si acaso
         if (chkReco) chkReco.checked = estaMarcado;
         if (chkExtra) chkExtra.checked = estaMarcado;
 
@@ -1209,10 +1216,12 @@
     }
 
     // ==========================================
-    // RENDERIZAR EL CARRITO DE SERVICIOS [cite: 336]
+    // RENDERIZAR EL CARRITO DE SERVICIOS
     // ==========================================
     function renderizarCarritoServicios() {
         const container = document.getElementById('carritoServicios');
+        if (!container) return;
+
         if (carritoServicios.length === 0) {
             container.innerHTML = '<div class="carrito-vacio">🔧 No hay herramientas seleccionadas</div>';
             return;
@@ -1229,14 +1238,10 @@
         `).join('');
     }
 
-    // ==========================================
-    // ELIMINAR DEL CARRITO DESDE LA X [cite: 339]
-    // ==========================================
     function eliminarDelCarritoServicios(id) {
         carritoServicios = carritoServicios.filter(h => h.id !== id);
         renderizarCarritoServicios();
         
-        // Desmarcamos de donde sea que estuviese en la UI
         const chkReco = document.getElementById(`reco_${id}`);
         const chkExtra = document.getElementById(`extra_${id}`);
         if (chkReco) chkReco.checked = false;
@@ -1263,7 +1268,6 @@
     }
 
     function limpiarSeleccionExtras() {
-        // Desmarcar todos los de adicionales
         todasLasHerramientasExtras.forEach(h => {
             carritoServicios = carritoServicios.filter(item => item.id !== h.id);
             const chk = document.getElementById(`extra_${h.id}`);
@@ -1281,7 +1285,6 @@
 
         if (confirm('⚠️ ¿Estás seguro de vaciar todo el carrito?')) {
             carritoServicios = [];
-            // Desmarcar todo
             document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
             document.querySelectorAll('#listaHerramientasExtras input[type="checkbox"]').forEach(cb => cb.checked = false);
             
@@ -1291,7 +1294,7 @@
     }
 
     // ==========================================
-    // GENERAR ORDEN DE SERVICIO [cite: 343]
+    // GENERAR ORDEN DE SERVICIO
     // ==========================================
     async function generarOrdenServicio(btn) {
         const tecnico = document.getElementById('lugartrabajo').value.trim();
@@ -1317,7 +1320,7 @@
             for (const item of carritoServicios) {
                 const herramienta = inventarioCompleto.find(h => Number(h.id) === Number(item.id));
                 if (!herramienta) {
-                    showToast(`❌ La herramienta "${item.nombre}" no existe en el inventario`, 'error');
+                    showToast(`❌ La herramienta "${item.nombre}" no existe`, 'error');
                     return;
                 }
 
@@ -1365,7 +1368,6 @@
                 renderizarCarritoServicios();
                 document.getElementById('lugartrabajo').value = '';
                 
-                // Limpiar checkboxes recomendados
                 document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
                 
                 await cargarListaHerramientasExtras();
@@ -1384,7 +1386,7 @@
     }
 
     // ==========================================
-    // CARGAR ÓRDENES ACTIVAS [cite: 362]
+    // CARGAR ÓRDENES ACTIVAS (REINGRESO)
     // ==========================================
     async function cargarOrdenesActivas() {
         const container = document.getElementById('ordenesActivas');
@@ -1430,14 +1432,14 @@
             console.error('❌ Error al cargar órdenes:', error);
             container.innerHTML = `
                 <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                    ⚠️ Error al cargar órdenes: ${error.message}
+                    ⚠️ Error al cargar órdenes
                 </p>
             `;
         }
     }
 
     // ==========================================
-    // INICIAR REINGRESO DE HERRAMIENTAS [cite: 370]
+    // INICIAR REINGRESO DE HERRAMIENTAS
     // ==========================================
     async function iniciarReingreso(idOrden) {
         try {
@@ -1451,50 +1453,54 @@
 
             ordenActivaReingreso = data;
             const seccion = document.getElementById('seccionReingreso');
-            seccion.style.display = 'block';
-            seccion.scrollIntoView({ behavior: 'smooth' });
+            if (seccion) {
+                seccion.style.display = 'block';
+                seccion.scrollIntoView({ behavior: 'smooth' });
+            }
 
             const container = document.getElementById('reingresoContent');
-            container.innerHTML = `
-                <div style="margin-bottom: 1rem;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--text-light);">Orden</div>
-                            <div style="font-weight: 700;">${data.idOrden}</div>
+            if (container) {
+                container.innerHTML = `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                                <div style="font-size: 0.7rem; color: var(--text-light);">Orden</div>
+                                <div style="font-weight: 700;">${data.idOrden}</div>
+                            </div>
+                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                                <div style="font-size: 0.7rem; color: var(--text-light);">Lugar de Trabajo</div>
+                                <div style="font-weight: 700;">${data.lugartrabajo}</div>
+                            </div>
                         </div>
-                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--text-light);">Lugar de Trabajo</div>
-                            <div style="font-weight: 700;">${data.lugartrabajo}</div>
+                        <div style="margin-top: 0.5rem; padding: 0.8rem; background: #FFF8E1; border-radius: 8px; border-left: 4px solid var(--gold);">
+                            <strong>📋 Registrar novedades:</strong>
+                            <p style="font-size: 0.8rem; color: var(--text-light);">
+                                Selecciona el estado de cada herramienta al reingresar
+                            </p>
                         </div>
                     </div>
-                    <div style="margin-top: 0.5rem; padding: 0.8rem; background: #FFF8E1; border-radius: 8px; border-left: 4px solid var(--gold);">
-                        <strong>📋 Registrar novedades:</strong>
-                        <p style="font-size: 0.8rem; color: var(--text-light);">
-                            Selecciona el estado de cada herramienta al reingresar
-                        </p>
+                    <div class="herramientas-container">
+                        ${data.herramientasAsignadas.map(h => `
+                            <div class="novedad-item">
+                                <span class="nombre-herramienta">🔹 ${h.nombre}</span>
+                                <select id="novedad_${h.id}">
+                                    <option value="OK">✅ OK - Devuelta</option>
+                                    <option value="DAÑO">⚠️ DAÑO - A mantenimiento</option>
+                                    <option value="PERDIDA">❌ PÉRDIDA - Baja inventario</option>
+                                </select>
+                            </div>
+                        `).join('')}
                     </div>
-                </div>
-                <div class="herramientas-container">
-                    ${data.herramientasAsignadas.map(h => `
-                        <div class="novedad-item">
-                            <span class="nombre-herramienta">🔹 ${h.nombre}</span>
-                            <select id="novedad_${h.id}">
-                                <option value="OK">✅ OK - Devuelta</option>
-                                <option value="DAÑO">⚠️ DAÑO - A mantenimiento</option>
-                                <option value="PERDIDA">❌ PÉRDIDA - Baja inventario</option>
-                            </select>
-                        </div>
-                    `).join('')}
-                </div>
-                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button onclick="confirmarReingreso('${data.idOrden}', this)" class="btn btn-success" style="flex: 1;">
-                        ✓ Confirmar Reingreso
-                    </button>
-                    <button onclick="cerrarReingreso()" class="btn btn-secondary">
-                        Cancelar
-                    </button>
-                </div>
-            `;
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button onclick="confirmarReingreso('${data.idOrden}', this)" class="btn btn-success" style="flex: 1;">
+                            ✓ Confirmar Reingreso
+                        </button>
+                        <button onclick="cerrarReingreso()" class="btn btn-secondary">
+                            Cancelar
+                        </button>
+                    </div>
+                `;
+            }
 
         } catch (error) {
             showToast('Error de conexión', 'error');
@@ -1502,17 +1508,20 @@
     }
 
     // ==========================================
-    // CONFIRMAR REINGRESO [cite: 375]
+    // CONFIRMAR REINGRESO
     // ==========================================
     async function confirmarReingreso(idOrden, btn) {
         const novedades = {};
         const orden = ordenActivaReingreso;
+        if (!orden) return;
+
         orden.herramientasAsignadas.forEach(h => {
             const select = document.getElementById(`novedad_${h.id}`);
             if (select) {
                 novedades[h.id] = select.value;
             }
         });
+
         const tieneNovedad = Object.values(novedades).some(v => v !== 'OK');
         if (!tieneNovedad) {
             if (!confirm('✅ Todas las herramientas están OK. ¿Confirmar reingreso?')) {
@@ -1530,9 +1539,11 @@
                 return;
             }
         }
+
         const textoOriginal = btn.textContent;
         btn.textContent = '⏳ Procesando...';
         btn.disabled = true;
+
         try {
             const res = await fetch(`${API_URL}/api/servicios/reingreso`, {
                 method: 'POST',
@@ -1559,13 +1570,15 @@
     }
 
     function cerrarReingreso() {
-        document.getElementById('seccionReingreso').style.display = 'none';
-        document.getElementById('reingresoContent').innerHTML = '';
+        const seccion = document.getElementById('seccionReingreso');
+        if (seccion) seccion.style.display = 'none';
+        const container = document.getElementById('reingresoContent');
+        if (container) container.innerHTML = '';
         ordenActivaReingreso = null;
     }
 
     // ==========================================
-    // CARGAR HERRAMIENTAS EN REPARACIÓN [cite: 389]
+    // CARGAR HERRAMIENTAS EN REPARACIÓN
     // ==========================================
     async function cargarHerramientasEnReparacion() {
         const container = document.getElementById('herramientasReparacion');
@@ -1626,7 +1639,7 @@
     }
 
     // ==========================================
-    // PROCESAR REPARACIÓN [cite: 398]
+    // PROCESAR REPARACIÓN
     // ==========================================
     async function procesarReparacion(id, nombre) {
         try {
@@ -1637,56 +1650,60 @@
                 return;
             }
             const seccion = document.getElementById('seccionProcesarReparacion');
-            seccion.style.display = 'block';
-            seccion.scrollIntoView({ behavior: 'smooth' });
+            if (seccion) {
+                seccion.style.display = 'block';
+                seccion.scrollIntoView({ behavior: 'smooth' });
+            }
             
             const container = document.getElementById('procesarReparacionContent');
-            container.innerHTML = `
-                <div style="margin-bottom: 1rem;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--text-light);">Herramienta</div>
-                            <div style="font-weight: 700; font-size: 1.1rem;">🔹 ${data.nombre}</div>
-                        </div>
-                        <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--text-light);">Estado actual</div>
-                            <div style="font-weight: 600; color: var(--gold);">${data.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja'}</div>
+            if (container) {
+                container.innerHTML = `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                                <div style="font-size: 0.7rem; color: var(--text-light);">Herramienta</div>
+                                <div style="font-weight: 700; font-size: 1.1rem;">🔹 ${data.nombre}</div>
+                            </div>
+                            <div style="background: #F8F9FA; padding: 0.8rem; border-radius: 8px;">
+                                <div style="font-size: 0.7rem; color: var(--text-light);">Estado actual</div>
+                                <div style="font-weight: 600; color: var(--gold);">${data.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja'}</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Selecciona el estado final</label>
-                    <select id="estadoFinalHerramienta">
-                        <option value="REPARADO">✅ Reparado - Devuelto a stock</option>
-                        <option value="NO_REPARABLE">❌ No reparable - Dar de baja definitiva</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>📝 Observaciones</label>
-                    <textarea id="observacionesReparacion" rows="2" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:4px;" placeholder="Describe la reparación o motivo de la baja..."></textarea>
-                </div>
-                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                    <button onclick="confirmarProcesarReparacion(${id})" class="btn btn-success" style="flex: 1;">
-                        ✓ Confirmar y Procesar
-                    </button>
-                    <button onclick="cerrarProcesarReparacion()" class="btn btn-secondary">
-                        Cancelar
-                    </button>
-                </div>
-            `;
+                    <div class="form-group">
+                        <label>Selecciona el estado final</label>
+                        <select id="estadoFinalHerramienta">
+                            <option value="REPARADO">✅ Reparado - Devuelto a stock</option>
+                            <option value="NO_REPARABLE">❌ No reparable - Dar de baja definitiva</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>📝 Observaciones</label>
+                        <textarea id="observacionesReparacion" rows="2" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:4px;" placeholder="Describe la reparación o motivo de la baja..."></textarea>
+                    </div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button onclick="confirmarProcesarReparacion(${id}, this)" class="btn btn-success" style="flex: 1;">
+                            ✓ Confirmar y Procesar
+                        </button>
+                        <button onclick="cerrarProcesarReparacion()" class="btn btn-secondary">
+                            Cancelar
+                        </button>
+                    </div>
+                `;
+            }
         } catch (error) {
             showToast('Error de conexión', 'error');
         }
     }
 
-    async function confirmarProcesarReparacion(id) {
+    async function confirmarProcesarReparacion(id, btn) {
         const estadoFinal = document.getElementById('estadoFinalHerramienta').value;
         const observaciones = document.getElementById('observacionesReparacion').value.trim();
         if (!observaciones) {
             showToast('Por favor, escribe una observación', 'error');
             return;
         }
-        const btn = event.target;
+        
         const btnOriginalText = btn.textContent;
         btn.textContent = '⏳ Procesando...';
         btn.disabled = true;
@@ -1720,18 +1737,22 @@
     }
 
     function cerrarProcesarReparacion() {
-        document.getElementById('seccionProcesarReparacion').style.display = 'none';
-        document.getElementById('procesarReparacionContent').innerHTML = '';
+        const seccion = document.getElementById('seccionProcesarReparacion');
+        if (seccion) seccion.style.display = 'none';
+        const container = document.getElementById('procesarReparacionContent');
+        if (container) container.innerHTML = '';
     }
 
     // ==========================================
-    // AGENDAMIENTO DE SERVICIOS [cite: 409]
+    // AGENDAMIENTO DE SERVICIOS
     // ==========================================
     async function cargarAgendamientos() {
         const container = document.getElementById('listaAgendamientos');
         if (!container) return;
 
-        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
+        const filtroElement = document.getElementById('filtroEstadoAgendamiento');
+        const filtro = filtroElement ? filtroElement.value : 'TODOS';
+
         container.innerHTML = `
             <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
@@ -1751,6 +1772,7 @@
             container.innerHTML = data.agendamientos.map(a => {
                 const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
                 const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : (a.estado === 'COMPLETADO' ? '✅' : '❌');
+                
                 let botones = '';
                 if (a.estado === 'PENDIENTE') {
                     botones = `
@@ -1766,7 +1788,7 @@
                     <div class="orden-item" style="border-left: 4px solid ${estadoColor};">
                         <div class="orden-info">
                             <span style="font-weight: 700;">👤 Cliente: ${a.cliente}</span>
-                            <div style="font-size: 0.8rem;">🔧 ${a.tipo_servicio} | 📅 ${a.fecha} | ⏰ ${a.hora}</div>
+                            <div style="font-size: 0.8rem;">${estadoIcon} ${a.tipo_servicio} | 📅 ${a.fecha} | ⏰ ${a.hora}</div>
                             <div style="font-size: 0.8rem; color: var(--text-light);">👨‍🔧 Asignado: ${a.tecnico} ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}</div>
                         </div>
                         <div class="orden-actions" style="display:flex; gap:0.3rem;">
@@ -1803,7 +1825,6 @@
 
             if (res.ok) {
                 showToast('📅 Servicio agendado con éxito', 'success');
-                // Limpiar campos
                 document.getElementById('agCliente').value = '';
                 document.getElementById('agFecha').value = '';
                 document.getElementById('agHora').value = '';
@@ -1847,16 +1868,13 @@
     window.onload = async function() {
         console.log('🚀 Inicializando módulo de servicios...');
         
-        // Carga silenciosa del inventario general para las adicionales
         await cargarListaHerramientasExtras();
         
-        // Simular click en el primer servicio si existe para iniciar datos recomendados
         const primerServicio = document.querySelector('.servicio-item');
         if (primerServicio) {
             primerServicio.click();
         }
         
-        // Cargar agendamientos iniciales por si acaso
         await cargarAgendamientos();
         
         console.log('✅ Módulo de servicios inicializado correctamente');
@@ -1866,7 +1884,7 @@
     // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)
     // ==========================================
     setInterval(() => {
-        const subReintegro = document.getElementById('subReintegro');
+        const subReintegro = document.getElementById('subReintegro') || document.getElementById('subReingreso');
         if (subReintegro && subReintegro.classList.contains('active')) {
             cargarOrdenesActivas();
         }

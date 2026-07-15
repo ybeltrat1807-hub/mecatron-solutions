@@ -1641,9 +1641,6 @@ app.post('/api/financiero/reporte-periodo', async (req, res) => {
         res.status(500).json({ error: 'Error al generar reporte' });
     }
 });
-// =================================================================
-//   AGENDAMIENTO DE SERVICIOS (SOPORTE PARA LIQUIDACIÓN)
-// =================================================================
 
 // =================================================================
 //   AGENDAMIENTO DE SERVICIOS (SOPORTE POSTGRESQL / SUPABASE)
@@ -1671,47 +1668,67 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
     }
 });
 
-// Crear agendamiento (Ajustado a la estructura exacta de Supabase)
+// Crear agendamiento (Solución Definitiva para PostgreSQL / Supabase)
 app.post('/api/servicios/agendar', async (req, res) => {
+    // Extraemos los datos que vienen del frontend
     const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario } = req.body;
 
-    // Validación básica de campos obligatorios
+    // 1. Validar estrictamente los campos obligatorios
     if (!cliente || !tipo_servicio || !fecha || !hora) {
-        return res.status(400).json({ error: 'Faltan datos obligatorios: cliente, tipo_servicio, fecha y hora son necesarios.' });
+        return res.status(400).json({ 
+            error: 'Faltan datos obligatorios: cliente, tipo_servicio, fecha y hora son necesarios.' 
+        });
     }
 
-    // Convertir el valor a un número válido para evitar fallas con strings vacíos
-    const valorNumerico = isNaN(parseFloat(valor)) ? 0.00 : parseFloat(valor);
+    // 2. Limpiar y asegurar el valor numérico (si viene vacío, NaN o undefined, forzar 0)
+    let valorNumerico = 0;
+    if (valor !== undefined && valor !== null && valor !== '') {
+        const parseado = parseFloat(valor);
+        if (!isNaN(parseado)) {
+            valorNumerico = parseado;
+        }
+    }
+
+    // 3. Forzar valores por defecto si vienen vacíos para evitar que Postgres falle
+    const tecnicoLimpio = (tecnico && tecnico.trim() !== '') ? tecnico.trim() : 'Sin asignar';
+    const obsLimpias = (observaciones && observaciones.trim() !== '') ? observaciones.trim() : 'Sin observaciones';
+    const usuarioLimpio = (usuario && usuario.trim() !== '') ? usuario.trim() : 'Sistema';
+    const estadoInicial = 'PENDIENTE';
 
     try {
-        // En Postgres insertamos explícitamente el 'PENDIENTE' en la columna "estado"
+        // Ejecutar la consulta con parámetros limpios
         await db.query(
             `INSERT INTO agendamientos 
              (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, estado, usuario_creacion, valor) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
-                cliente, 
+                cliente.trim(), 
                 tipo_servicio, 
                 fecha, 
                 hora, 
-                tecnico || null, 
-                observaciones || null, 
-                'PENDIENTE', // <-- Forzamos el estado inicial para que no falle el NOT NULL de Postgres
-                usuario || 'Sistema', 
+                tecnicoLimpio, 
+                obsLimpias, 
+                estadoInicial, 
+                usuarioLimpio, 
                 valorNumerico
             ]
         );
         
         res.json({ mensaje: 'Servicio agendado exitosamente' });
+
     } catch (error) {
-        console.error('--- ERROR DETALLADO AL AGENDAR EN SUPABASE ---');
-        console.error('Código Postgres:', error.code);
-        console.error('Mensaje:', error.message);
+        // Esto se pintará en los logs de Railway para saber qué falló con exactitud
+        console.error('--- ERROR CRÍTICO AL AGENDAR EN SUPABASE ---');
+        console.error('Mensaje de error:', error.message);
+        console.error('Código de error Postgres:', error.code);
         console.error('Detalle:', error.detail);
-        console.error('----------------------------------------------');
+        console.error('Estructura enviada:', {
+            cliente, tipo_servicio, fecha, hora, tecnicoLimpio, obsLimpias, estadoInicial, usuarioLimpio, valorNumerico
+        });
+        console.error('--------------------------------------------');
         
         res.status(500).json({ 
-            error: 'Error interno al guardar en la base de datos', 
+            error: 'Error interno al guardar en Supabase', 
             detalle: error.message 
         });
     }

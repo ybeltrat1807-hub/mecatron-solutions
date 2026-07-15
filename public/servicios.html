@@ -1813,7 +1813,6 @@
 //   LÓGICA FRONTEND: AGENDAMIENTO DE SERVICIOS
 // =================================================================
 
-// 1. Guardar o Editar el Agendamiento
 async function agendarServicio() {
     const id = document.getElementById('agId').value;
     const cliente = document.getElementById('agCliente').value.trim();
@@ -1829,19 +1828,29 @@ async function agendarServicio() {
         return;
     }
 
-    const datos = { cliente, tipo_servicio, fecha, hora, tecnico, valor, observaciones };
+    // Armamos el objeto con todas las variables bien inicializadas
+    const datos = { 
+        cliente, 
+        tipo_servicio, 
+        fecha, 
+        hora, 
+        tecnico: tecnico || 'Sin asignar', 
+        valor: valor, 
+        observaciones: observaciones || 'Sin observaciones',
+        usuario: 'Yeimer Torres' // Mandamos tu nombre de usuario por defecto
+    };
 
     try {
         let response;
         if (id) {
-            // Actualizar/Editar agendamiento existente
+            // Actualizar/Editar
             response = await fetch(`${API_URL}/api/servicios/agendamiento/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(datos)
             });
         } else {
-            // Crear nuevo agendamiento
+            // Crear nuevo
             response = await fetch(`${API_URL}/api/servicios/agendar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1863,7 +1872,6 @@ async function agendarServicio() {
         showToast('❌ Error de conexión al guardar', 'error');
     }
 }
-
 // 2. Cargar agendamientos y mostrarlos en la lista
 async function cargarAgendamientos() {
     const container = document.getElementById('listaAgendamientos');

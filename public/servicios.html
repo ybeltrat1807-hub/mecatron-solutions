@@ -1785,55 +1785,62 @@
     // AGENDAMIENTO DE SERVICIOS (LÓGICA NUEVA)
     // ==========================================
 
-    // 1. Guardar o Editar el Agendamiento (PostgreSQL / Supabase vía API_URL)
-    async function agendarServicio() {
-        const id = document.getElementById('agId').value;
-        const cliente = document.getElementById('agCliente').value.trim();
-        const tipo_servicio = document.getElementById('agTipoServicio').value;
-        const fecha = document.getElementById('agFecha').value;
-        const hora = document.getElementById('agHora').value;
-        const tecnico = document.getElementById('agTecnico').value.trim();
-        const valor = parseFloat(document.getElementById('agValor').value) || 0;
-        const observaciones = document.getElementById('agObservaciones').value.trim();
+    // ==========================================
+// CREAR NUEVO AGENDAMIENTO (CORREGIDO)
+// ==========================================
+async function agendarServicio() {
+    const cliente = document.getElementById('agCliente').value.trim();
+    const tipo_servicio = document.getElementById('agTipoServicio').value;
+    const fecha = document.getElementById('agFecha').value;
+    const hora = document.getElementById('agHora').value;
+    const tecnico = document.getElementById('agTecnico').value.trim();
+    const observaciones = document.getElementById('agObservaciones').value.trim();
 
-        if (!cliente) {
-            showToast('⚠️ El nombre del cliente es obligatorio', 'error');
-            return;
-        }
-
-        const datos = { cliente, tipo_servicio, fecha, hora, tecnico, valor, observaciones };
-
-        try {
-            let response;
-            if (id) {
-                // Editar servicio
-                response = await fetch(`${API_URL}/api/agendamientos/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datos)
-                });
-            } else {
-                // Crear servicio
-                response = await fetch(`${API_URL}/api/agendamientos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datos)
-                });
-            }
-
-            if (response.ok) {
-                showToast(id ? '✅ Agendamiento actualizado con éxito' : '✅ Servicio agendado con éxito', 'success');
-                resetearFormularioAgendamiento();
-                cargarAgendamientos();
-            } else {
-                const err = await response.json();
-                showToast(`❌ Error: ${err.message || 'No se pudo guardar'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error al guardar agendamiento:', error);
-            showToast('❌ Error de conexión con el servidor', 'error');
-        }
+    if (!cliente || !fecha || !hora) {
+        showToast('⚠️ Cliente, Fecha y Hora son campos obligatorios', 'error');
+        return;
     }
+
+    try {
+        // CORRECCIÓN: Quitamos "/servicios" de la ruta
+        const res = await fetch(`${API_URL}/api/agendamientos`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                cliente,
+                tipo_servicio,
+                fecha,
+                hora,
+                tecnico,
+                observaciones
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('📅 ¡Servicio agendado con éxito!', 'success');
+            
+            // Limpiar formulario
+            document.getElementById('agCliente').value = '';
+            document.getElementById('agFecha').value = '';
+            document.getElementById('agHora').value = '';
+            document.getElementById('agTecnico').value = '';
+            document.getElementById('agObservaciones').value = '';
+
+            // Recargar lista
+            await cargarAgendamientos();
+        } else {
+            showToast(data.error || 'No se pudo crear el agendamiento', 'error');
+        }
+
+    } catch (error) {
+        console.error('Error al agendar servicio:', error);
+        showToast('⚠️ Error de conexión al agendar', 'error');
+    }
+}
 
     // 2. Limpiar el formulario y reestablecer estados normales
     function resetearFormularioAgendamiento() {
@@ -1852,73 +1859,72 @@
     }
 
     // 3. Cargar agendamientos desde el Backend con el filtro seleccionado
-    async function cargarAgendamientos() {
-        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
-        const lista = document.getElementById('listaAgendamientos');
-
-        try {
-            const response = await fetch(`${API_URL}/api/agendamientos?estado=${filtro}`);
-            if (!response.ok) throw new Error('Error al obtener agendamientos');
-            
-            const agendamientos = await response.json();
-            lista.innerHTML = '';
-
-            if (agendamientos.length === 0) {
-                lista.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 2rem;">No hay servicios programados</p>';
-                return;
-            }
-
-            agendamientos.forEach(ag => {
-                const valorFormateado = Number(ag.valor || 0).toLocaleString('es-CO', {
-                    style: 'currency',
-                    currency: 'COP',
-                    minimumFractionDigits: 0
-                });
-
-                const item = document.createElement('div');
-                item.className = 'orden-item';
-                item.style.borderLeft = `4px solid ${ag.estado === 'COMPLETADO' ? 'var(--success)' : ag.estado === 'CANCELADO' ? 'var(--danger)' : 'var(--gold)'}`;
-                item.style.marginBottom = '0.8rem';
-                item.style.padding = '1rem';
-
-                // Serialización segura para pasar el objeto al botón como parámetro string
-                const agString = JSON.stringify(ag).replace(/"/g, '&quot;');
-
-                item.innerHTML = `
-                    <div class="orden-info">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="orden-id" style="font-size: 1rem; font-weight: 700;">${ag.cliente}</span>
-                            <span class="badge-estado ${ag.estado.toLowerCase() === 'pendiente' ? 'campo' : ag.estado.toLowerCase()}">${ag.estado}</span>
-                        </div>
-                        <div class="orden-detalle" style="margin-top: 0.4rem; line-height: 1.4;">
-                            <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')}<br>
-                            <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'}<br>
-                            <strong>Fecha:</strong> ${ag.fecha} | <strong>Hora:</strong> ${ag.hora}<br>
-                            <strong>Valor:</strong> <span style="color: var(--success); font-weight: 700;">${valorFormateado}</span>
-                        </div>
-                    </div>
-                    <div class="orden-actions" style="display: flex; flex-direction: column; gap: 0.4rem; margin-left: 1rem; justify-content: center; min-width: 140px;">
-                        ${ag.estado === 'PENDIENTE' ? `
-                            <button onclick="cargarParaEditar(${agString})" class="btn btn-primary btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem;">
-                                <i class="fas fa-edit"></i> Editar / Liquidar
-                            </button>
-                            <button onclick="completarServicio(${ag.id})" class="btn btn-success btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary);">
-                                <i class="fas fa-check-circle"></i> Cerrar Servicio
-                            </button>
-                        ` : `
-                            <button onclick="imprimirReciboServicio(${agString})" class="btn btn-warning-custom btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary); color: white; border: none; border-radius: 4px;">
-                                <i class="fas fa-print"></i> Imprimir Recibo
-                            </button>
-                        `}
-                    </div>
-                `;
-                lista.appendChild(item);
-            });
-        } catch (error) {
-            console.error(error);
-            lista.innerHTML = '<p style="color: var(--danger); text-align: center; padding: 2rem;">⚠️ Error al cargar los agendamientos</p>';
+    // ==========================================
+// CARGAR AGENDAMIENTOS (CORREGIDO)
+// ==========================================
+async function cargarAgendamientos() {
+    const container = document.getElementById('listaAgendamientos');
+    const filtro = document.getElementById('filtroEstadoAgendamiento').value;
+    
+    container.innerHTML = `
+        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
+        </p>
+    `;
+    
+    try {
+        // CORRECCIÓN: Quitamos "/servicios" de la ruta
+        const res = await fetch(`${API_URL}/api/agendamientos?estado=${filtro}`);
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.error || 'Error al obtener agendamientos');
         }
+
+        const agendamientos = data.agendamientos || data; // Por si viene directo como array o en un objeto
+
+        if (!agendamientos || agendamientos.length === 0) {
+            container.innerHTML = `
+                <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                    📌 No hay agendamientos para este estado
+                </p>
+            `;
+            return;
+        }
+
+        container.innerHTML = agendamientos.map(ag => {
+            let estadoBadge = '';
+            if (ag.estado === 'PENDIENTE') estadoBadge = '<span class="badge-estado" style="background: var(--gold); color: black;">🟡 Pendiente</span>';
+            else if (ag.estado === 'COMPLETADO') estadoBadge = '<span class="badge-estado" style="background: var(--success); color: white;">✅ Completado</span>';
+            else if (ag.estado === 'CANCELADO') estadoBadge = '<span class="badge-estado" style="background: var(--danger); color: white;">❌ Cancelado</span>';
+
+            return `
+                <div class="orden-item" style="border-left: 4px solid ${ag.estado === 'PENDIENTE' ? 'var(--gold)' : ag.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)'}">
+                    <div class="orden-info">
+                        <span style="font-weight: 700; font-size: 1rem; color: var(--primary);">👤 ${ag.cliente}</span>
+                        <div style="font-size: 0.85rem; margin-top: 0.2rem; color: var(--text-dark);">
+                            🛠️ <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')} <br>
+                            📅 <strong>Fecha:</strong> ${ag.fecha} | ⏰ <strong>Hora:</strong> ${ag.hora} <br>
+                            👨‍🔧 <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'}
+                            ${ag.observaciones ? `<br>📝 <strong>Obs:</strong> ${ag.observaciones}` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                        ${estadoBadge}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error al cargar agendamientos:', error);
+        container.innerHTML = `
+            <p style="color: var(--danger); text-align: center; padding: 1rem;">
+                ⚠️ Error al cargar agendamientos: ${error.message}
+            </p>
+        `;
     }
+}
 
     // 4. Mapear datos al presionar "Editar / Liquidar"
     function cargarParaEditar(ag) {

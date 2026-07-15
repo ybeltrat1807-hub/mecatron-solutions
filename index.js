@@ -607,13 +607,10 @@ app.get('/api/servicios/recomendar', async (req, res) => {
 // ==========================================================
 app.post('/api/servicios/salida', async (req, res) => {
     console.log("DATOS RECIBIDOS EN EL SERVIDOR:", req.body);
-    // 1. Recibimos lugarTrabajo desde tu nuevo frontend
     const { lugarTrabajo, idsSeleccionadas, idsAdicionales, usuario } = req.body;
     
-    // Juntamos todas las herramientas en un solo array
     let todasLasHerramientas = [...(idsSeleccionadas || []), ...(idsAdicionales || [])];
 
-    // Validamos que vengan los datos obligatorios
     if (!lugarTrabajo || todasLasHerramientas.length === 0) {
         return res.status(400).json({ error: "Faltan datos obligatorios (Lugar de trabajo o herramientas)." });
     }
@@ -623,51 +620,46 @@ app.post('/api/servicios/salida', async (req, res) => {
     // ==========================================================
     let finalIdOrden;
     try {
-        // Buscamos el último registro real de la tabla ordenes_servicio ordenando cronológicamente
-        const [lastRow] = await db.query(
+        const result = await db.query(
             "SELECT id_orden FROM ordenes_servicio WHERE id_orden LIKE 'ORD-%' ORDER BY fecha_creacion DESC, id_orden DESC LIMIT 1"
         );
         
-        let nextNum = 1; // Si es la primera orden de la base de datos, empieza en 1
+        let nextNum = 1;
         
-        if (lastRow.length > 0) {
-            // Quitamos el prefijo 'ORD-' para quedarnos solo con el número puro
-            const lastNum = parseInt(lastRow[0].id_orden.replace('ORD-', ''), 10);
+        if (result.rows.length > 0) {
+            const lastNum = parseInt(result.rows[0].id_orden.replace('ORD-', ''), 10);
             if (!isNaN(lastNum)) {
-                nextNum = lastNum + 1; // Sumamos 1 al consecutivo anterior
+                nextNum = lastNum + 1;
             }
         }
         
-        // Formateamos para mantener la estructura limpia de 4 dígitos (Ej: ORD-0001, ORD-0461)
         finalIdOrden = `ORD-${String(nextNum).padStart(4, '0')}`;
         
     } catch (errCon) {
         console.error("❌ Error calculando el consecutivo:", errCon);
-        // Resguardo de emergencia por si falla la consulta del consecutivo
         finalIdOrden = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
     }
     // ==========================================================
 
     try {
-        // Verificar que no exista una orden repetida en la tabla
-        const [existente] = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = ?', [finalIdOrden]);
-        if (existente.length > 0) {
+        // Verificar duplicado — $1 en vez de ?, result.rows en vez de [existente]
+        const existenteResult = await db.query('SELECT id_orden FROM ordenes_servicio WHERE id_orden = $1', [finalIdOrden]);
+        if (existenteResult.rows.length > 0) {
             return res.status(409).json({ error: "Ya existe una orden con ese ID." });
         }
 
         let despachoExitoso = [];
         let erroresDespacho = [];
 
-        // Procesar cada herramienta en el inventario
         for (const id of todasLasHerramientas) {
-            const { rows } = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
+            const result = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
             
-            if (rows.length === 0) {
+            if (result.rows.length === 0) {
                 erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
                 continue; 
             }
 
-            let herramienta = rows[0];
+            let herramienta = result.rows[0];
 
             if (herramienta.estado !== 'DISPONIBLE') {
                 erroresDespacho.push(`La herramienta "${herramienta.nombre}" no está disponible (${herramienta.estado})`);
@@ -677,21 +669,20 @@ app.post('/api/servicios/salida', async (req, res) => {
             if (herramienta.disponibles < 1) {
                 erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
             } else {
-                // Restamos 1 en el inventario
+                // $1 en vez de ?
                 await db.query(
-                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = ?', 
+                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = $1', 
                     [id]
                 );
                 despachoExitoso.push({ id: id, nombre: herramienta.nombre });
             }
         }
 
-        // Si ninguna herramienta pudo ser despachada, cancelamos
         if (despachoExitoso.length === 0) {
             return res.status(400).json({ error: "No se pudo despachar ninguna herramienta.", detalles: erroresDespacho });
         }
 
-        // 2. INSERT EN LA TABLA REAL usando tu columna 'lugarTrabajo'
+        // INSERT — $1..$5 en vez de ?
         const queryOrden = `
             INSERT INTO ordenes_servicio (
                 id_orden, 
@@ -701,7 +692,7 @@ app.post('/api/servicios/salida', async (req, res) => {
                 fecha_creacion, 
                 total_herramientas
             ) 
-            VALUES (?, ?, ?, ?, NOW(), ?)
+            VALUES ($1, $2, $3, $4, NOW(), $5)
         `;
 
         const valoresOrden = [
@@ -712,14 +703,13 @@ app.post('/api/servicios/salida', async (req, res) => {
             despachoExitoso.length 
         ];
 
-        // Ejecutamos la inserción de la orden principal
         await db.query(queryOrden, valoresOrden);
 
-        // 3. DETALLES: Guardar cada herramienta asignada en la tabla relacional
+        // Detalles — $1, $2, $3 en vez de ?
         for (const h of despachoExitoso) {
             await db.query(
                 `INSERT INTO ordenes_servicio_herramientas (id_orden, id_herramienta, nombre_herramienta) 
-                 VALUES (?, ?, ?)`,
+                 VALUES ($1, $2, $3)`,
                 [finalIdOrden, h.id, h.nombre]
             );
         }
@@ -734,7 +724,6 @@ app.post('/api/servicios/salida', async (req, res) => {
             };
         }
 
-        // Respondemos con éxito al cliente
         res.json({
             mensaje: `🚀 Despacho operativo procesado con éxito para: ${lugarTrabajo}.`,
             idOrden: finalIdOrden,

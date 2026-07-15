@@ -556,9 +556,9 @@ app.get('/api/preventa/consultar/:idRemision', (req, res) => {
 // =================================================================
 //      MÓDULO DE SERVICIOS (RECOMENDADOR Y HERRAMIENTAS)
 // =================================================================
-
-// RECOMENDADOR DE HERRAMIENTAS POR TIPO DE SERVICIO
+// 💡 RECOMENDADOR DE HERRAMIENTAS POR TIPO DE SERVICIO (Versión PostgreSQL Relacional)
 app.get('/api/servicios/recomendar', async (req, res) => {
+    // Captura el parámetro como lo hacías antes (?tipo_servicio=...)
     const { tipo_servicio } = req.query;
 
     if (!tipo_servicio) {
@@ -566,11 +566,16 @@ app.get('/api/servicios/recomendar', async (req, res) => {
     }
 
     try {
-        // CORREGIDO: { rows } y $1 con comillas simples en el SQL
-        const { rows } = await db.query(
-            "SELECT id, nombre, disponibles, estado FROM inventario_uso_servicio WHERE tipo_servicio = $1 AND estado = 'DISPONIBLE' ORDER BY nombre",
-            [tipo_servicio]
-        );
+        // Hacemos el JOIN con la tabla intermedia plantilla_servicios
+        const query = `
+            SELECT h.id, h.nombre, h.disponibles, h.estado 
+            FROM plantilla_servicios p
+            JOIN inventario_uso_servicio h ON p.id_herramienta = h.id
+            WHERE p.tipo_servicio = $1 AND h.estado = 'DISPONIBLE'
+            ORDER BY h.nombre
+        `;
+        
+        const { rows } = await db.query(query, [tipo_servicio]);
 
         if (rows.length === 0) {
             return res.status(404).json({ 
@@ -579,6 +584,7 @@ app.get('/api/servicios/recomendar', async (req, res) => {
             });
         }
 
+        // Devolvemos exactamente el mismo formato de JSON que tu frontend ya conoce
         res.json({
             tipo_servicio: tipo_servicio,
             totalHerramientas: rows.length,
@@ -592,61 +598,10 @@ app.get('/api/servicios/recomendar', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al consultar la BD:", error);
+        console.error("Error al consultar la BD para recomendaciones:", error);
         res.status(500).json({ error: "Error interno al conectar con la base de datos." });
     }
 });
-
-// NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta
-app.get('/api/preventa/consultar/:idRemision', (req, res) => {
-    let remision = remisionesVentaActivas[req.params.idRemision];
-    if (!remision) return res.status(404).json({ error: "Remisión no encontrada." });
-    res.json(remision);
-});
-
-// =================================================================
-//      MÓDULO DE SERVICIOS (RECOMENDADOR Y HERRAMIENTAS)
-// =================================================================
-
-// RECOMENDADOR DE HERRAMIENTAS POR TIPO DE SERVICIO
-app.get('/api/servicios/recomendar', async (req, res) => {
-    const { tipo_servicio } = req.query;
-
-    if (!tipo_servicio) {
-        return res.status(400).json({ error: "Debe especificar el tipo_servicio." });
-    }
-
-    try {
-        const [filas] = await db.query(
-            'SELECT id, nombre, disponibles, estado FROM inventario_uso_servicio WHERE tipo_servicio = ? AND estado = "DISPONIBLE" ORDER BY nombre',
-            [tipo_servicio]
-        );
-
-        if (filas.length === 0) {
-            return res.status(404).json({ 
-                error: "No hay herramientas disponibles para este tipo de servicio",
-                tipo_servicio: tipo_servicio
-            });
-        }
-
-        res.json({
-            tipo_servicio: tipo_servicio,
-            totalHerramientas: filas.length,
-            herramientas: filas.map(h => ({
-                id: h.id,
-                nombre: h.nombre,
-                disponible: h.disponibles > 0,
-                disponibles: h.disponibles,
-                estado: h.estado
-            }))
-        });
-
-    } catch (error) {
-        console.error("Error al consultar la BD:", error);
-        res.status(500).json({ error: "Error interno al conectar con la base de datos." });
-    }
-});
-
 // ==========================================================
 // DESPACHO DE HERRAMIENTAS (SALIDA) - COMPLETO Y CORREGIDO
 // ==========================================================
@@ -865,9 +820,9 @@ app.post('/api/servicios/reingreso', async (req, res) => {
 // ==========================================
 // INVENTARIO DE SERVICIOS (HERRAMIENTAS)
 // ==========================================
+// 📦 OBTENER TODO EL INVENTARIO DE HERRAMIENTAS REAL
 app.get('/api/servicios/inventario', async (req, res) => {
     try {
-        // En Postgres usamos { rows } para obtener las filas de la consulta
         const { rows } = await db.query('SELECT * FROM inventario_uso_servicio ORDER BY nombre');
         res.json(rows);
     } catch (error) {

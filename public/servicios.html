@@ -1033,7 +1033,7 @@ function regresarSubmenu() {
             });
         });
 
-        // ==========================================
+// ==========================================
 // MOSTRAR HERRAMIENTAS RECOMENDADAS (FILTRADO LOCAL)
 // ==========================================
 async function mostrarHerramientasRecomendadas(servicio) {
@@ -1564,40 +1564,32 @@ async function confirmarReingreso(idOrden, btn) {
 // ==========================================
 // CARGAR HERRAMIENTAS DISPONIBLES (CORREGIDO)
 // ==========================================
-async function cargarHerramientas() {
+// Función para llenar el select de herramientas adicionales
+async function cargarSelectorHerramientasExtras() {
     try {
-        const res = await fetch(`${API_URL}/api/servicios/inventario`);
-        const data = await res.json();
+        // Consultamos la ruta que ahora trae herramientas únicas sin duplicados
+        const respuesta = await fetch('/api/servicios/inventario');
+        const herramientas = await respuesta.json();
+        
+        const select = document.getElementById('select-herramientas-extras'); // Cambia por el ID real de tu select
+        if (!select) return;
 
-        // Guardar todas para referencia
-        herramientasDisponibles = data;
+        // Limpiamos el select y dejamos la opción por defecto
+        select.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
 
-        // Cargar TODAS las herramientas disponibles para el select de extras
-        // (NO filtrar por tipo_servicio, solo por estado y disponibilidad)
-        const disponibles = data.filter(h => h.estado === 'DISPONIBLE' && h.disponibles > 0);
-
-        const select = document.getElementById('selectHerramientaExtra');
-        if (disponibles.length > 0) {
-            select.innerHTML = `
-                <option value="">🔧 Selecciona una herramienta extra...</option>
-                ${disponibles.map(h => `
-                    <option value="${h.id}">${h.nombre} (${h.disponibles} disponibles)</option>
-                `).join('')}
-            `;
-        } else {
-            select.innerHTML = `
-                <option value="">No hay herramientas adicionales disponibles</option>
-            `;
-        }
-
-        // Si hay servicio seleccionado, actualizar recomendaciones
-        if (servicioSeleccionado) {
-            await mostrarHerramientasRecomendadas(servicioSeleccionado);
-        }
-
+        herramientas.forEach(h => {
+            // Creamos la opción usando el ID único de la herramienta
+            const opcion = document.createElement('option');
+            opcion.value = h.id; // Aquí se guarda el ID único (ej: 1 para Destornillador)
+            opcion.textContent = `${h.nombre} (${h.disponibles} disp.)`;
+            
+            // Opcional: Si la herramienta ya está en las recomendadas de arriba, no la muestres como extra
+            if (h.disponibles > 0) {
+                select.appendChild(opcion);
+            }
+        });
     } catch (error) {
-        console.error('Error al cargar herramientas:', error);
-        showToast('Error al cargar inventario de herramientas', 'error');
+        console.error("Error al cargar el selector de extras:", error);
     }
 }
 // ==========================================

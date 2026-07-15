@@ -963,20 +963,21 @@
 
     <script>
     const API_URL = "https://mecatron-solutions-production.up.railway.app";
-    let carritoServicios = [];
-    let herramientasDisponibles = [];
-    let servicioSeleccionado = null;
-    let ordenActivaReingreso = null;
+    let carritoServicios = []; // Este es nuestro "carrito" único para la orden [cite: 311]
+    let herramientasDisponibles = []; // Herramientas que se recomiendan según el servicio [cite: 311, 325]
+    let todasLasHerramientasExtras = []; // Herramientas del inventario para los adicionales
+    let servicioSeleccionado = null; // Servicio seleccionado actualmente [cite: 311]
+    let ordenActivaReingreso = null; // Orden seleccionada para reingreso [cite: 311]
 
     // ==========================================
-    // VALIDACIÓN DE SESIÓN
+    // VALIDACIÓN DE SESIÓN [cite: 311]
     // ==========================================
     if (sessionStorage.getItem('autorizado') !== 'true') {
         window.location.href = "index.html";
     }
 
     // ==========================================
-    // TOAST NOTIFICATIONS
+    // TOAST NOTIFICATIONS [cite: 311]
     // ==========================================
     function showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
@@ -995,41 +996,34 @@
     }
 
     // ==========================================
-    // NAVEGACIÓN ENTRE SUBMÓDULOS
+    // NAVEGACIÓN ENTRE SUBMÓDULOS [cite: 314]
     // ==========================================
     function cambiarSubmodulo(idPantalla) {
-        // Ocultar el menú principal
         document.getElementById('submenuPrincipal').style.display = 'none';
-        // Ocultar todas las pantallas
         document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-
-        // Mostrar la pantalla seleccionada
         document.getElementById(idPantalla).classList.add('active');
-        // Cargar datos según el submódulo
+        
         if (idPantalla === 'subReintegro') {
             cargarOrdenesActivas();
         } else if (idPantalla === 'subReparaciones') {
             cargarHerramientasEnReparacion();
         } else if (idPantalla === 'subNuevaOrden') {
-            cargarSelectorHerramientasExtras();
+            cargarListaHerramientasExtras(); // Cargar la nueva lista de extras al abrir
         }
     }
 
     // ==========================================
-    // VOLVER AL MENÚ PRINCIPAL
+    // VOLVER AL MENÚ PRINCIPAL [cite: 317]
     // ==========================================
     function regresarSubmenu() {
-        // Ocultar todas las pantallas
         document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('active'));
-        // Mostrar el menú principal
         document.getElementById('submenuPrincipal').style.display = 'grid';
-        // Ocultar secciones secundarias
         document.getElementById('seccionReingreso').style.display = 'none';
         document.getElementById('seccionProcesarReparacion').style.display = 'none';
     }
 
     // ==========================================
-    // SELECCIÓN DE SERVICIO
+    // SELECCIÓN DE SERVICIO [cite: 319]
     // ==========================================
     document.querySelectorAll('.servicio-item').forEach(el => {
         el.addEventListener('click', function() {
@@ -1042,7 +1036,7 @@
     });
 
     // ==========================================
-    // MOSTRAR HERRAMIENTAS RECOMENDADAS (VÍA BACKEND RELACIONAL)
+    // MOSTRAR HERRAMIENTAS RECOMENDADAS [cite: 320]
     // ==========================================
     async function mostrarHerramientasRecomendadas(servicio) {
         const container = document.getElementById('herramientasRecomendadas');
@@ -1052,7 +1046,6 @@
             </p>
         `;
         try {
-            // Consultamos la nueva ruta relacional filtrando en el servidor
             const res = await fetch(`${API_URL}/api/servicios/recomendar?tipo_servicio=${servicio}`);
             const data = await res.json();
 
@@ -1065,37 +1058,45 @@
                 return;
             }
 
-            // Mapeamos los datos recibidos a nuestro array local de disponibilidad
             const herramientasFiltradas = data.herramientas || [];
             herramientasDisponibles = herramientasFiltradas;
 
             if (herramientasFiltradas.length === 0) {
                 container.innerHTML = `
                     <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                        No hay herramientas disponibles para este servicio
+                        No hay herramientas recomendadas para este servicio
                     </p>
                 `;
                 return;
             }
 
+            // Pintamos las recomendadas con un prefijo id "reco_" para evitar colisiones
             container.innerHTML = `
                 <div class="herramientas-container">
-                    ${herramientasFiltradas.map(h => `
-                        <div class="herramienta-item">
-                            <input type="checkbox" id="herramienta_${h.id}" value="${h.id}" 
-                                   ${h.disponibles > 0 ? '' : 'disabled'}
-                                   onchange="toggleHerramienta(${h.id})">
-                            <label for="herramienta_${h.id}">${h.nombre}</label>
-                            <span class="estado ${h.disponibles > 0 ? 'disponible' : 'no-disponible'}">
-                                ${h.disponibles > 0 ? `✅ ${h.disponibles} disponibles` : '❌ No disponible'}
-                            </span>
-                        </div>
-                    `).join('')}
+                    ${herramientasFiltradas.map(h => {
+                        const yaEstaEnCarrito = carritoServicios.some(item => item.id === h.id);
+                        return `
+                            <div class="herramienta-item">
+                                <input type="checkbox" id="reco_${h.id}" value="${h.id}" 
+                                       ${h.disponibles > 0 ? '' : 'disabled'}
+                                       ${yaEstaEnCarrito ? 'checked' : ''}
+                                       onchange="toggleHerramienta(${h.id}, 'recomendada')">
+                                <label for="reco_${h.id}">${h.nombre}</label>
+                                <span class="estado ${h.disponibles > 0 ? 'disponible' : 'no-disponible'}">
+                                    ${h.disponibles > 0 ? `✅ ${h.disponibles} disponibles` : '❌ No disponible'}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
                 <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-light);">
                     💡 Selecciona las herramientas que deseas llevar (${herramientasFiltradas.length} sugeridas)
                 </div>
             `;
+
+            // Refrescamos la lista de adicionales para ocultar las recomendadas
+            await cargarListaHerramientasExtras();
+
         } catch (error) {
             console.error('Error al cargar herramientas recomendadas:', error);
             container.innerHTML = `
@@ -1106,9 +1107,7 @@
         }
     }
 
-    // ==========================================
-    // EXPORTAR FUNCIÓN PARA BOTÓN ACTUALIZAR
-    // ==========================================
+    // Botón de actualización manual
     async function obtenerRecomendadas() {
         if (servicioSeleccionado) {
             await mostrarHerramientasRecomendadas(servicioSeleccionado);
@@ -1118,41 +1117,99 @@
     }
 
     // ==========================================
-    // TOGGLE HERRAMIENTA EN CARRITO
+    // CARGAR HERRAMIENTAS EXTRAS EN CHECKBOXES
     // ==========================================
-    function toggleHerramienta(id) {
-    const checkbox = document.getElementById(`recomendada_${id}`);
-    const checkboxExtra = document.getElementById(`extra_${id}`);
-    const herramienta = herramientasDisponibles.find(h => h.id === id);
+    async function cargarListaHerramientasExtras() {
+        const container = document.getElementById('listaHerramientasExtras');
+        if (!container) return;
 
-    if (!herramienta) return;
+        try {
+            const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
+            const herramientas = await respuesta.json();
 
-    // Si el checkbox está marcado
-    if (checkbox && checkbox.checked) {
-        if (!carritoServicios.find(h => h.id === id)) {
-            carritoServicios.push({
-                id: herramienta.id,
-                nombre: herramienta.nombre
-            });
-            showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+            // Excluimos las herramientas que ya están sugeridas en "Recomendadas"
+            const idsRecomendados = herramientasDisponibles.map(h => h.id);
+            todasLasHerramientasExtras = herramientas.filter(h => !idsRecomendados.includes(h.id));
+
+            renderizarCheckboxExtras(todasLasHerramientasExtras);
+
+        } catch (error) {
+            console.error("Error al cargar lista de extras:", error);
+            container.innerHTML = `<p style="color:var(--danger); text-align:center;">Error de conexión</p>`;
         }
-    } else {
-        // Si está desmarcado, eliminar del carrito
-        carritoServicios = carritoServicios.filter(h => h.id !== id);
-        showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
-        
-        // También desmarcar el checkbox extra si existe
-        if (checkboxExtra) checkboxExtra.checked = false;
     }
 
-    renderizarCarritoServicios();
-    
-    // Actualizar la lista de herramientas extras para reflejar cambios
-    cargarListaHerramientasExtras();
-}
+    function renderizarCheckboxExtras(lista) {
+        const container = document.getElementById('listaHerramientasExtras');
+        if (!container) return;
+
+        if (lista.length === 0) {
+            container.innerHTML = `<p style="color: var(--text-light); text-align: center; padding: 0.5rem; font-size:0.85rem;">No hay herramientas adicionales disponibles</p>`;
+            return;
+        }
+
+        container.innerHTML = lista.map(h => {
+            const yaEstaEnCarrito = carritoServicios.some(item => item.id === h.id);
+            return `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #F1F3F5;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem; margin: 0; width: 100%;">
+                        <input type="checkbox" id="extra_${h.id}" value="${h.id}" 
+                               ${h.disponibles > 0 ? '' : 'disabled'}
+                               ${yaEstaEnCarrito ? 'checked' : ''}
+                               onchange="toggleHerramienta(${h.id}, 'extra')"
+                               style="cursor: pointer; width: 16px; height: 16px;">
+                        <span>${h.nombre}</span>
+                    </label>
+                    <span style="font-size: 0.75rem; background: #E8F5E9; color: #2E7D32; padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 600; white-space:nowrap;">
+                        ${h.disponibles} disp.
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
 
     // ==========================================
-    // RENDERIZAR CARRITO DE SERVICIOS
+    // AGREGAR / REMOVER DEL CARRITO (CON REGLA DE DOS VÍAS)
+    // ==========================================
+    function toggleHerramienta(id, tipo) {
+        // Encontramos la herramienta en cualquiera de los dos lados
+        let herramienta = herramientasDisponibles.find(h => h.id === id);
+        if (!herramienta) {
+            herramienta = todasLasHerramientasExtras.find(h => h.id === id);
+        }
+
+        if (!herramienta) return;
+
+        // Buscamos el checkbox correspondiente
+        const chkReco = document.getElementById(`reco_${id}`);
+        const chkExtra = document.getElementById(`extra_${id}`);
+        const estaMarcado = (tipo === 'recomendada' && chkReco && chkReco.checked) || 
+                            (tipo === 'extra' && chkExtra && chkExtra.checked);
+
+        if (estaMarcado) {
+            // Añadir al carrito si no está
+            if (!carritoServicios.some(h => h.id === id)) {
+                carritoServicios.push({
+                    id: herramienta.id,
+                    nombre: herramienta.nombre
+                });
+                showToast(`✅ ${herramienta.nombre} agregado al carrito`, 'success');
+            }
+        } else {
+            // Eliminar del carrito si se desmarca
+            carritoServicios = carritoServicios.filter(h => h.id !== id);
+            showToast(`🗑️ ${herramienta.nombre} eliminado del carrito`, 'info');
+        }
+
+        // Mantener sincronizados ambos checkboxes visualmente por si acaso
+        if (chkReco) chkReco.checked = estaMarcado;
+        if (chkExtra) chkExtra.checked = estaMarcado;
+
+        renderizarCarritoServicios();
+    }
+
+    // ==========================================
+    // RENDERIZAR EL CARRITO DE SERVICIOS [cite: 336]
     // ==========================================
     function renderizarCarritoServicios() {
         const container = document.getElementById('carritoServicios');
@@ -1173,46 +1230,73 @@
     }
 
     // ==========================================
-    // ELIMINAR DEL CARRITO DE SERVICIOS
+    // ELIMINAR DEL CARRITO DESDE LA X [cite: 339]
     // ==========================================
     function eliminarDelCarritoServicios(id) {
-        const item = carritoServicios.find(h => h.id === id);
-        if (!item) return;
-
         carritoServicios = carritoServicios.filter(h => h.id !== id);
         renderizarCarritoServicios();
-        showToast(`🗑️ ${item.nombre} eliminado del carrito`, 'info');
-        const checkbox = document.getElementById(`herramienta_${id}`);
-        if (checkbox) checkbox.checked = false;
+        
+        // Desmarcamos de donde sea que estuviese en la UI
+        const chkReco = document.getElementById(`reco_${id}`);
+        const chkExtra = document.getElementById(`extra_${id}`);
+        if (chkReco) chkReco.checked = false;
+        if (chkExtra) chkExtra.checked = false;
+
+        showToast('🗑️ Herramienta eliminada del carrito', 'info');
     }
 
     // ==========================================
-    // VACIAR CARRITO DE SERVICIOS
+    // BOTONES DE ACCIÓN DE EXTRAS
     // ==========================================
+    function seleccionarTodasRecomendadas() {
+        herramientasDisponibles.forEach(h => {
+            if (h.disponibles > 0) {
+                if (!carritoServicios.some(item => item.id === h.id)) {
+                    carritoServicios.push({ id: h.id, nombre: h.nombre });
+                }
+                const chk = document.getElementById(`reco_${h.id}`);
+                if (chk) chk.checked = true;
+            }
+        });
+        renderizarCarritoServicios();
+        showToast('✅ Todas las recomendadas seleccionadas', 'success');
+    }
+
+    function limpiarSeleccionExtras() {
+        // Desmarcar todos los de adicionales
+        todasLasHerramientasExtras.forEach(h => {
+            carritoServicios = carritoServicios.filter(item => item.id !== h.id);
+            const chk = document.getElementById(`extra_${h.id}`);
+            if (chk) chk.checked = false;
+        });
+        renderizarCarritoServicios();
+        showToast('🧹 Filtro de adicionales limpio', 'info');
+    }
+
     function vaciarCarritoServicios() {
         if (carritoServicios.length === 0) {
             showToast('El carrito ya está vacío', 'info');
             return;
         }
 
-        if (confirm('⚠️ ¿Estás seguro de vaciar el carrito?')) {
-            carritoServicios.forEach(item => {
-                const checkbox = document.getElementById(`herramienta_${item.id}`);
-                if (checkbox) checkbox.checked = false;
-            });
+        if (confirm('⚠️ ¿Estás seguro de vaciar todo el carrito?')) {
             carritoServicios = [];
+            // Desmarcar todo
+            document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#listaHerramientasExtras input[type="checkbox"]').forEach(cb => cb.checked = false);
+            
             renderizarCarritoServicios();
             showToast('🗑️ Carrito vaciado completamente', 'info');
         }
     }
 
     // ==========================================
-    // GENERAR ORDEN DE SERVICIO
+    // GENERAR ORDEN DE SERVICIO [cite: 343]
     // ==========================================
     async function generarOrdenServicio(btn) {
-        console.log("🚀 Entró a generarOrdenServicio");
         const tecnico = document.getElementById('lugartrabajo').value.trim();
         const usuario = sessionStorage.getItem('usuario') || 'Sistema';
+
         if (!tecnico) {
             showToast('Por favor ingresa el nombre del lugar', 'error');
             return;
@@ -1223,7 +1307,6 @@
             return;
         }
 
-        // Validar inventario antes de generar la orden
         try {
             const resInventario = await fetch(`${API_URL}/api/servicios/inventario`);
             if (!resInventario.ok) {
@@ -1255,19 +1338,17 @@
             return;
         }
 
-        // Generar consecutivo
         const idsSeleccionadas = carritoServicios.map(h => h.id);
         const idOrden = `ORD-${String(Date.now()).slice(-4)}`;
 
         const textoOriginal = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
         btn.disabled = true;
+
         try {
             const res = await fetch(`${API_URL}/api/servicios/salida`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idOrden,
                     lugartrabajo: tecnico,
@@ -1276,20 +1357,18 @@
                     usuario
                 })
             });
+
             const data = await res.json();
             if (res.ok) {
                 showToast(`🚀 Orden ${data.idOrden} generada con éxito`, 'success');
-                // Limpiar carrito
                 carritoServicios = [];
                 renderizarCarritoServicios();
-                // Limpiar campo
                 document.getElementById('lugartrabajo').value = '';
-                // Desmarcar checkboxes
-                document
-                    .querySelectorAll('#herramientasRecomendadas input[type="checkbox"]')
-                    .forEach(cb => cb.checked = false);
-                // Recargar información
-                await cargarSelectorHerramientasExtras();
+                
+                // Limpiar checkboxes recomendados
+                document.querySelectorAll('#herramientasRecomendadas input[type="checkbox"]').forEach(cb => cb.checked = false);
+                
+                await cargarListaHerramientasExtras();
                 await cargarOrdenesActivas();
             } else {
                 showToast(data.error || 'No fue posible generar la orden', 'error');
@@ -1305,10 +1384,12 @@
     }
 
     // ==========================================
-    // CARGAR ÓRDENES ACTIVAS
+    // CARGAR ÓRDENES ACTIVAS [cite: 362]
     // ==========================================
     async function cargarOrdenesActivas() {
         const container = document.getElementById('ordenesActivas');
+        if (!container) return;
+
         container.innerHTML = `
             <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando órdenes...
@@ -1318,10 +1399,7 @@
             const res = await fetch(`${API_URL}/api/servicios/ordenes-activas`);
             const data = await res.json();
 
-            console.log('📊 Datos recibidos:', data);
-
             const listaOrdenes = Array.isArray(data) ? data : (data.ordenes || []);
-
             if (listaOrdenes.length === 0) {
                 container.innerHTML = `
                     <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
@@ -1359,7 +1437,7 @@
     }
 
     // ==========================================
-    // INICIAR REINGRESO DE HERRAMIENTAS
+    // INICIAR REINGRESO DE HERRAMIENTAS [cite: 370]
     // ==========================================
     async function iniciarReingreso(idOrden) {
         try {
@@ -1424,11 +1502,10 @@
     }
 
     // ==========================================
-    // CONFIRMAR REINGRESO
+    // CONFIRMAR REINGRESO [cite: 375]
     // ==========================================
     async function confirmarReingreso(idOrden, btn) {
         const novedades = {};
-
         const orden = ordenActivaReingreso;
         orden.herramientasAsignadas.forEach(h => {
             const select = document.getElementById(`novedad_${h.id}`);
@@ -1436,7 +1513,6 @@
                 novedades[h.id] = select.value;
             }
         });
-
         const tieneNovedad = Object.values(novedades).some(v => v !== 'OK');
         if (!tieneNovedad) {
             if (!confirm('✅ Todas las herramientas están OK. ¿Confirmar reingreso?')) {
@@ -1461,19 +1537,14 @@
             const res = await fetch(`${API_URL}/api/servicios/reingreso`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    idOrden,
-                    novedades
-                })
+                body: JSON.stringify({ idOrden, novedades })
             });
             const data = await res.json();
             if (res.ok) {
                 showToast(`✅ Reingreso de ${idOrden} completado con éxito`, 'success');
                 cerrarReingreso();
-
-                // RECARGAR EN ORDEN
                 cargarOrdenesActivas();
-                await cargarSelectorHerramientasExtras();
+                await cargarListaHerramientasExtras();
                 await cargarHerramientasEnReparacion();
             } else {
                 showToast('Error: ' + data.error, 'error');
@@ -1487,48 +1558,19 @@
         }
     }
 
-    // ==========================================
-    // CERRAR REINGRESO
-    // ==========================================
     function cerrarReingreso() {
         document.getElementById('seccionReingreso').style.display = 'none';
         document.getElementById('reingresoContent').innerHTML = '';
         ordenActivaReingreso = null;
     }
-    /*
-    // ==========================================
-    // CARGAR HERRAMIENTAS ADICIONALES (SELECT CORREGIDO)
-    // ==========================================
-    async function cargarSelectorHerramientasExtras() {
-        try {
-            // Consultamos apuntando a la URL del backend correcto de Railway
-            const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
-            const herramientas = await respuesta.json();
-            
-            // Usamos el ID correcto que lee agregarHerramientaExtra ('selectHerramientaExtra')
-            const select = document.getElementById('selectHerramientaExtra'); 
-            if (!select) return;
 
-            select.innerHTML = '<option value="">Selecciona una herramienta extra...</option>';
-            herramientas.forEach(h => {
-                const opcion = document.createElement('option');
-                opcion.value = h.id; 
-                opcion.textContent = `${h.nombre} (${h.disponibles} disp.)`;
-                
-                if (h.disponibles > 0) {
-                    select.appendChild(opcion);
-                }
-            });
-        } catch (error) {
-            console.error("Error al cargar el selector de extras:", error);
-        }
-    }
-    */
     // ==========================================
-    // CARGAR HERRAMIENTAS EN REPARACIÓN
+    // CARGAR HERRAMIENTAS EN REPARACIÓN [cite: 389]
     // ==========================================
     async function cargarHerramientasEnReparacion() {
         const container = document.getElementById('herramientasReparacion');
+        if (!container) return;
+
         container.innerHTML = `
             <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando herramientas en reparación...
@@ -1537,9 +1579,8 @@
         try {
             const res = await fetch(`${API_URL}/api/servicios/inventario`);
             const data = await res.json();
-            const herramientasFiltradas = data.filter(h => 
-                h.estado === 'EN_REPARACION' || h.estado === 'DADO_BAJA'
-            );
+            const herramientasFiltradas = data.filter(h => h.estado === 'EN_REPARACION' || h.estado === 'DADO_BAJA');
+            
             if (herramientasFiltradas.length === 0) {
                 container.innerHTML = `
                     <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
@@ -1548,48 +1589,32 @@
                 `;
                 return;
             }
-
             container.innerHTML = herramientasFiltradas.map(h => {
                 const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
                 const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
                 const mostrarBoton = h.estado === 'EN_REPARACION';
-
                 return `
                     <div class="orden-item" style="border-left: 4px solid ${color};">
                         <div class="orden-info">
                             <span style="font-weight: 700; font-size: 1rem;">🔹 ${h.nombre}</span>
-                            <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;">
-                                ID: #${h.id}
-                            </span>
+                            <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;"> ID: #${h.id} </span>
                             <div style="font-size: 0.8rem; margin-top: 0.2rem;">
-                                <span style="color: ${color}; font-weight: 600;">
-                                    ${estadoDisplay}
-                                </span>
+                                <span style="color: ${color}; font-weight: 600;"> ${estadoDisplay} </span>
                                 ${h.observaciones ? ` | 📝 ${h.observaciones}` : ''}
                             </div>
-                            ${h.estado === 'DADO_BAJA' ? `
-                                <div style="font-size: 0.7rem; color: var(--danger); font-weight: 600; margin-top: 0.2rem;">
-                                    ⚠️ Esta herramienta ya fue dada de baja definitivamente
-                                </div>
-                            ` : ''}
                         </div>
                         <div class="orden-actions">
                             ${mostrarBoton ? `
-                                <button onclick="procesarReparacion(${h.id}, '${h.nombre}')" 
-                                        class="btn-icon reingreso" 
-                                        style="background: var(--gradient-secondary); color: white; padding: 0.3rem 1rem;">
+                                <button onclick="procesarReparacion(${h.id}, '${h.nombre}')" class="btn-icon reingreso" style="background: var(--gradient-secondary); color: white; padding: 0.3rem 1rem;">
                                     🛠️ Procesar
                                 </button>
                             ` : `
-                                <span style="font-size: 0.7rem; color: var(--text-light);">
-                                    🔒 Procesamiento no disponible
-                                </span>
+                                <span style="font-size: 0.7rem; color: var(--text-light);"> 🔒 Procesamiento no disponible </span>
                             `}
                         </div>
                     </div>
                 `;
             }).join('');
-
         } catch (error) {
             console.error('Error al cargar herramientas en reparación:', error);
             container.innerHTML = `
@@ -1601,22 +1626,20 @@
     }
 
     // ==========================================
-    // PROCESAR REPARACIÓN DE HERRAMIENTA
+    // PROCESAR REPARACIÓN [cite: 398]
     // ==========================================
     async function procesarReparacion(id, nombre) {
         try {
             const res = await fetch(`${API_URL}/api/servicios/herramienta/${id}`);
             const data = await res.json();
-
             if (!res.ok) {
                 showToast('Error al obtener datos de la herramienta', 'error');
                 return;
             }
-
             const seccion = document.getElementById('seccionProcesarReparacion');
             seccion.style.display = 'block';
             seccion.scrollIntoView({ behavior: 'smooth' });
-
+            
             const container = document.getElementById('procesarReparacionContent');
             container.innerHTML = `
                 <div style="margin-bottom: 1rem;">
@@ -1630,11 +1653,7 @@
                             <div style="font-weight: 600; color: var(--gold);">${data.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja'}</div>
                         </div>
                     </div>
-                    <div style="margin-top: 1rem; background: #FFF8E1; padding: 0.8rem; border-radius: 8px; border-left: 4px solid var(--gold);">
-                        <strong>📋 Procesar herramienta</strong>
-                    </div>
                 </div>
-
                 <div class="form-group">
                     <label>Selecciona el estado final</label>
                     <select id="estadoFinalHerramienta">
@@ -1642,12 +1661,10 @@
                         <option value="NO_REPARABLE">❌ No reparable - Dar de baja definitiva</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>📝 Observaciones</label>
-                    <textarea id="observacionesReparacion" rows="2" placeholder="Describe la reparación o motivo de la baja..."></textarea>
+                    <textarea id="observacionesReparacion" rows="2" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:4px;" placeholder="Describe la reparación o motivo de la baja..."></textarea>
                 </div>
-
                 <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                     <button onclick="confirmarProcesarReparacion(${id})" class="btn btn-success" style="flex: 1;">
                         ✓ Confirmar y Procesar
@@ -1657,31 +1674,23 @@
                     </button>
                 </div>
             `;
-            if (data.estado === 'DADO_BAJA') {
-                showToast(`❌ La herramienta "${nombre}" ya fue dada de baja definitivamente`, 'error');
-                return;
-            }
         } catch (error) {
             showToast('Error de conexión', 'error');
         }
     }
 
-    // ==========================================
-    // CONFIRMAR PROCESAR REPARACIÓN
-    // ==========================================
     async function confirmarProcesarReparacion(id) {
         const estadoFinal = document.getElementById('estadoFinalHerramienta').value;
         const observaciones = document.getElementById('observacionesReparacion').value.trim();
-
         if (!observaciones) {
             showToast('Por favor, escribe una observación', 'error');
             return;
         }
-
         const btn = event.target;
-        const textoOriginal = btn.textContent;
+        const btnOriginalText = btn.textContent;
         btn.textContent = '⏳ Procesando...';
         btn.disabled = true;
+
         try {
             const res = await fetch(`${API_URL}/api/servicios/procesar-reparacion`, {
                 method: 'POST',
@@ -1690,46 +1699,39 @@
                     herramientaId: id,
                     estadoFinal: estadoFinal,
                     observaciones: observaciones,
-                    tecnico: document.getElementById('tecnicoResponsable').value || 'Administrador'
+                    tecnico: 'Administrador'
                 })
             });
             const data = await res.json();
-
             if (res.ok) {
-                if (estadoFinal === 'REPARADO') {
-                    showToast(`✅ ${data.nombre} reparado y devuelto a stock`, 'success');
-                } else {
-                    showToast(`📋 ${data.nombre} dado de baja definitivamente`, 'info');
-                }
+                showToast(estadoFinal === 'REPARADO' ? `✅ Reparada y devuelta a stock` : `📋 Dada de baja definitivamente`, 'success');
                 cerrarProcesarReparacion();
                 await cargarHerramientasEnReparacion();
-                await cargarSelectorHerramientasExtras();
+                await cargarListaHerramientasExtras();
             } else {
                 showToast('Error: ' + data.error, 'error');
             }
         } catch (error) {
             showToast('Error de conexión', 'error');
         } finally {
-            btn.textContent = textoOriginal;
+            btn.textContent = btnOriginalText;
             btn.disabled = false;
         }
     }
 
-    // ==========================================
-    // CERRAR PROCESAR REPARACIÓN
-    // ==========================================
     function cerrarProcesarReparacion() {
         document.getElementById('seccionProcesarReparacion').style.display = 'none';
         document.getElementById('procesarReparacionContent').innerHTML = '';
     }
 
     // ==========================================
-    // AGENDAMIENTO DE SERVICIOS
+    // AGENDAMIENTO DE SERVICIOS [cite: 409]
     // ==========================================
     async function cargarAgendamientos() {
         const container = document.getElementById('listaAgendamientos');
-        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
+        if (!container) return;
 
+        const filtro = document.getElementById('filtroEstadoAgendamiento').value;
         container.innerHTML = `
             <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
@@ -1746,373 +1748,119 @@
                 `;
                 return;
             }
-
             container.innerHTML = data.agendamientos.map(a => {
-                const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : 
-                                   a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
-                const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : 
-                                   a.estado === 'COMPLETADO' ? '✅' : '❌';
-
+                const estadoColor = a.estado === 'PENDIENTE' ? 'var(--gold)' : a.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)';
+                const estadoIcon = a.estado === 'PENDIENTE' ? '🟡' : (a.estado === 'COMPLETADO' ? '✅' : '❌');
                 let botones = '';
                 if (a.estado === 'PENDIENTE') {
                     botones = `
-                        <button onclick="completarAgendamiento(${a.id})" class="btn btn-success btn-sm" style="padding: 0.2rem 0.6rem;">
-                            ✅ Completar
-                        </button>
-                        <button onclick="cancelarAgendamiento(${a.id})" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.6rem; background: var(--danger);">
-                            ❌ Cancelar
-                        </button>
+                        <button onclick="completarAgendamiento(${a.id})" class="btn btn-success btn-sm" style="padding: 0.2rem 0.6rem;"> ✅ Completar </button>
+                        <button onclick="cancelarAgendamiento(${a.id})" class="btn btn-danger btn-sm" style="padding: 0.2rem 0.6rem; background: var(--danger);"> ❌ Cancelar </button>
                     `;
                 } else {
                     botones = `
-                        <span style="font-size: 0.7rem; color: var(--text-light);">
-                            ${a.estado === 'COMPLETADO' ? '✅ Completado' : '❌ Cancelado'}
-                        </span>
+                        <span style="font-size: 0.7rem; color: var(--text-light);"> ${a.estado === 'COMPLETADO' ? '✅ Completado' : '❌ Cancelado'} </span>
                     `;
                 }
-
                 return `
                     <div class="orden-item" style="border-left: 4px solid ${estadoColor};">
                         <div class="orden-info">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                                <span style="font-weight: 700; color: var(--primary);">${a.cliente}</span>
-                                <span style="font-size: 0.7rem; color: var(--text-light);">${a.fecha} ${a.hora}</span>
-                                <span style="font-size: 0.7rem; background: #F8F9FA; padding: 0.1rem 0.5rem; border-radius: 50px;">
-                                    ${a.tipo_servicio}
-                                </span>
-                                <span style="font-size: 0.7rem; color: ${estadoColor}; font-weight: 600;">
-                                    ${estadoIcon} ${a.estado}
-                                </span>
-                            </div>
-                            <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.2rem;">
-                                👨‍🔧 ${a.tecnico || 'Sin asignar'} 
-                                ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}
-                            </div>
+                            <span style="font-weight: 700;">👤 Cliente: ${a.cliente}</span>
+                            <div style="font-size: 0.8rem;">🔧 ${a.tipo_servicio} | 📅 ${a.fecha} | ⏰ ${a.hora}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light);">👨‍🔧 Asignado: ${a.tecnico} ${a.observaciones ? `| 📝 ${a.observaciones}` : ''}</div>
                         </div>
-                        <div class="orden-actions">
+                        <div class="orden-actions" style="display:flex; gap:0.3rem;">
                             ${botones}
                         </div>
                     </div>
                 `;
             }).join('');
-
         } catch (error) {
             console.error('Error al cargar agendamientos:', error);
-            container.innerHTML = `
-                <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                    ⚠️ Error al cargar agendamientos
-                </p>
-            `;
+            container.innerHTML = `<p style="color: var(--danger); text-align: center;">⚠️ Error al cargar agendamientos</p>`;
         }
     }
 
-    // Agendar servicio
     async function agendarServicio() {
         const cliente = document.getElementById('agCliente').value.trim();
-        const tipo_servicio = document.getElementById('agTipoServicio').value;
+        const tipoServicio = document.getElementById('agTipoServicio').value;
         const fecha = document.getElementById('agFecha').value;
         const hora = document.getElementById('agHora').value;
         const tecnico = document.getElementById('agTecnico').value.trim();
         const observaciones = document.getElementById('agObservaciones').value.trim();
 
-        if (!cliente || !fecha || !hora) {
-            showToast('Por favor complete los campos obligatorios (Cliente, Fecha, Hora)', 'error');
+        if (!cliente || !fecha || !hora || !tecnico) {
+            showToast('Por favor completa todos los campos obligatorios', 'error');
             return;
         }
-
-        const btn = event.target;
-        const textoOriginal = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agendando...';
-        btn.disabled = true;
 
         try {
             const res = await fetch(`${API_URL}/api/servicios/agendar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cliente,
-                    tipo_servicio,
-                    fecha,
-                    hora,
-                    tecnico: tecnico || null,
-                    observaciones: observaciones || null,
-                    usuario: sessionStorage.getItem('usuario') || 'Sistema'
-                })
+                body: JSON.stringify({ cliente, tipoServicio, fecha, hora, tecnico, observaciones })
             });
-            const data = await res.json();
 
             if (res.ok) {
-                showToast(`✅ Servicio agendado para ${cliente} el ${fecha}`, 'success');
+                showToast('📅 Servicio agendado con éxito', 'success');
+                // Limpiar campos
                 document.getElementById('agCliente').value = '';
                 document.getElementById('agFecha').value = '';
                 document.getElementById('agHora').value = '';
                 document.getElementById('agTecnico').value = '';
                 document.getElementById('agObservaciones').value = '';
-                cargarAgendamientos();
+                await cargarAgendamientos();
             } else {
-                showToast('Error: ' + data.error, 'error');
+                const err = await res.json();
+                showToast(err.error || 'No se pudo agendar el servicio', 'error');
             }
-        } catch (error) {
+        } catch (e) {
             showToast('Error de conexión', 'error');
-        } finally {
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
         }
     }
 
-    // Completar agendamiento
     async function completarAgendamiento(id) {
-        if (!confirm('¿Marcar este servicio como completado?')) return;
+        if (!confirm('¿Deseas marcar este agendamiento como COMPLETADO?')) return;
         try {
-            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, {
-                method: 'PUT'
-            });
-            const data = await res.json();
-
+            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, { method: 'POST' });
             if (res.ok) {
-                showToast('✅ Servicio marcado como completado', 'success');
-                cargarAgendamientos();
-            } else {
-                showToast('Error: ' + data.error, 'error');
+                showToast('✅ Servicio completado con éxito', 'success');
+                await cargarAgendamientos();
             }
-        } catch (error) {
-            showToast('Error de conexión', 'error');
-        }
+        } catch (e) { showToast('Error de conexión', 'error'); }
     }
 
-    // Cancelar agendamiento
     async function cancelarAgendamiento(id) {
-        if (!confirm('¿Cancelar este servicio?')) return;
+        if (!confirm('⚠️ ¿Seguro que deseas CANCELAR este servicio?')) return;
         try {
-            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, {
-                method: 'PUT'
-            });
-            const data = await res.json();
-
+            const res = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/cancelar`, { method: 'POST' });
             if (res.ok) {
                 showToast('❌ Servicio cancelado', 'info');
-                cargarAgendamientos();
-            } else {
-                showToast('Error: ' + data.error, 'error');
+                await cargarAgendamientos();
             }
-        } catch (error) {
-            showToast('Error de conexión', 'error');
-        }
+        } catch (e) { showToast('Error de conexión', 'error'); }
     }
-    // Estado global para herramientas seleccionadas (extras)
-let herramientasSeleccionadasExtras = [];
-let todasHerramientas = [];
-
-// Función para cargar el listado completo con checkboxes
-async function cargarListaHerramientasExtras() {
-    try {
-        const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
-        todasHerramientas = await respuesta.json();
-        
-        const container = document.getElementById('listaHerramientasExtras');
-        if (!container) return;
-        
-        // Limpiar el container
-        container.innerHTML = '';
-        
-        // Separar herramientas disponibles vs no disponibles
-        const disponibles = todasHerramientas.filter(h => h.disponibles > 0);
-        const noDisponibles = todasHerramientas.filter(h => h.disponibles <= 0);
-        
-        if (disponibles.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 0.5rem;">No hay herramientas disponibles</p>';
-            return;
-        }
-        
-        // Crear checkboxes para cada herramienta disponible
-        disponibles.forEach(h => {
-            const div = document.createElement('div');
-            div.style.cssText = `
-                display: flex; 
-                align-items: center; 
-                padding: 4px 0; 
-                border-bottom: 1px solid #eee;
-            `;
-            
-            // Verificar si ya está en el carrito
-            const enCarrito = carritoServicios.some(item => item.id === h.id);
-            const yaSeleccionada = herramientasSeleccionadasExtras.includes(h.id);
-            
-            div.innerHTML = `
-                <input type="checkbox" 
-                       id="extra_${h.id}" 
-                       value="${h.id}"
-                       ${yaSeleccionada ? 'checked' : ''}
-                       ${enCarrito ? 'disabled' : ''}
-                       onchange="toggleHerramientaExtra(${h.id})"
-                       style="margin-right: 8px;">
-                <label for="extra_${h.id}" style="flex: 1; cursor: pointer; ${enCarrito ? 'color: #999;' : ''}">
-                    ${h.nombre} 
-                    <span style="color: #666; font-size: 0.9em;">(${h.disponibles} disponibles)</span>
-                    ${enCarrito ? ' <span style="color: #28a745;">✅ Ya en carrito</span>' : ''}
-                </label>
-            `;
-            container.appendChild(div);
-        });
-        
-        // Mostrar herramientas sin stock al final (si las hay)
-        if (noDisponibles.length > 0) {
-            const divNoStock = document.createElement('div');
-            divNoStock.style.cssText = 'margin-top: 8px; padding: 8px; background: #f8d7da; border-radius: 4px;';
-            divNoStock.innerHTML = `
-                <p style="margin: 0; font-size: 0.9em; color: #721c24;">
-                    <strong>Sin stock:</strong> ${noDisponibles.map(h => h.nombre).join(', ')}
-                </p>
-            `;
-            container.appendChild(divNoStock);
-        }
-        
-        actualizarContadorExtras();
-    } catch (error) {
-        console.error("Error al cargar lista de extras:", error);
-        document.getElementById('listaHerramientasExtras').innerHTML = 
-            '<p style="color: red;">Error al cargar herramientas</p>';
-    }
-}
-
-// Toggle selección de herramienta extra
-function toggleHerramientaExtra(id) {
-    const index = herramientasSeleccionadasExtras.indexOf(id);
-    if (index > -1) {
-        herramientasSeleccionadasExtras.splice(index, 1);
-    } else {
-        herramientasSeleccionadasExtras.push(id);
-    }
-    actualizarContadorExtras();
-}
-
-// Seleccionar todas las herramientas recomendadas (del servicio actual)
-function seleccionarTodasRecomendadas() {
-    // Esto asume que tienes herramientas recomendadas visibles en el DOM
-    // Puedes obtenerlas del contenedor de herramientas recomendadas
-    const recomendadasContainer = document.getElementById('herramientasRecomendadas');
-    if (!recomendadasContainer) return;
-    
-    // Buscar las herramientas recomendadas (las que tienen badge o clase especial)
-    const itemsRecomendados = recomendadasContainer.querySelectorAll('.herramienta-item');
-    const idsRecomendados = [];
-    
-    itemsRecomendados.forEach(item => {
-        // Extraer el ID del atributo data-id o del checkbox
-        const checkbox = item.querySelector('input[type="checkbox"]');
-        if (checkbox && !checkbox.disabled) {
-            const id = parseInt(checkbox.value);
-            // Solo agregar si no está ya en el carrito
-            if (!carritoServicios.some(h => h.id === id)) {
-                idsRecomendados.push(id);
-            }
-        }
-    });
-    
-    // Agregar los IDs a la selección
-    idsRecomendados.forEach(id => {
-        if (!herramientasSeleccionadasExtras.includes(id)) {
-            herramientasSeleccionadasExtras.push(id);
-        }
-    });
-    
-    // Actualizar checkboxes
-    herramientasSeleccionadasExtras.forEach(id => {
-        const checkbox = document.getElementById(`extra_${id}`);
-        if (checkbox) checkbox.checked = true;
-    });
-    
-    actualizarContadorExtras();
-    showToast(`✅ ${idsRecomendados.length} herramientas recomendadas seleccionadas`, 'success');
-}
-
-// Agregar TODAS las herramientas seleccionadas de una vez
-async function agregarHerramientasSeleccionadas() {
-    if (herramientasSeleccionadasExtras.length === 0) {
-        showToast('⚠️ Selecciona al menos una herramienta', 'error');
-        return;
-    }
-    
-    // Verificar que ninguna esté ya en el carrito
-    const duplicadas = herramientasSeleccionadasExtras.filter(id => 
-        carritoServicios.some(h => h.id === id)
-    );
-    
-    if (duplicadas.length > 0) {
-        const nombres = duplicadas.map(id => {
-            const h = todasHerramientas.find(h => h.id === id);
-            return h ? h.nombre : id;
-        });
-        showToast(`⚠️ ${nombres.join(', ')} ya están en el carrito`, 'error');
-        return;
-    }
-    
-    try {
-        // Buscar los datos completos de las herramientas seleccionadas
-        const herramientasAAgregar = herramientasSeleccionadasExtras.map(id => {
-            const h = todasHerramientas.find(h => h.id === id);
-            return h;
-        }).filter(h => h !== undefined);
-        
-        // Agregar todas al carrito
-        herramientasAAgregar.forEach(h => {
-            carritoServicios.push({
-                id: h.id,
-                nombre: h.nombre
-            });
-        });
-        
-        // Limpiar selección
-        herramientasSeleccionadasExtras = [];
-        actualizarContadorExtras();
-        renderizarCarritoServicios();
-        
-        // Recargar la lista para actualizar estados (herramientas ya en carrito)
-        cargarListaHerramientasExtras();
-        
-        showToast(`✅ ${herramientasAAgregar.length} herramientas agregadas al carrito`, 'success');
-    } catch (error) {
-        console.error('Error al agregar herramientas:', error);
-        showToast('Error al agregar herramientas', 'error');
-    }
-}
-
-// Limpiar selección
-function limpiarSeleccionExtras() {
-    herramientasSeleccionadasExtras = [];
-    actualizarContadorExtras();
-    // Desmarcar todos los checkboxes
-    document.querySelectorAll('#listaHerramientasExtras input[type="checkbox"]').forEach(cb => {
-        cb.checked = false;
-    });
-}
-
-// Actualizar el contador del botón
-function actualizarContadorExtras() {
-    const btn = document.getElementById('btnAgregarMultiples');
-    if (btn) {
-        btn.innerHTML = `<i class="fas fa-plus-circle"></i> Agregar seleccionadas (${herramientasSeleccionadasExtras.length})`;
-        btn.disabled = herramientasSeleccionadasExtras.length === 0;
-    }
-}
 
     // ==========================================
-    // INICIALIZACIÓN
+    // INICIALIZACIÓN COMPLETA
     // ==========================================
     window.onload = async function() {
-    console.log('🚀 Inicializando módulo de servicios...');
-    
-    // Cargar herramientas extras (nuevo sistema)
-    await cargarListaHerramientasExtras();
-    
-    // Cargar automáticamente el primer servicio
-    const primerServicio = document.querySelector('.servicio-item');
-    if (primerServicio) {
-        primerServicio.click();
-    }
-    
-    console.log('✅ Módulo de servicios inicializado');
-};
+        console.log('🚀 Inicializando módulo de servicios...');
+        
+        // Carga silenciosa del inventario general para las adicionales
+        await cargarListaHerramientasExtras();
+        
+        // Simular click en el primer servicio si existe para iniciar datos recomendados
+        const primerServicio = document.querySelector('.servicio-item');
+        if (primerServicio) {
+            primerServicio.click();
+        }
+        
+        // Cargar agendamientos iniciales por si acaso
+        await cargarAgendamientos();
+        
+        console.log('✅ Módulo de servicios inicializado correctamente');
+    };
 
     // ==========================================
     // ACTUALIZACIÓN AUTOMÁTICA (cada 30 segundos)
@@ -2127,9 +1875,7 @@ function actualizarContadorExtras() {
             cargarHerramientasEnReparacion();
         }
     }, 30000);
-
-    console.log('🔧 Módulo de Servicios cargado correctamente');
-</script>
+    </script>
 
 </body>
 </html>

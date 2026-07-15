@@ -266,6 +266,56 @@ app.post('/api/preventa/salida', async (req, res) => {
         res.status(500).json({ error: "Error interno: " + error.message });
     }
 });
+// Ruta para el listado detallado en ventas.html
+app.get('/api/preventa/remisiones-activas', async (req, res) => {
+    try {
+        const query = `
+            SELECT r.id_remision, r.fecha_creacion, rp.nombre, rp.cantidad_cargada, rp.cantidad_vendida
+            FROM remisiones r
+            LEFT JOIN remisiones_productos rp ON r.id_remision = rp.id_remision
+            WHERE r.estado = 'ACTIVA'
+            ORDER BY r.fecha_creacion DESC
+        `;
+        const { rows } = await db.query(query);
+        const remisionesAgrupadas = {};
+
+        rows.forEach(row => {
+            if (!remisionesAgrupadas[row.id_remision]) {
+                remisionesAgrupadas[row.id_remision] = {
+                    idRemision: row.id_remision,
+                    fechaCreacion: row.fecha_creacion,
+                    productos: [],
+                    totalVentas: 0 
+                };
+            }
+            if (row.nombre) {
+                const cargados = parseInt(row.cantidad_cargada, 10) || 0;
+                const vendidos = parseInt(row.cantidad_vendida, 10) || 0;
+                remisionesAgrupadas[row.id_remision].productos.push({
+                    nombre: row.nombre,
+                    cargados: cargados,
+                    vendidos: vendidos,
+                    disponibles: cargados - vendidos
+                });
+            }
+        });
+        res.json({ activas: Object.values(remisionesAgrupadas) });
+    } catch (error) {
+        console.error("Error al obtener remisiones para ventas:", error);
+        res.status(500).json({ error: "Error al obtener remisiones" });
+    }
+});
+// Ruta para el contador rápido en panel.html
+app.get('/ventas/remisiones-activas', async (req, res) => {
+    try {
+        const { rows } = await db.query("SELECT COUNT(*) as total FROM remisiones WHERE estado = 'ACTIVA'");
+        const total = parseInt(rows[0].total, 10) || 0;
+        res.json({ total });
+    } catch (error) {
+        console.error("Error en conteo de remisiones activas para panel:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // 🚚 SUBMÓDULO 2: REGISTRO DE VENTA EXTERNA (CON GUARDADO EN BD)
 app.post('/api/preventa/venta-externa', async (req, res) => {
@@ -985,44 +1035,6 @@ app.get('/api/servicios/ordenes-activas', async (req, res) => {
         });
     }
 });
-// =================================================================
-//   ENDPOINTS PARA ESTADÍSTICAS DEL PANEL (NUEVOS)
-// =================================================================
-
-// Servicios activos (ordenes en campo)
-app.get('/api/servicios/activos', (req, res) => {
-    const activos = Object.keys(ordenesServicioActivas).length;
-    res.json({ total: activos });
-});
-
-// Ventas del día (desde la memoria de remisiones)
-app.get('/api/preventa/ventas-hoy', (req, res) => {
-    const totalRemisiones = Object.keys(remisionesVentaActivas).length;
-    let totalVentas = 0;
-    
-    Object.values(remisionesVentaActivas).forEach(rem => {
-        rem.productos.forEach(p => {
-            totalVentas += p.cantidadVendidaEnCalle || 0;
-        });
-    });
-    
-    res.json({ 
-        total: totalVentas,
-        remisionesActivas: totalRemisiones
-    });
-});
-
-// Productos con stock bajo (menos de 5)
-app.get('/api/servicios/stock-bajo', async (req, res) => {
-    try {
-        const [filas] = await db.query(
-            'SELECT id, nombre, disponibles FROM inventario_uso_servicio WHERE disponibles < 5'
-        );
-        res.json(filas);
-    } catch (error) {
-        res.status(500).json({ error: "Error al consultar stock bajo" });
-    }
-});
 /// =================================================================
 //   ENDPOINTS PARA ESTADÍSTICAS DEL PANEL (SOLO VENTAS)
 // =================================================================
@@ -1077,7 +1089,6 @@ app.get('/api/ventas/ventas-hoy', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // 📋 4. TOTAL DE REMISIONES ACTIVAS (Para la estadística del dashboard)
 app.get('/api/ventas/remisiones-activas', async (req, res) => {
     try {

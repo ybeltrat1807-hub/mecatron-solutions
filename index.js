@@ -740,69 +740,58 @@ app.post('/api/servicios/salida', async (req, res) => {
 // REINGRESO DE HERRAMIENTAS CON ESTADO
 app.post('/api/servicios/reingreso', async (req, res) => {
     const { idOrden, novedades } = req.body;
-
-    if (!idOrden) {
-        return res.status(400).json({ error: "Falta el ID de la orden." });
-    }
+    console.log(`🔄 Procesando reingreso de la orden: ${idOrden}`);
 
     try {
-        // Cargar la orden desde BD
-        const [ordenRows] = await db.query(
-            'SELECT * FROM ordenes_servicio WHERE id_orden = ? AND estado = "EN_CAMPO"',
+        // 1. Validar que la orden existe
+        const resultadoOrden = await db.query(
+            `SELECT id_orden, estado FROM ordenes_servicio WHERE id_orden = $1`,
             [idOrden]
         );
 
-        if (ordenRows.length === 0) {
-            return res.status(404).json({ error: "Orden no encontrada o ya cerrada." });
+        if (resultadoOrden.rows.length === 0) {
+            return res.status(404).json({ error: 'La orden no existe en el sistema' });
         }
 
-        // Cargar las herramientas de esa orden
-        const [herramientas] = await db.query(
-            'SELECT id_herramienta, nombre_herramienta FROM ordenes_servicio_herramientas WHERE id_orden = ?',
-            [idOrden]
-        );
+        // 2. Procesar cada novedad para actualizar el inventario real
+        // novedades es un objeto: { "id_herramienta_1": "OK", "id_herramienta_2": "DAÑO" }
+        const listaNovedades = Object.entries(novedades || {});
 
-        // Procesar cada herramienta según la novedad
-        for (const hItem of herramientas) {
-            const idH = hItem.id_herramienta;
-            const novedad = novedades && novedades[idH] ? novedades[idH].toUpperCase() : "OK";
+        for (const [idHerramienta, estadoNovedad] of listaNovedades) {
+            let nuevoEstadoInventario = 'DISPONIBLE'; // Estado por defecto
 
-            if (novedad === "OK") {
-                await db.query(
-                    'UPDATE inventario_uso_servicio SET disponibles = disponibles + 1, estado = "DISPONIBLE" WHERE id = ?',
-                    [idH]
-                );
-            } else if (novedad === "DAÑO") {
-                await db.query(
-                    `UPDATE inventario_uso_servicio 
-                     SET estado = "EN_REPARACION",
-                         observaciones = CONCAT(IFNULL(observaciones, ''), ' - En reparación desde ', NOW()) 
-                     WHERE id = ?`,
-                    [idH]
-                );
-            } else if (novedad === "PERDIDA") {
-                await db.query(
-                    `UPDATE inventario_uso_servicio 
-                     SET stock_total = 0, disponibles = 0, estado = "DADO_BAJA",
-                         observaciones = CONCAT(IFNULL(observaciones, ''), ' - Dado de baja por pérdida ', NOW()) 
-                     WHERE id = ?`,
-                    [idH]
-                );
+            if (estadoNovedad === 'DAÑO') {
+                nuevoEstadoInventario = 'MANTENIMIENTO';
+            } else if (estadoNovedad === 'PERDIDA') {
+                nuevoEstadoInventario = 'DADO_DE_BAJA';
             }
+
+            // Actualizamos el estado físico de la herramienta en tu inventario de uso servicio
+            await db.query(
+                `UPDATE inventario_uso_servicio 
+                 SET estado = $1 
+                 WHERE id = $2`,
+                [nuevoEstadoInventario, idHerramienta]
+            );
         }
 
-        // Marcar la orden como cerrada
-        await db.query('UPDATE ordenes_servicio SET estado = "CERRADA", fecha_cierre = NOW() WHERE id_orden = ?', [idOrden]);
+        // 3. Cambiar el estado de la orden de servicio a FINALIZADA
+        await db.query(
+            `UPDATE ordenes_servicio 
+             SET estado = 'FINALIZADA' 
+             WHERE id_orden = $1`,
+            [idOrden]
+        );
 
-        res.json({
-            mensaje: "Reingreso procesado correctamente.",
-            estadoOrden: "CERRADA",
-            totalProcesadas: herramientas.length
-        });
+        console.log(`✅ Orden ${idOrden} finalizada y herramientas actualizadas correctamente.`);
+        res.json({ success: true, message: 'Reingreso procesado exitosamente' });
 
     } catch (error) {
-        console.error('Error en reingreso:', error);
-        res.status(500).json({ error: "Error al procesar el reingreso." });
+        console.error('❌ Error al procesar el reingreso:', error);
+        res.status(500).json({ 
+            error: 'Error interno al procesar el reingreso de herramientas',
+            detalle: error.message 
+        });
     }
 });
 

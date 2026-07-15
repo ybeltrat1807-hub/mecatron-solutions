@@ -1802,8 +1802,11 @@ async function agendarServicio() {
     }
 
     try {
-        // CORRECCIÓN: Quitamos "/servicios" de la ruta
-        const res = await fetch(`${API_URL}/api/agendamientos`, {
+        // Aseguramos que la URL sea exactamente /api/agendamientos sin "servicios" intermedio
+        const url = `${API_URL}/api/agendamientos`;
+        console.log("Enviando petición POST a:", url);
+
+        const res = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1818,6 +1821,14 @@ async function agendarServicio() {
             })
         });
 
+        // Validamos si la respuesta no es JSON antes de parsear
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const textoError = await res.text();
+            console.error("Respuesta no JSON recibida del servidor:", textoError);
+            throw new Error(`El servidor respondió con un error HTML (Status ${res.status}). Verifica la ruta del backend.`);
+        }
+
         const data = await res.json();
 
         if (res.ok) {
@@ -1830,7 +1841,7 @@ async function agendarServicio() {
             document.getElementById('agTecnico').value = '';
             document.getElementById('agObservaciones').value = '';
 
-            // Recargar lista
+            // Recargar lista automáticamente
             await cargarAgendamientos();
         } else {
             showToast(data.error || 'No se pudo crear el agendamiento', 'error');
@@ -1838,7 +1849,7 @@ async function agendarServicio() {
 
     } catch (error) {
         console.error('Error al agendar servicio:', error);
-        showToast('⚠️ Error de conexión al agendar', 'error');
+        showToast(`⚠️ ${error.message}`, 'error');
     }
 }
 
@@ -1873,15 +1884,23 @@ async function cargarAgendamientos() {
     `;
     
     try {
-        // CORRECCIÓN: Quitamos "/servicios" de la ruta
-        const res = await fetch(`${API_URL}/api/agendamientos?estado=${filtro}`);
-        const data = await res.json();
+        // Aseguramos la ruta correcta de consulta de agendamientos
+        const url = `${API_URL}/api/agendamientos?estado=${filtro}`;
+        console.log("Consultando agendamientos en:", url);
+
+        const res = await fetch(url);
         
-        if (!res.ok) {
-            throw new Error(data.error || 'Error al obtener agendamientos');
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const textoError = await res.text();
+            console.error("Respuesta no JSON recibida al cargar:", textoError);
+            throw new Error(`Respuesta no válida del servidor (Status ${res.status}).`);
         }
 
-        const agendamientos = data.agendamientos || data; // Por si viene directo como array o en un objeto
+        const data = await res.json();
+        
+        // Manejamos si viene directo como array o envuelto en un objeto
+        const agendamientos = data.agendamientos || data; 
 
         if (!agendamientos || agendamientos.length === 0) {
             container.innerHTML = `

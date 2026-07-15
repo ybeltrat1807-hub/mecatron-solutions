@@ -1642,7 +1642,7 @@ app.post('/api/financiero/reporte-periodo', async (req, res) => {
     }
 });
 // =================================================================
-//   AGENDAMIENTO DE SERVICIOS
+//   AGENDAMIENTO DE SERVICIOS (SOPORTE PARA LIQUIDACIÓN)
 // =================================================================
 
 // Obtener agendamientos
@@ -1659,7 +1659,8 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
     query += ' ORDER BY fecha ASC, hora ASC';
 
     try {
-        const { rows } = await db.query(query, params);
+        // Adaptado a tu estructura de base de datos
+        const [rows] = await db.query(query, params);
         res.json({ agendamientos: rows });
     } catch (error) {
         console.error('Error al obtener agendamientos:', error);
@@ -1669,7 +1670,7 @@ app.get('/api/servicios/agendamientos', async (req, res) => {
 
 // Crear agendamiento
 app.post('/api/servicios/agendar', async (req, res) => {
-    const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, usuario } = req.body;
+    const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario } = req.body;
 
     if (!cliente || !tipo_servicio || !fecha || !hora) {
         return res.status(400).json({ error: 'Faltan datos obligatorios' });
@@ -1678,14 +1679,42 @@ app.post('/api/servicios/agendar', async (req, res) => {
     try {
         await db.query(
             `INSERT INTO agendamientos 
-             (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, usuario_creacion) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, usuario || 'Sistema']
+             (cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor, usuario_creacion) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor || 0, usuario || 'Sistema']
         );
         res.json({ mensaje: 'Servicio agendado exitosamente' });
     } catch (error) {
         console.error('Error al agendar:', error);
         res.status(500).json({ error: 'Error al agendar servicio' });
+    }
+});
+
+// NUEVA RUTA: Actualizar/Editar/Liquidar agendamiento
+app.put('/api/servicios/agendamiento/:id', async (req, res) => {
+    const { id } = req.params;
+    const { cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor } = req.body;
+
+    if (!cliente || !tipo_servicio || !fecha || !hora) {
+        return res.status(400).json({ error: 'Faltan datos obligatorios' });
+    }
+
+    try {
+        const [result] = await db.query(
+            `UPDATE agendamientos 
+             SET cliente = ?, tipo_servicio = ?, fecha = ?, hora = ?, tecnico = ?, observaciones = ?, valor = ?
+             WHERE id = ?`,
+            [cliente, tipo_servicio, fecha, hora, tecnico, observaciones, valor || 0, id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Agendamiento no encontrado' });
+        }
+
+        res.json({ mensaje: 'Agendamiento actualizado exitosamente' });
+    } catch (error) {
+        console.error('Error al actualizar agendamiento:', error);
+        res.status(500).json({ error: 'Error al actualizar agendamiento' });
     }
 });
 

@@ -746,17 +746,30 @@
                         </p>
                     </div>
                     <div style="margin-top: 1rem;">
-                        <div class="form-group">
-                            <label>➕ Agregar herramienta adicional</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <select id="selectHerramientaExtra" style="flex: 1;"></select>
-                                <button onclick="agregarHerramientaExtra()" class="btn btn-primary btn-sm">
-                                <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label>➕ Selecciona herramientas adicionales</label>
+        
+                    <!-- Contenedor para todas las herramientas con checkboxes -->
+                    <div id="listaHerramientasExtras" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #f9f9f9;">
+                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                    Cargando herramientas...
+                    </p>
                 </div>
+        
+        <!-- Botones de acción -->
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+            <button onclick="seleccionarTodasRecomendadas()" class="btn btn-info btn-sm">
+                <i class="fas fa-check-double"></i> Seleccionar recomendadas
+            </button>
+            <button onclick="agregarHerramientasSeleccionadas()" class="btn btn-primary btn-sm" id="btnAgregarMultiples">
+                <i class="fas fa-plus-circle"></i> Agregar seleccionadas (0)
+            </button>
+            <button onclick="limpiarSeleccionExtras()" class="btn btn-secondary btn-sm">
+                <i class="fas fa-undo"></i> Limpiar
+            </button>
+        </div>
+    </div>
+</div>
 
                 <!-- PASO 3: Carrito y Orden -->
                 <div class="section-card">
@@ -1928,12 +1941,257 @@
             showToast('Error de conexión', 'error');
         }
     }
+    // Estado global para herramientas seleccionadas (extras)
+let herramientasSeleccionadasExtras = [];
+let todasHerramientas = [];
+
+// Función para cargar el listado completo con checkboxes
+async function cargarListaHerramientasExtras() {
+    try {
+        const respuesta = await fetch(`${API_URL}/api/servicios/inventario`);
+        todasHerramientas = await respuesta.json();
+        
+        const container = document.getElementById('listaHerramientasExtras');
+        if (!container) return;
+        
+        // Limpiar el container
+        container.innerHTML = '';
+        
+        // Separar herramientas disponibles vs no disponibles
+        const disponibles = todasHerramientas.filter(h => h.disponibles > 0);
+        const noDisponibles = todasHerramientas.filter(h => h.disponibles <= 0);
+        
+        if (disponibles.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 0.5rem;">No hay herramientas disponibles</p>';
+            return;
+        }
+        
+        // Crear checkboxes para cada herramienta disponible
+        disponibles.forEach(h => {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                display: flex; 
+                align-items: center; 
+                padding: 4px 0; 
+                border-bottom: 1px solid #eee;
+            `;
+            
+            // Verificar si ya está en el carrito
+            const enCarrito = carritoServicios.some(item => item.id === h.id);
+            const yaSeleccionada = herramientasSeleccionadasExtras.includes(h.id);
+            
+            div.innerHTML = `
+                <input type="checkbox" 
+                       id="extra_${h.id}" 
+                       value="${h.id}"
+                       ${yaSeleccionada ? 'checked' : ''}
+                       ${enCarrito ? 'disabled' : ''}
+                       onchange="toggleHerramientaExtra(${h.id})"
+                       style="margin-right: 8px;">
+                <label for="extra_${h.id}" style="flex: 1; cursor: pointer; ${enCarrito ? 'color: #999;' : ''}">
+                    ${h.nombre} 
+                    <span style="color: #666; font-size: 0.9em;">(${h.disponibles} disponibles)</span>
+                    ${enCarrito ? ' <span style="color: #28a745;">✅ Ya en carrito</span>' : ''}
+                </label>
+            `;
+            container.appendChild(div);
+        });
+        
+        // Mostrar herramientas sin stock al final (si las hay)
+        if (noDisponibles.length > 0) {
+            const divNoStock = document.createElement('div');
+            divNoStock.style.cssText = 'margin-top: 8px; padding: 8px; background: #f8d7da; border-radius: 4px;';
+            divNoStock.innerHTML = `
+                <p style="margin: 0; font-size: 0.9em; color: #721c24;">
+                    <strong>Sin stock:</strong> ${noDisponibles.map(h => h.nombre).join(', ')}
+                </p>
+            `;
+            container.appendChild(divNoStock);
+        }
+        
+        actualizarContadorExtras();
+    } catch (error) {
+        console.error("Error al cargar lista de extras:", error);
+        document.getElementById('listaHerramientasExtras').innerHTML = 
+            '<p style="color: red;">Error al cargar herramientas</p>';
+    }
+}
+
+// Toggle selección de herramienta extra
+function toggleHerramientaExtra(id) {
+    const index = herramientasSeleccionadasExtras.indexOf(id);
+    if (index > -1) {
+        herramientasSeleccionadasExtras.splice(index, 1);
+    } else {
+        herramientasSeleccionadasExtras.push(id);
+    }
+    actualizarContadorExtras();
+}
+
+// Seleccionar todas las herramientas recomendadas (del servicio actual)
+function seleccionarTodasRecomendadas() {
+    // Esto asume que tienes herramientas recomendadas visibles en el DOM
+    // Puedes obtenerlas del contenedor de herramientas recomendadas
+    const recomendadasContainer = document.getElementById('herramientasRecomendadas');
+    if (!recomendadasContainer) return;
+    
+    // Buscar las herramientas recomendadas (las que tienen badge o clase especial)
+    const itemsRecomendados = recomendadasContainer.querySelectorAll('.herramienta-item');
+    const idsRecomendados = [];
+    
+    itemsRecomendados.forEach(item => {
+        // Extraer el ID del atributo data-id o del checkbox
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && !checkbox.disabled) {
+            const id = parseInt(checkbox.value);
+            // Solo agregar si no está ya en el carrito
+            if (!carritoServicios.some(h => h.id === id)) {
+                idsRecomendados.push(id);
+            }
+        }
+    });
+    
+    // Agregar los IDs a la selección
+    idsRecomendados.forEach(id => {
+        if (!herramientasSeleccionadasExtras.includes(id)) {
+            herramientasSeleccionadasExtras.push(id);
+        }
+    });
+    
+    // Actualizar checkboxes
+    herramientasSeleccionadasExtras.forEach(id => {
+        const checkbox = document.getElementById(`extra_${id}`);
+        if (checkbox) checkbox.checked = true;
+    });
+    
+    actualizarContadorExtras();
+    showToast(`✅ ${idsRecomendados.length} herramientas recomendadas seleccionadas`, 'success');
+}
+
+// Agregar TODAS las herramientas seleccionadas de una vez
+async function agregarHerramientasSeleccionadas() {
+    if (herramientasSeleccionadasExtras.length === 0) {
+        showToast('⚠️ Selecciona al menos una herramienta', 'error');
+        return;
+    }
+    
+    // Verificar que ninguna esté ya en el carrito
+    const duplicadas = herramientasSeleccionadasExtras.filter(id => 
+        carritoServicios.some(h => h.id === id)
+    );
+    
+    if (duplicadas.length > 0) {
+        const nombres = duplicadas.map(id => {
+            const h = todasHerramientas.find(h => h.id === id);
+            return h ? h.nombre : id;
+        });
+        showToast(`⚠️ ${nombres.join(', ')} ya están en el carrito`, 'error');
+        return;
+    }
+    
+    try {
+        // Buscar los datos completos de las herramientas seleccionadas
+        const herramientasAAgregar = herramientasSeleccionadasExtras.map(id => {
+            const h = todasHerramientas.find(h => h.id === id);
+            return h;
+        }).filter(h => h !== undefined);
+        
+        // Agregar todas al carrito
+        herramientasAAgregar.forEach(h => {
+            carritoServicios.push({
+                id: h.id,
+                nombre: h.nombre
+            });
+        });
+        
+        // Limpiar selección
+        herramientasSeleccionadasExtras = [];
+        actualizarContadorExtras();
+        renderizarCarritoServicios();
+        
+        // Recargar la lista para actualizar estados (herramientas ya en carrito)
+        cargarListaHerramientasExtras();
+        
+        showToast(`✅ ${herramientasAAgregar.length} herramientas agregadas al carrito`, 'success');
+    } catch (error) {
+        console.error('Error al agregar herramientas:', error);
+        showToast('Error al agregar herramientas', 'error');
+    }
+}
+
+// Limpiar selección
+function limpiarSeleccionExtras() {
+    herramientasSeleccionadasExtras = [];
+    actualizarContadorExtras();
+    // Desmarcar todos los checkboxes
+    document.querySelectorAll('#listaHerramientasExtras input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+// Actualizar el contador del botón
+function actualizarContadorExtras() {
+    const btn = document.getElementById('btnAgregarMultiples');
+    if (btn) {
+        btn.innerHTML = `<i class="fas fa-plus-circle"></i> Agregar seleccionadas (${herramientasSeleccionadasExtras.length})`;
+        btn.disabled = herramientasSeleccionadasExtras.length === 0;
+    }
+}
+
+// Modificar el renderizado de herramientas recomendadas para que funcione con la selección múltiple
+// Asegúrate de que las herramientas recomendadas tengan checkboxes también
+function renderizarHerramientasRecomendadas(herramientas) {
+    const container = document.getElementById('herramientasRecomendadas');
+    if (!container) return;
+    
+    if (!herramientas || herramientas.length === 0) {
+        container.innerHTML = `
+            <p style="color: var(--text-light); text-align: center; padding: 1rem;">
+                No hay herramientas recomendadas para este servicio
+            </p>
+        `;
+        return;
+    }
+    
+    let html = `<div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+    herramientas.forEach(h => {
+        const enCarrito = carritoServicios.some(item => item.id === h.id);
+        html += `
+            <div class="herramienta-item" style="
+                padding: 8px 12px; 
+                background: #e3f2fd; 
+                border-radius: 4px; 
+                border-left: 3px solid #2196f3;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                ${enCarrito ? 'opacity: 0.6;' : ''}
+            ">
+                <input type="checkbox" 
+                       id="recomendada_${h.id}" 
+                       value="${h.id}"
+                       ${enCarrito ? 'disabled' : ''}
+                       onchange="toggleHerramientaExtra(${h.id})"
+                       ${herramientasSeleccionadasExtras.includes(h.id) ? 'checked' : ''}>
+                <label for="recomendada_${h.id}" style="cursor: pointer; ${enCarrito ? 'color: #999;' : ''}">
+                    ⭐ ${h.nombre} 
+                    <span style="font-size: 0.8em; color: #666;">(${h.disponibles} disp.)</span>
+                    ${enCarrito ? '✅' : ''}
+                </label>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
+    renderizarHerramientasRecomendadas(herramientasRecomendadas);
 
     // ==========================================
     // INICIALIZACIÓN
     // ==========================================
     window.onload = async function() {
         await cargarSelectorHerramientasExtras();
+        await cargarListaHerramientasExtras();
 
         // Cargar automáticamente el primer servicio
         const primerServicio = document.querySelector('.servicio-item');

@@ -1088,7 +1088,7 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
         // Devolvemos la estructura exacta que el frontend espera leer
         res.json({
             idOrden: orden.id_orden,
-            colaboradorResponsable: orden.colaborador_responsable || orden.lugarTrabajo, // técnico o lugar
+            lugarTrabajo: orden.lugarTrabajo,
             estado: orden.estado,
             herramientasAsignadas: herramientasAsignadas
         });

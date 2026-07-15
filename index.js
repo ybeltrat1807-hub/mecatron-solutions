@@ -1057,21 +1057,24 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
     console.log(`🔍 Consultando detalles de la orden: ${idOrden}`);
 
     try {
-        // 1. Consultamos los datos generales de la orden
-        const [ordenRows] = await db.query(
+        // 1. Consultamos los datos generales de la orden (Sin usar [ordenRows] para Postgres)
+        const resultadoOrden = await db.query(
             `SELECT id_orden, lugarTrabajo, estado 
-             FROM ordenes_servicio WHERE id_orden = $1`, 
+             FROM ordenes_servicio 
+             WHERE id_orden = $1`, 
             [idOrden]
         );
 
-        if (!ordenRows || ordenRows.length === 0) {
+        const ordenRows = resultadoOrden.rows || [];
+
+        if (ordenRows.length === 0) {
             return res.status(404).json({ error: "Orden no encontrada" });
         }
 
         const orden = ordenRows[0];
 
-        // 2. Traemos las herramientas unidas relacionalmente para esta orden
-        const [herramientasRows] = await db.query(
+        // 2. Traemos las herramientas unidas relacionalmente (Sin desestructuración array)
+        const resultadoHerramientas = await db.query(
             `SELECT h.id, h.nombre 
              FROM orden_herramientas oh
              JOIN inventario_uso_servicio h ON oh.id_herramienta = h.id
@@ -1079,23 +1082,28 @@ app.get('/api/servicios/orden/:idOrden', async (req, res) => {
             [idOrden]
         );
 
-        // Aseguramos que sea un array y lo formateamos de forma segura
-        const herramientasAsignadas = (herramientasRows || []).map(h => ({
+        const herramientasRows = resultadoHerramientas.rows || [];
+
+        // Mapeamos las herramientas de forma segura
+        const herramientasAsignadas = herramientasRows.map(h => ({
             id: h.id,
             nombre: h.nombre
         }));
 
-        // Devolvemos la estructura exacta que el frontend espera leer
+        // Devolvemos la estructura exacta que tu frontend espera leer
         res.json({
             idOrden: orden.id_orden,
-            lugarTrabajo: orden.lugarTrabajo,
+            colaboradorResponsable: orden.lugarTrabajo, // Se usa el lugar de trabajo como responsable en la interfaz
             estado: orden.estado,
             herramientasAsignadas: herramientasAsignadas
         });
 
     } catch (error) {
         console.error("❌ Error al obtener detalles de la orden:", error);
-        res.status(500).json({ error: "Error interno del servidor", detalle: error.message });
+        res.status(500).json({ 
+            error: "Error interno del servidor al consultar detalles de la orden", 
+            detalle: error.message 
+        });
     }
 });
 // =================================================================

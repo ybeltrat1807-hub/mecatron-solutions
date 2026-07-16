@@ -1026,7 +1026,53 @@ app.get('/api/servicios/herramienta/:id', async (req, res) => {
         res.status(500).json({ error: "Error al consultar herramienta" });
     }
 });
+// 🔧 ENVIAR HERRAMIENTA A REPARACIÓN (Resta 1 unidad e ingresa al historial)
+app.post('/api/servicios/enviar-reparacion', async (req, res) => {
+    const { herramientaId, observaciones, tecnico } = req.body;
 
+    try {
+        // 1. Verificar si hay stock disponible para enviar a reparar
+        const { rows } = await db.query(
+            'SELECT nombre, disponibles FROM inventario_uso_servicio WHERE id = $1',
+            [herramientaId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Herramienta no encontrada" });
+        }
+
+        const herramienta = rows[0];
+
+        if (herramienta.disponibles < 1) {
+            return res.status(400).json({ error: `No hay unidades disponibles de "${herramienta.nombre}" para enviar a reparación.` });
+        }
+
+        // 2. Transacción en lote: Restar de disponibles e insertar en el historial
+        await db.query('BEGIN');
+
+        // Restamos solo 1 unidad del stock disponible
+        await db.query(
+            'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = $1',
+            [herramientaId]
+        );
+
+        // Registramos la entrada en el taller en la nueva tabla
+        await db.query(
+            `INSERT INTO historial_reparaciones (herramienta_id, cantidad, estado_proceso, observaciones, tecnico_encargado)
+             VALUES ($1, 1, 'EN_REPARACION', $2, $3)`,
+            [herramientaId, observaciones || 'Envío a mantenimiento', tecnico || 'Administrador']
+        );
+
+        await db.query('COMMIT');
+
+        res.json({ mensaje: `1 unidad de "${herramienta.nombre}" enviada a reparación.` });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        console.error('Error al enviar a reparación:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
 // ⚙️ PROCESAR REPARACIÓN (Lógica PostgreSQL + Historial)
 app.post('/api/servicios/procesar-reparacion', async (req, res) => {
     const { herramientaId, estadoFinal, observaciones, tecnico } = req.body;

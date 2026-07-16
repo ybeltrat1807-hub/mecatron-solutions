@@ -997,10 +997,11 @@ app.get('/api/servicios/inventario', async (req, res) => {
 });
 
 // 🛠️ OBTENER HERRAMIENTAS ACTIVAS EN TALLER (Consultando el Historial)
+// 📋 VER HERRAMIENTAS ACTIVAS EN TALLER (Desde el historial)
 app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
     try {
         const { rows } = await db.query(
-            `SELECT h.id as registro_id, i.id as id, i.nombre, h.estado_proceso as estado, h.observaciones, h.fecha_ingreso
+            `SELECT h.id as registro_id, i.id as id, i.nombre, h.cantidad, h.estado_proceso as estado, h.observaciones, h.fecha_ingreso
              FROM historial_reparaciones h
              JOIN inventario_uso_servicio i ON h.herramienta_id = i.id
              WHERE h.estado_proceso = 'EN_REPARACION'
@@ -1008,8 +1009,8 @@ app.get('/api/servicios/herramientas-reparacion', async (req, res) => {
         );
         res.json({ herramientas: rows });
     } catch (error) {
-        console.error('Error al consultar reparaciones:', error);
-        res.status(500).json({ error: "Error al consultar herramientas en reparación" });
+        console.error('Error al obtener herramientas en reparación:', error);
+        res.status(500).json({ error: "Error al consultar herramientas" });
     }
 });
 
@@ -1073,49 +1074,77 @@ app.post('/api/servicios/enviar-reparacion', async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
-// ⚙️ PROCESAR REPARACIÓN (Lógica PostgreSQL + Historial)
+// 🏁 PROCESAR REPARACIÓN (Actualiza el historial y devuelve/baja el stock)
 app.post('/api/servicios/procesar-reparacion', async (req, res) => {
     const { herramientaId, estadoFinal, observaciones, tecnico } = req.body;
 
+    if (!herramientaId || !estadoFinal) {
+        return res.status(400).json({ error: "Datos incompletos" });
+    }
+
     try {
-        // Buscar reparación activa
+        // 1. Buscar si hay una reparación activa para esta herramienta en el historial
         const { rows: reparacionRows } = await db.query(
-            "SELECT id FROM historial_reparaciones WHERE herramienta_id = $1 AND estado_proceso = 'EN_REPARACION' LIMIT 1",
+            `SELECT id FROM historial_reparaciones 
+             WHERE herramienta_id = $1 AND estado_proceso = 'EN_REPARACION' 
+             ORDER BY fecha_ingreso ASC LIMIT 1`,
             [herramientaId]
         );
 
-        if (reparacionRows.length === 0) return res.status(404).json({ error: "No hay reparación activa para esta herramienta" });
+        if (reparacionRows.length === 0) {
+            return res.status(404).json({ error: "No se encontró ningún registro activo en taller para esta herramienta." });
+        }
+
         const reparacionId = reparacionRows[0].id;
 
         await db.query('BEGIN');
 
         if (estadoFinal === 'REPARADO') {
+            // Devuelve la unidad al stock disponible e incrementa el stock total
             await db.query(
-                `UPDATE inventario_uso_servicio SET disponibles = disponibles + 1, 
-                 observaciones = COALESCE(observaciones, '') || ' - Reparado: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-                 WHERE id = $2`, [observaciones || 'Reparado', herramientaId]
+                `UPDATE inventario_uso_servicio 
+                 SET disponibles = disponibles + 1, 
+                     observaciones = COALESCE(observaciones, '') || ' - Reparado: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+                 WHERE id = $2`,
+                [observaciones || 'Reparación completada', herramientaId]
             );
+
+            // Actualiza el historial
             await db.query(
-                "UPDATE historial_reparaciones SET estado_proceso = 'REPARADO', fecha_salida = NOW(), observaciones = $1 WHERE id = $2",
-                [observaciones, reparacionId]
+                `UPDATE historial_reparaciones 
+                 SET estado_proceso = 'REPARADO', fecha_salida = NOW(), observaciones = $1, tecnico_encargado = $2
+                 WHERE id = $3`,
+                [observaciones || 'Se reparó con éxito', tecnico || 'Administrador', reparacionId]
             );
-        } else {
+
+        } else if (estadoFinal === 'NO_REPARABLE') {
+            // Como no se reparó, la unidad ya se restó de disponibles antes. 
+            // Solo reducimos el stock total (ya que ya no existe físicamente en el taller)
             await db.query(
-                `UPDATE inventario_uso_servicio SET stock_total = GREATEST(0, stock_total - 1), 
-                 observaciones = COALESCE(observaciones, '') || ' - Baja: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-                 WHERE id = $2`, [observaciones || 'Dado de baja', herramientaId]
+                `UPDATE inventario_uso_servicio 
+                 SET stock_total = GREATEST(0, stock_total - 1), 
+                     observaciones = COALESCE(observaciones, '') || ' - Baja: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+                 WHERE id = $2`,
+                [observaciones || 'Dada de baja definitiva', herramientaId]
             );
+
+            // Actualiza el historial a 'DADO_BAJA'
             await db.query(
-                "UPDATE historial_reparaciones SET estado_proceso = 'DADO_BAJA', fecha_salida = NOW(), observaciones = $1 WHERE id = $2",
-                [observaciones, reparacionId]
+                `UPDATE historial_reparaciones 
+                 SET estado_proceso = 'DADO_BAJA', fecha_salida = NOW(), observaciones = $1, tecnico_encargado = $2
+                 WHERE id = $3`,
+                [observaciones || 'No tuvo reparación, chatarrizado', tecnico || 'Administrador', reparacionId]
             );
         }
 
         await db.query('COMMIT');
-        res.json({ mensaje: "Procesado correctamente" });
+
+        res.json({ mensaje: `Procesamiento completado con éxito como: ${estadoFinal}` });
+
     } catch (error) {
         await db.query('ROLLBACK');
-        res.status(500).json({ error: "Error al procesar" });
+        console.error('Error al procesar reparación:', error);
+        res.status(500).json({ error: "Error interno al procesar la reparación" });
     }
 });
 // =================================================================

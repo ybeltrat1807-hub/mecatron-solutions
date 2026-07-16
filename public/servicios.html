@@ -962,29 +962,49 @@
                 </div>
             </div>
 
-            <!-- Lista de agendamientos -->
-            <div class="section-card">
-                <div class="card-header">
-                    <h3>📋 Servicios Agendados</h3>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <select id="filtroEstadoAgendamiento" onchange="cargarAgendamientos()" style="padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid #E8ECF1; font-size: 0.8rem;">
-                            <option value="TODOS">📌 Todos</option>
-                            <option value="PENDIENTE">🟡 Pendientes</option>
-                            <option value="COMPLETADO">✅ Completados</option>
-                            <option value="CANCELADO">❌ Cancelados</option>
-                        </select>
-                        <button onclick="cargarAgendamientos()" class="btn btn-primary btn-sm">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-                    </div>
-                </div>
-                <div id="listaAgendamientos">
-                    <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                        <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
-                    </p>
-                </div>
-            </div>
+            <!-- CONTENEDOR DE SERVICIOS AGENDADOS -->
+<div class="card" style="margin-top: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h2 style="margin: 0; font-size: 1.3rem; color: var(--primary);">
+            📋 Servicios Agendados
+        </h2>
+        
+        <!-- Filtro por Estado (Ya lo tenías) -->
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select id="filtroEstadoAgendamiento" onchange="cambiarFiltroEstado()" style="padding: 0.4rem; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="TODOS">📍 Todos</option>
+                <option value="PENDIENTE">🟡 Pendientes</option>
+                <option value="COMPLETADO">🟢 Completados</option>
+            </select>
+            <button onclick="cargarAgendamientos()" class="btn" style="padding: 0.4rem 0.8rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                <i class="fas fa-sync-alt"></i>
+            </button>
         </div>
+    </div>
+
+    <!-- NUEVO: Barra de Búsqueda en tiempo real -->
+    <div style="margin-bottom: 1rem;">
+        <input type="text" id="buscarCliente" oninput="filtrarYBuscarAgendamientos()" placeholder="🔍 Buscar por nombre de cliente..." style="width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; box-sizing: border-box;">
+    </div>
+
+    <!-- Lista de Agendamientos -->
+    <div id="listaAgendamientos">
+        <!-- Aquí se cargan dinámicamente -->
+    </div>
+
+    <!-- NUEVO: Controles de Paginación -->
+    <div id="paginacionControles" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid #eee;">
+        <button id="btnPrevPage" onclick="paginaAnterior()" style="padding: 0.5rem 1rem; background: #e0e0e0; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;">
+            ⬅️ Anterior
+        </button>
+        <span id="infoPaginacion" style="font-size: 0.85rem; font-weight: bold; color: var(--text-dark);">
+            Página 1 de 1
+        </span>
+        <button id="btnNextPage" onclick="paginaSiguiente()" style="padding: 0.5rem 1rem; background: #e0e0e0; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;">
+            Siguiente ➡️
+        </button>
+    </div>
+</div>
         <div id="modalLiquidar" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
     <div style="background-color: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: var(--shadow); border-top: 5px solid var(--success);">
         <h3 style="margin-top: 0; margin-bottom: 1.2rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
@@ -1865,7 +1885,13 @@ async function agendarServicio() {
     }
 }
 
-// 2. Cargar agendamientos (DIBUJA SOLO BOTONES CLAVE)
+// Variables globales para controlar la paginación y el filtro
+let todosLosAgendamientos = []; // Almacenará los datos originales del backend
+let agendamientosFiltrados = []; // Almacenará el resultado tras buscar o filtrar
+let paginaActual = 1;
+const registrosPorPagina = 5; // Número máximo de servicios a mostrar al tiempo
+
+// 1. Cargar datos del Backend (Se hace una sola vez al refrescar o cambiar filtro)
 async function cargarAgendamientos() {
     const container = document.getElementById('listaAgendamientos');
     const filtro = document.getElementById('filtroEstadoAgendamiento').value;
@@ -1878,63 +1904,150 @@ async function cargarAgendamientos() {
         
         if (!response.ok) throw new Error(data.error || 'Error de base de datos');
 
-        const agendamientos = data.agendamientos || data;
+        // Guardamos los datos en nuestra variable global
+        todosLosAgendamientos = data.agendamientos || data;
+        
+        // Limpiamos el buscador al recargar
+        document.getElementById('buscarCliente').value = '';
+        
+        // Inicializamos los datos filtrados con todos los registros
+        agendamientosFiltrados = [...todosLosAgendamientos];
+        paginaActual = 1; // Volver a la primera página
 
-        if (!agendamientos || agendamientos.length === 0) {
-            container.innerHTML = `<p style="text-align: center; padding: 1rem; color: var(--text-light);">📌 No hay servicios programados</p>`;
-            return;
-        }
-
-        container.innerHTML = agendamientos.map(ag => {
-            const valorFormateado = Number(ag.valor || 0).toLocaleString('es-CO', {
-                style: 'currency',
-                currency: 'COP',
-                minimumFractionDigits: 0
-            });
-
-            const estadoBadge = ag.estado === 'PENDIENTE' 
-                ? '<span class="badge-estado" style="background: var(--gold); color: black;">🟡 Pendiente</span>'
-                : '<span class="badge-estado" style="background: var(--success); color: white;">✅ Completado</span>';
-
-            const agString = JSON.stringify(ag).replace(/"/g, '&quot;');
-
-            // Formatear Fecha para quitar rastro de Zona Horaria UTC si viene como string largo
-            const fechaLimpia = ag.fecha.includes('T') ? ag.fecha.split('T')[0] : ag.fecha;
-
-            return `
-                <div class="orden-item" style="border-left: 4px solid ${ag.estado === 'PENDIENTE' ? 'var(--gold)' : 'var(--success)'}; margin-bottom: 0.8rem; padding: 1rem;">
-                    <div class="orden-info" style="flex: 1;">
-                        <span style="font-weight: 700; font-size: 1.05rem; color: var(--primary);">👤 ${ag.cliente}</span>
-                        <div style="font-size: 0.85rem; margin-top: 0.25rem; color: var(--text-dark); line-height: 1.45;">
-                            🛠️ <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')} <br>
-                            📅 <strong>Fecha:</strong> ${fechaLimpia} | ⏰ <strong>Hora:</strong> ${ag.hora} <br>
-                            👨‍🔧 <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'} <br>
-                            💵 <strong>Valor:</strong> <span style="color: var(--success); font-weight: 700;">${valorFormateado}</span>
-                            ${ag.observaciones ? `<br>📝 <strong>Obs:</strong> ${ag.observaciones}` : ''}
-                        </div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; justify-content: center; min-width: 140px;">
-                        <div>${estadoBadge}</div>
-                        ${ag.estado === 'PENDIENTE' ? `
-                            <button onclick="completarServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                                <i class="fas fa-check-circle"></i> Cerrar Servicio
-                            </button>
-                        ` : `
-                            <button onclick="imprimirReciboServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                <i class="fas fa-print"></i> Imprimir Recibo
-                            </button>
-                        `}
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Renderizamos la vista
+        renderizarListaPaginada();
 
     } catch (error) {
-        console.error('Error al renderizar agendamientos:', error);
+        console.error('Error al cargar agendamientos:', error);
         container.innerHTML = `<p style="color: var(--danger); text-align: center;">⚠️ Error: ${error.message}</p>`;
     }
 }
 
+// 2. Función para buscar/filtrar en tiempo real sin recargar la página
+function filtrarYBuscarAgendamientos() {
+    const terminoBusqueda = document.getElementById('buscarCliente').value.toLowerCase().trim();
+    
+    // Filtrar la lista global por el nombre del cliente
+    agendamientosFiltrados = todosLosAgendamientos.filter(ag => 
+        ag.cliente.toLowerCase().includes(terminoBusqueda)
+    );
+    
+    paginaActual = 1; // Reseteamos a la primera página de resultados
+    renderizarListaPaginada();
+}
+
+// 3. Renderizar solo los 5 registros de la página actual
+function renderizarListaPaginada() {
+    const container = document.getElementById('listaAgendamientos');
+    
+    if (agendamientosFiltrados.length === 0) {
+        container.innerHTML = `<p style="text-align: center; padding: 1rem; color: var(--text-light);">📌 No se encontraron servicios</p>`;
+        document.getElementById('infoPaginacion').innerText = "Página 0 de 0";
+        document.getElementById('btnPrevPage').style.visibility = 'hidden';
+        document.getElementById('btnNextPage').style.visibility = 'hidden';
+        return;
+    }
+
+    // Calcular índices de inicio y fin para la página actual
+    const indiceInicio = (paginaActual - 1) * registrosPorPagina;
+    const indiceFin = indiceInicio + registrosPorPagina;
+    const itemsParaMostrar = agendamientosFiltrados.slice(indiceInicio, indiceFin);
+
+    // Renderizar los 5 items correspondientes
+    container.innerHTML = itemsParaMostrar.map(ag => {
+        const valorFormateado = Number(ag.valor || 0).toLocaleString('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0
+        });
+
+        const estadoBadge = ag.estado === 'PENDIENTE' 
+            ? '<span class="badge-estado" style="background: var(--gold); color: black;">🟡 Pendiente</span>'
+            : '<span class="badge-estado" style="background: var(--success); color: white;">✅ Completado</span>';
+
+        const agString = JSON.stringify(ag).replace(/"/g, '&quot;');
+        const fechaLimpia = ag.fecha.includes('T') ? ag.fecha.split('T')[0] : ag.fecha;
+
+        return `
+            <div class="orden-item" style="border-left: 4px solid ${ag.estado === 'PENDIENTE' ? 'var(--gold)' : 'var(--success)'}; margin-bottom: 0.8rem; padding: 1rem;">
+                <div class="orden-info" style="flex: 1;">
+                    <span style="font-weight: 700; font-size: 1.05rem; color: var(--primary);">👤 ${ag.cliente}</span>
+                    <div style="font-size: 0.85rem; margin-top: 0.25rem; color: var(--text-dark); line-height: 1.45;">
+                        🛠️ <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')} <br>
+                        📅 <strong>Fecha:</strong> ${fechaLimpia} | ⏰ <strong>Hora:</strong> ${ag.hora} <br>
+                        👨‍🔧 <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'} <br>
+                        💵 <strong>Valor:</strong> <span style="color: var(--success); font-weight: 700;">${valorFormateado}</span>
+                        ${ag.observaciones ? `<br>📝 <strong>Obs:</strong> ${ag.observaciones}` : ''}
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; justify-content: center; min-width: 140px;">
+                    <div>${estadoBadge}</div>
+                    ${ag.estado === 'PENDIENTE' ? `
+                        <button onclick="completarServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            <i class="fas fa-check-circle"></i> Cerrar Servicio
+                        </button>
+                    ` : `
+                        <button onclick="imprimirReciboServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-print"></i> Imprimir Recibo
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Actualizar controles de paginación
+    actualizarControlesPaginacion();
+}
+
+// 4. Controlar la visibilidad y estado de los botones anterior/siguiente
+function actualizarControlesPaginacion() {
+    const totalPaginas = Math.ceil(agendamientosFiltrados.length / registrosPorPagina);
+    
+    document.getElementById('infoPaginacion').innerText = `Página ${paginaActual} de ${totalPaginas}`;
+    
+    // Botón Anterior
+    const btnPrev = document.getElementById('btnPrevPage');
+    if (paginaActual === 1) {
+        btnPrev.style.visibility = 'hidden';
+    } else {
+        btnPrev.style.visibility = 'visible';
+    }
+
+    // Botón Siguiente
+    const btnNext = document.getElementById('btnNextPage');
+    if (paginaActual >= totalPaginas) {
+        btnNext.style.visibility = 'hidden';
+    } else {
+        btnNext.style.visibility = 'visible';
+    }
+}
+
+// Funciones de navegación
+function paginaAnterior() {
+    if (paginaActual > 1) {
+        paginaActual--;
+        renderizarListaPaginada();
+    }
+}
+
+function paginaSiguiente() {
+    const totalPaginas = Math.ceil(agendamientosFiltrados.length / registrosPorPagina);
+    if (paginaActual < totalPaginas) {
+        paginaActual++;
+        renderizarListaPaginada();
+    }
+}
+
+// Función auxiliar por si cambian el filtro de estado select
+function cambiarFiltroEstado() {
+    cargarAgendamientos();
+}
+try {
+    } catch (error) {
+        console.error('Error al renderizar agendamientos:', error);
+        container.innerHTML = `<p style="color: var(--danger); text-align: center;">⚠️ Error: ${error.message}</p>`;
+    }
 // 3. Abrir el Modal de Liquidación y precargar datos
 function completarServicio(ag) {
     document.getElementById('liqId').value = ag.id;
@@ -2014,17 +2127,20 @@ function resetearFormularioAgendamiento() {
 }
 
 // =================================================================
-// FORMATO DE RECIBO DE IMPRESIÓN SÚPER PROFESIONAL
+// FORMATO DE RECIBO DE IMPRESIÓN PREMIUM (MECATRON SOLUTIONS)
 // =================================================================
 function imprimirReciboServicio(ag) {
-    const ventanaImpresion = window.open('', '_blank', 'width=450,height=650');
+    const ventanaImpresion = window.open('', '_blank', 'width=450,height=700');
     
-    const formatoFecha = new Date().toLocaleString('es-CO');
+    // Formatear el valor monetario a pesos colombianos
     const totalFormateado = Number(ag.valor || 0).toLocaleString('es-CO', { 
         style: 'currency', 
         currency: 'COP', 
         minimumFractionDigits: 0 
     });
+
+    // Limpiar la fecha de programación por si trae la zona horaria (T00:00:00...)
+    const fechaLimpia = ag.fecha && ag.fecha.includes('T') ? ag.fecha.split('T')[0] : (ag.fecha || '');
 
     ventanaImpresion.document.write(`
         <html>
@@ -2032,72 +2148,174 @@ function imprimirReciboServicio(ag) {
             <title>Recibo de Servicio #SER-${ag.id}</title>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+                
                 body {
                     font-family: 'Courier Prime', monospace;
                     font-size: 12px;
-                    line-height: 1.3;
-                    padding: 10px;
-                    width: 280px;
-                    color: #000;
+                    line-height: 1.35;
+                    padding: 15px;
+                    width: 310px; /* Incrementado para evitar desbordes */
+                    color: #111;
                     margin: 0 auto;
+                    box-sizing: border-box;
                 }
+                
                 .text-center { text-align: center; }
                 .bold { font-weight: bold; }
-                .divider { border-top: 1px dashed #000; margin: 8px 0; }
-                .section-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; text-transform: uppercase; }
                 
-                table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-                table th { text-align: left; border-bottom: 1px solid #000; padding-bottom: 3px; font-weight: bold; }
-                table td { padding: 4px 0; vertical-align: top; }
+                /* Icono de Tuerca Mecánica en CSS */
+                .logo-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin-bottom: 5px;
+                }
+                .tuerca {
+                    position: relative;
+                    width: 24px;
+                    height: 24px;
+                    background: #0056b3; /* Azul industrial */
+                    border-radius: 50%;
+                    animation: spin 8s linear infinite;
+                }
+                .tuerca::before {
+                    content: "";
+                    position: absolute;
+                    top: 4px; left: 4px; right: 4px; bottom: 4px;
+                    background: white;
+                    border-radius: 50%;
+                }
+                .tuerca::after {
+                    content: "";
+                    position: absolute;
+                    width: 6px; height: 6px;
+                    background: #0056b3;
+                    border-radius: 50%;
+                    top: 9px; left: 9px;
+                }
+                .diente {
+                    position: absolute;
+                    width: 6px; height: 26px;
+                    background: #0056b3;
+                    left: 9px; top: -1px;
+                }
+                .diente.d2 { transform: rotate(45deg); }
+                .diente.d3 { transform: rotate(90deg); }
+                .diente.d4 { transform: rotate(135deg); }
+
+                .brand-title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #0056b3;
+                    letter-spacing: 1px;
+                    margin-top: 3px;
+                }
+                
+                .slogan {
+                    font-size: 8.5px;
+                    font-weight: bold;
+                    color: #555;
+                    letter-spacing: 0.5px;
+                    margin-top: 2px;
+                    margin-bottom: 5px;
+                }
+                
+                .divider { 
+                    border-top: 2px dashed #0056b3; 
+                    margin: 8px 0; 
+                }
+                
+                .section-title { 
+                    font-weight: bold; 
+                    color: #0056b3;
+                    border-bottom: 1px solid #000;
+                    margin-bottom: 6px; 
+                    text-transform: uppercase;
+                    font-size: 11px;
+                }
+                
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-top: 5px; 
+                }
+                table th { 
+                    text-align: left; 
+                    border-bottom: 1px solid #000; 
+                    padding-bottom: 3px; 
+                    font-weight: bold;
+                    font-size: 11px;
+                }
+                table td { 
+                    padding: 5px 0; 
+                    vertical-align: top; 
+                }
                 
                 .total-container {
-                    margin-top: 10px;
+                    margin-top: 12px;
                     text-align: right;
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: bold;
+                    border: 1.5px solid #000;
+                    padding: 6px;
+                    background-color: #f8f9fa;
                 }
+
                 @media print {
-                    body { width: 100%; margin: 0; padding: 5px; }
+                    body { 
+                        width: 100%; 
+                        margin: 0; 
+                        padding: 10px; 
+                    }
                 }
             </style>
         </head>
         <body>
             <div class="text-center">
-                <span class="bold" style="font-size: 15px;">MECATRON SOLUTIONS</span><br>
-                <span style="font-size: 10px;">Soluciones Tecnológicas e Industriales</span><br>
-                <span>El Bagre, Antioquia</span><br>
-                <span>Soporte Técnico Especializado</span><br>
+                <div class="logo-container">
+                    <div class="tuerca">
+                        <div class="diente d1"></div>
+                        <div class="diente d2"></div>
+                        <div class="diente d3"></div>
+                        <div class="diente d4"></div>
+                    </div>
+                </div>
+                <div class="brand-title">MECATRON SOLUTIONS</div>
+                <div class="slogan">INNOVAMOS, INTEGRAMOS, SOLUCIONAMOS</div>
+                <span style="font-size: 10px; color: #444;">Soluciones Tecnológicas e Industriales</span><br>
+                <span style="font-size: 10px; font-weight: bold;">El Bagre, Antioquia</span><br>
                 <div class="divider"></div>
-                <span class="bold" style="font-size: 12px;">RECIBO DE SERVICIO: #SER-${ag.id}</span>
+                <span class="bold" style="font-size: 12px; background: #0056b3; color: white; padding: 2px 6px; border-radius: 3px;">RECIBO DE SERVICIO: #SER-${ag.id}</span>
             </div>
             
             <div class="divider"></div>
             
-            <div>
-                <strong>FECHA REGISTRO:</strong> ${ag.fecha} ${ag.hora || ''}<br>
+            <div style="font-size: 11px; line-height: 1.4;">
+                <strong>FECHA EMISIÓN:</strong> ${new Date().toLocaleDateString('es-CO')} | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}<br>
+                <strong>FECHA PROG.:</strong> ${fechaLimpia}<br>
                 <strong>CLIENTE:</strong> ${ag.cliente.toUpperCase()}<br>
-                <strong>TÉCNICO ASIG.:</strong> ${(ag.tecnico || 'N/A').toUpperCase()}<br>
+                <strong>TÉCNICO ASIG.:</strong> ${(ag.tecnico || 'Sin asignar').toUpperCase()}<br>
             </div>
             
             <div class="divider"></div>
             
-            <div class="section-title">Detalle del Servicio</div>
+            <div class="section-title">Detalle del Trabajo</div>
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 70%;">DESCRIPCIÓN</th>
-                        <th style="width: 30%; text-align: right;">VALOR</th>
+                        <th style="width: 65%;">DESCRIPCIÓN</th>
+                        <th style="width: 35%; text-align: right;">VALOR</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>
-                            <span class="bold">${(ag.tipo_servicio || 'Mantenimiento').replace(/_/g, ' ')}</span>
-                            <div style="font-size: 11px; margin-top: 3px; padding-left: 5px; border-left: 2px solid #000;">
-                                ${ag.observaciones || 'No se registraron detalles técnicos del servicio.'}
+                            <span class="bold" style="font-size: 11px; color: #0056b3;">${(ag.tipo_servicio || 'Mantenimiento').replace(/_/g, ' ')}</span>
+                            <div style="font-size: 10.5px; margin-top: 4px; color: #333; border-left: 2px solid #0056b3; padding-left: 6px;">
+                                ${ag.observaciones || 'Servicio finalizado de conformidad.'}
                             </div>
                         </td>
-                        <td style="text-align: right; font-weight: bold;">${totalFormateado}</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 11px;">${totalFormateado}</td>
                     </tr>
                 </tbody>
             </table>
@@ -2105,14 +2323,14 @@ function imprimirReciboServicio(ag) {
             <div class="divider"></div>
             
             <div class="total-container">
-                TOTAL PAGADO: ${totalFormateado}
+                TOTAL PRESTADO: ${totalFormateado}
             </div>
             
             <div class="divider" style="margin-top: 15px;"></div>
             
-            <div class="text-center" style="font-size: 10px; margin-top: 8px;">
-                ¡Gracias por su preferencia!<br>
-                Mecatron Solutions - Calidad y Confianza<br>
+            <div class="text-center" style="font-size: 9.5px; margin-top: 10px; color: #555;">
+                ¡Gracias por su confianza!<br>
+                <span class="bold" style="color: #0056b3;">Mecatron Solutions</span><br>
                 *** Comprobante de Servicio Terminado ***
             </div>
 

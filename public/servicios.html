@@ -1401,10 +1401,9 @@
         }
 
         try {
-            const resInventario = await fetch(`${API_URL}/api/servicios/inventario`);
-            if (!resInventario.ok) {
-                throw new Error('No fue posible consultar el inventario');
-            }
+            const resInventario = await fetch(`${API_URL}/api/servicios/inventario`, {
+            cache: 'no-store'
+            });
 
             const inventarioCompleto = await resInventario.json();
             for (const item of carritoServicios) {
@@ -1682,7 +1681,10 @@ async function cargarHerramientasEnReparacion() {
     
     try {
         // Apuntamos directamente al endpoint optimizado de reparaciones
-        const res = await fetch(`${API_URL}/api/servicios/herramientas-reparacion`);
+        const res = await fetch(`${API_URL}/api/servicios/herramientas-reparacion`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+        });
         const data = await res.json();
         
         if (!res.ok) throw new Error(data.error || 'Error al obtener datos');

@@ -571,7 +571,7 @@ app.get('/api/servicios/recomendar', async (req, res) => {
             SELECT h.id, h.nombre, h.disponibles, h.estado 
             FROM plantilla_servicios p
             JOIN inventario_uso_servicio h ON p.id_herramienta = h.id
-            WHERE p.tipo_servicio = $1 AND h.estado = 'DISPONIBLE'
+            WHERE p.tipo_servicio = $1 AND h.disponibles > 0
             ORDER BY h.nombre
         `;
         
@@ -660,11 +660,6 @@ app.post('/api/servicios/salida', async (req, res) => {
             }
 
             let herramienta = result.rows[0];
-
-            if (herramienta.estado !== 'DISPONIBLE') {
-                erroresDespacho.push(`La herramienta "${herramienta.nombre}" no está disponible (${herramienta.estado})`);
-                continue;
-            }
 
             if (herramienta.disponibles < 1) {
                 erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
@@ -812,7 +807,7 @@ app.get('/api/preventa/productos-lista', async (req, res) => {
 });
 // =================================================================
 //   ENDPOINTS PARA SERVICIOS
-// =================================================================
+// =====================================================
 
 /// ==========================================
 // OBTENER ÓRDENES ACTIVAS (SOLO BD)

@@ -651,22 +651,22 @@ app.post('/api/servicios/salida', async (req, res) => {
         let despachoExitoso = [];
         let erroresDespacho = [];
 
-        for (const id of todasLasHerramientas) {
-            const result = await db.query('SELECT nombre, disponibles, estado FROM inventario_uso_servicio WHERE id = $1', [id]);
-            
+                for (const id of todasLasHerramientas) {
+            const result = await db.query('SELECT nombre, disponibles FROM inventario_uso_servicio WHERE id = $1', [id]);
+
             if (result.rows.length === 0) {
                 erroresDespacho.push(`El ID ${id} no existe en la bodega.`);
-                continue; 
+                continue;
             }
 
             let herramienta = result.rows[0];
 
+            // YA NO REVISAMOS EL ESTADO, SOLO DISPONIBLES
             if (herramienta.disponibles < 1) {
                 erroresDespacho.push(`No hay unidades disponibles de: ${herramienta.nombre}`);
             } else {
-                // $1 en vez de ?
                 await db.query(
-                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = $1', 
+                    'UPDATE inventario_uso_servicio SET disponibles = disponibles - 1 WHERE id = $1',
                     [id]
                 );
                 despachoExitoso.push({ id: id, nombre: herramienta.nombre });
@@ -732,60 +732,72 @@ app.post('/api/servicios/salida', async (req, res) => {
         res.status(500).json({ error: "Error interno al procesar la salida.", detalle: error.message });
     }
 });
-// REINGRESO DE HERRAMIENTAS CON ESTADO
+// REINGRESO DE HERRAMIENTAS CON ESTADO - CORREGIDO
 app.post('/api/servicios/reingreso', async (req, res) => {
     const { idOrden, novedades } = req.body;
     console.log(`🔄 Procesando reingreso de la orden: ${idOrden}`);
 
     try {
-        // 1. Validar que la orden existe
         const resultadoOrden = await db.query(
             `SELECT id_orden, estado FROM ordenes_servicio WHERE id_orden = $1`,
             [idOrden]
         );
 
         if (resultadoOrden.rows.length === 0) {
-            return res.status(404).json({ error: 'La orden no existe en el sistema' });
+            return res.status(404).json({ error: 'La orden no existe' });
         }
 
-        // 2. Procesar cada novedad para actualizar el inventario real
-        // novedades es un objeto: { "id_herramienta_1": "OK", "id_herramienta_2": "DAÑO" }
         const listaNovedades = Object.entries(novedades || {});
 
         for (const [idHerramienta, estadoNovedad] of listaNovedades) {
-            let nuevoEstadoInventario = 'DISPONIBLE'; // Estado por defecto
-
-            if (estadoNovedad === 'DAÑO') {
-                nuevoEstadoInventario = 'MANTENIMIENTO';
+            if (estadoNovedad === 'OK') {
+                // OK: Devuelve 1 unidad a disponibles
+                await db.query(
+                    `UPDATE inventario_uso_servicio
+                     SET disponibles = disponibles + 1
+                     WHERE id = $1`,
+                    [idHerramienta]
+                );
+            } else if (estadoNovedad === 'DAÑO') {
+                // DAÑO: No devuelve a disponibles, lo manda al historial
+                await db.query(
+                    `INSERT INTO historial_reparaciones (herramienta_id, cantidad, estado_proceso, observaciones, tecnico_encargado)
+                     VALUES ($1, 1, 'EN_REPARACION', 'Reportado en reingreso de ${idOrden}', 'Sistema')`,
+                    [idHerramienta]
+                );
+                // OJO: No tocamos estado ni disponibles aquí, ya se descontó al salir
             } else if (estadoNovedad === 'PERDIDA') {
-                nuevoEstadoInventario = 'DADO_DE_BAJA';
+                // PERDIDA: Resta 1 del total y lo registra como baja
+                await db.query('BEGIN');
+                await db.query(
+                    `UPDATE inventario_uso_servicio
+                     SET stock_total = GREATEST(0, stock_total - 1)
+                     WHERE id = $1`,
+                    [idHerramienta]
+                );
+                await db.query(
+                    `INSERT INTO historial_reparaciones (herramienta_id, cantidad, estado_proceso, observaciones, tecnico_encargado)
+                     VALUES ($1, 1, 'DADO_BAJA', 'Perdida en orden ${idOrden}', 'Sistema')`,
+                    [idHerramienta]
+                );
+                await db.query('COMMIT');
             }
-
-            // Actualizamos el estado físico de la herramienta en tu inventario de uso servicio
-            await db.query(
-                `UPDATE inventario_uso_servicio 
-                 SET estado = $1 
-                 WHERE id = $2`,
-                [nuevoEstadoInventario, idHerramienta]
-            );
         }
 
-        // 3. Cambiar el estado de la orden de servicio a FINALIZADA
         await db.query(
-            `UPDATE ordenes_servicio 
-             SET estado = 'FINALIZADA' 
-             WHERE id_orden = $1`,
+            `UPDATE ordenes_servicio SET estado = 'FINALIZADA' WHERE id_orden = $1`,
             [idOrden]
         );
 
-        console.log(`✅ Orden ${idOrden} finalizada y herramientas actualizadas correctamente.`);
+        console.log(`✅ Orden ${idOrden} finalizada correctamente.`);
         res.json({ success: true, message: 'Reingreso procesado exitosamente' });
 
     } catch (error) {
+        await db.query('ROLLBACK').catch(()=>{});
         console.error('❌ Error al procesar el reingreso:', error);
-        res.status(500).json({ 
-            error: 'Error interno al procesar el reingreso de herramientas',
-            detalle: error.message 
+        res.status(500).json({
+            error: 'Error interno al procesar el reingreso',
+            detalle: error.message
         });
     }
 });

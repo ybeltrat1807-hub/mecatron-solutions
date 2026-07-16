@@ -1132,9 +1132,7 @@ app.get('/api/servicios/herramienta/:id', async (req, res) => {
         res.status(500).json({ error: "Error al consultar herramienta" });
     }
 });
-// =================================================================
-// PROCESAR REPARACIÓN DE HERRAMIENTA
-// =================================================================
+// PROCESAR REPARACIÓN (Versión PostgreSQL)
 app.post('/api/servicios/procesar-reparacion', async (req, res) => {
     const { herramientaId, estadoFinal, observaciones, tecnico } = req.body;
 
@@ -1143,25 +1141,40 @@ app.post('/api/servicios/procesar-reparacion', async (req, res) => {
     }
 
     try {
-        const { rows } = await db.query(
+        // 1. VALIDAR ESTADO ACTUAL ANTES DE PROCESAR (Sintaxis PostgreSQL con $1)
+        const { rows: checkRows } = await db.query(
             'SELECT nombre, estado FROM inventario_uso_servicio WHERE id = $1',
             [herramientaId]
         );
 
-        if (rows.length === 0) {
+        if (checkRows.length === 0) {
             return res.status(404).json({ error: "Herramienta no encontrada" });
         }
 
-        const herramienta = rows[0];
+        const herramienta = checkRows[0];
 
+        if (herramienta.estado === 'DADO_BAJA') {
+            return res.status(400).json({ 
+                error: `La herramienta "${herramienta.nombre}" ya fue dada de baja definitivamente` 
+            });
+        }
+
+        if (herramienta.estado !== 'EN_REPARACION') {
+            return res.status(400).json({ 
+                error: `La herramienta "${herramienta.nombre}" no está en reparación (Estado: ${herramienta.estado})` 
+            });
+        }
+
+        // 2. PROCESAR SEGÚN EL ESTADO FINAL
         if (estadoFinal === 'REPARADO') {
+            // Nota: En PostgreSQL usamos COALESCE en lugar de IFNULL, y marcadores $1, $2
             await db.query(
                 `UPDATE inventario_uso_servicio 
                  SET disponibles = disponibles + 1, 
                      stock_total = stock_total + 1,
-                     estado = "DISPONIBLE",
-                     observaciones = CONCAT(IFNULL(observaciones, ''), " - Reparado: ", ?, " - ", NOW()) 
-                 WHERE id = ?`,
+                     estado = 'DISPONIBLE',
+                     observaciones = COALESCE(observaciones, '') || ' - Reparado: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+                 WHERE id = $2`,
                 [observaciones || 'Reparación completada', herramientaId]
             );
         } else if (estadoFinal === 'NO_REPARABLE') {
@@ -1169,15 +1182,16 @@ app.post('/api/servicios/procesar-reparacion', async (req, res) => {
                 `UPDATE inventario_uso_servicio 
                  SET stock_total = 0, 
                      disponibles = 0, 
-                     estado = "DADO_BAJA",
-                     observaciones = CONCAT(IFNULL(observaciones, ''), " - No reparable: ", ?, " - ", NOW()) 
-                 WHERE id = ?`,
+                     estado = 'DADO_BAJA',
+                     observaciones = COALESCE(observaciones, '') || ' - No reparable: ' || $1 || ' - ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+                 WHERE id = $2`,
                 [observaciones || 'No reparable, dado de baja', herramientaId]
             );
         } else {
             return res.status(400).json({ error: "Estado final no válido" });
         }
 
+        // 3. RESPONDER (Usando la variable 'herramienta' definida arriba)
         res.json({
             mensaje: `Herramienta "${herramienta.nombre}" procesada exitosamente`,
             nombre: herramienta.nombre,

@@ -986,25 +986,29 @@
             </div>
         </div>
         <div id="modalLiquidar" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
-    <div style="background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: var(--shadow);">
-        <h3 style="margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+    <div style="background-color: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; box-shadow: var(--shadow); border-top: 5px solid var(--success);">
+        <h3 style="margin-top: 0; margin-bottom: 1.2rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
             🏁 Cerrar y Liquidar Servicio
         </h3>
         <input type="hidden" id="liqId">
-        
-        <div style="margin-bottom: 1rem;">
+        <input type="hidden" id="liqTipoServicio"> <input type="hidden" id="liqFecha"> <div style="margin-bottom: 1rem;">
             <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">👤 Cliente</label>
             <input type="text" id="liqCliente" readonly style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9; font-weight: bold;">
         </div>
 
         <div style="margin-bottom: 1rem;">
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">💵 Valor Final del Servicio ($)</label>
+            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">👨‍🔧 Técnico Responsable (Opcional)</label>
+            <input type="text" id="liqTecnico" placeholder="Nombre del técnico (o dejar vacío)" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">💵 Valor Final Cobrado ($)</label>
             <input type="number" id="liqValor" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; color: var(--success); font-size: 1.1rem;">
         </div>
 
         <div style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">📝 Detalle del Trabajo Realizado (Observaciones)</label>
-            <textarea id="liqObservaciones" rows="4" placeholder="Describe qué mantenimiento, reparación o servicio se le hizo al equipo..." style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none;"></textarea>
+            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">📝 Trabajo Realizado / Notas de Cierre</label>
+            <textarea id="liqObservaciones" rows="3" placeholder="Describe qué se le reparó o instaló..." style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none;"></textarea>
         </div>
 
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
@@ -1012,7 +1016,7 @@
                 Cancelar
             </button>
             <button onclick="procesarCierreServicio()" class="btn" style="background: var(--success); color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; cursor: pointer; font-weight: bold;">
-                <i class="fas fa-file-invoice-dollar"></i> Cerrar y Facturar
+                <i class="fas fa-check-circle"></i> Terminar e Imprimir
             </button>
         </div>
     </div>
@@ -1810,11 +1814,11 @@
     }
 
 // =================================================================
-//   LÓGICA FRONTEND: AGENDAMIENTO DE SERVICIOS
+// LÓGICA DE AGENDAMIENTOS ACTUALIZADA (MECATRON SOLUTIONS)
 // =================================================================
 
+// 1. Guardar un nuevo agendamiento (SIEMPRE CREA NUEVOS)
 async function agendarServicio() {
-    const id = document.getElementById('agId').value;
     const cliente = document.getElementById('agCliente').value.trim();
     const tipo_servicio = document.getElementById('agTipoServicio').value;
     const fecha = document.getElementById('agFecha').value;
@@ -1828,7 +1832,6 @@ async function agendarServicio() {
         return;
     }
 
-    // Armamos el objeto con todas las variables bien inicializadas
     const datos = { 
         cliente, 
         tipo_servicio, 
@@ -1837,68 +1840,48 @@ async function agendarServicio() {
         tecnico: tecnico || 'Sin asignar', 
         valor: valor, 
         observaciones: observaciones || 'Sin observaciones',
-        usuario: 'Yeimer Torres' // Mandamos tu nombre de usuario por defecto
+        usuario: 'Yeimer Torres'
     };
 
     try {
-        let response;
-        if (id) {
-            // Actualizar/Editar
-            response = await fetch(`${API_URL}/api/servicios/agendamiento/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datos)
-            });
-        } else {
-            // Crear nuevo
-            response = await fetch(`${API_URL}/api/servicios/agendar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datos)
-            });
-        }
+        const response = await fetch(`${API_URL}/api/servicios/agendar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
 
         const data = await response.json();
 
         if (response.ok) {
-            showToast(id ? '✅ Agendamiento actualizado con éxito' : '📅 ¡Servicio agendado con éxito!', 'success');
+            showToast('📅 ¡Servicio agendado con éxito!', 'success');
             resetearFormularioAgendamiento();
             cargarAgendamientos();
         } else {
-            showToast(data.error || 'No se pudo procesar el agendamiento', 'error');
+            showToast(data.error || 'No se pudo agendar el servicio', 'error');
         }
     } catch (error) {
-        console.error('Error al guardar agendamiento:', error);
+        console.error('Error al agendar:', error);
         showToast('❌ Error de conexión al guardar', 'error');
     }
 }
-// 2. Cargar agendamientos y mostrarlos en la lista
+
+// 2. Cargar agendamientos (DIBUJA SOLO BOTONES CLAVE)
 async function cargarAgendamientos() {
     const container = document.getElementById('listaAgendamientos');
     const filtro = document.getElementById('filtroEstadoAgendamiento').value;
     
-    container.innerHTML = `
-        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...
-        </p>
-    `;
+    container.innerHTML = `<p style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Cargando agendamientos...</p>`;
     
     try {
         const response = await fetch(`${API_URL}/api/servicios/agendamientos?estado=${filtro}`);
         const data = await response.json();
         
-        if (!response.ok) {
-            throw new Error(data.error || 'Error al obtener agendamientos');
-        }
+        if (!response.ok) throw new Error(data.error || 'Error de base de datos');
 
         const agendamientos = data.agendamientos || data;
 
         if (!agendamientos || agendamientos.length === 0) {
-            container.innerHTML = `
-                <p style="color: var(--text-light); text-align: center; padding: 1rem;">
-                    📌 No hay agendamientos para este estado
-                </p>
-            `;
+            container.innerHTML = `<p style="text-align: center; padding: 1rem; color: var(--text-light);">📌 No hay servicios programados</p>`;
             return;
         }
 
@@ -1909,40 +1892,35 @@ async function cargarAgendamientos() {
                 minimumFractionDigits: 0
             });
 
-            let estadoBadge = '';
-            if (ag.estado === 'PENDIENTE') {
-                estadoBadge = '<span class="badge-estado" style="background: var(--gold); color: black;">🟡 Pendiente</span>';
-            } else if (ag.estado === 'COMPLETADO') {
-                estadoBadge = '<span class="badge-estado" style="background: var(--success); color: white;">✅ Completado</span>';
-            } else if (ag.estado === 'CANCELADO') {
-                estadoBadge = '<span class="badge-estado" style="background: var(--danger); color: white;">❌ Cancelado</span>';
-            }
+            const estadoBadge = ag.estado === 'PENDIENTE' 
+                ? '<span class="badge-estado" style="background: var(--gold); color: black;">🟡 Pendiente</span>'
+                : '<span class="badge-estado" style="background: var(--success); color: white;">✅ Completado</span>';
 
             const agString = JSON.stringify(ag).replace(/"/g, '&quot;');
 
+            // Formatear Fecha para quitar rastro de Zona Horaria UTC si viene como string largo
+            const fechaLimpia = ag.fecha.includes('T') ? ag.fecha.split('T')[0] : ag.fecha;
+
             return `
-                <div class="orden-item" style="border-left: 4px solid ${ag.estado === 'PENDIENTE' ? 'var(--gold)' : ag.estado === 'COMPLETADO' ? 'var(--success)' : 'var(--danger)'}; margin-bottom: 0.8rem; padding: 1rem;">
+                <div class="orden-item" style="border-left: 4px solid ${ag.estado === 'PENDIENTE' ? 'var(--gold)' : 'var(--success)'}; margin-bottom: 0.8rem; padding: 1rem;">
                     <div class="orden-info" style="flex: 1;">
-                        <span style="font-weight: 700; font-size: 1rem; color: var(--primary);">👤 ${ag.cliente}</span>
-                        <div style="font-size: 0.85rem; margin-top: 0.2rem; color: var(--text-dark); line-height: 1.4;">
+                        <span style="font-weight: 700; font-size: 1.05rem; color: var(--primary);">👤 ${ag.cliente}</span>
+                        <div style="font-size: 0.85rem; margin-top: 0.25rem; color: var(--text-dark); line-height: 1.45;">
                             🛠️ <strong>Servicio:</strong> ${ag.tipo_servicio.replace(/_/g, ' ')} <br>
-                            📅 <strong>Fecha:</strong> ${ag.fecha} | ⏰ <strong>Hora:</strong> ${ag.hora} <br>
+                            📅 <strong>Fecha:</strong> ${fechaLimpia} | ⏰ <strong>Hora:</strong> ${ag.hora} <br>
                             👨‍🔧 <strong>Técnico:</strong> ${ag.tecnico || 'Sin asignar'} <br>
                             💵 <strong>Valor:</strong> <span style="color: var(--success); font-weight: 700;">${valorFormateado}</span>
                             ${ag.observaciones ? `<br>📝 <strong>Obs:</strong> ${ag.observaciones}` : ''}
                         </div>
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; justify-content: center; min-width: 140px;">
-                        <div style="margin-bottom: 0.2rem;">${estadoBadge}</div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; justify-content: center; min-width: 140px;">
+                        <div>${estadoBadge}</div>
                         ${ag.estado === 'PENDIENTE' ? `
-                            <button onclick="cargarParaEditar(${agString})" class="btn btn-primary btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem;">
-                                <i class="fas fa-edit"></i> Editar / Liquidar
-                            </button>
-                            <button onclick="completarServicio(${ag.id})" class="btn btn-success btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary);">
+                            <button onclick="completarServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
                                 <i class="fas fa-check-circle"></i> Cerrar Servicio
                             </button>
                         ` : `
-                            <button onclick="imprimirReciboServicio(${agString})" class="btn btn-warning-custom btn-sm" style="width: 100%; font-size: 0.75rem; padding: 0.4rem; background: var(--gradient-secondary); color: white; border: none; border-radius: 4px;">
+                            <button onclick="imprimirReciboServicio(${agString})" class="btn" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 <i class="fas fa-print"></i> Imprimir Recibo
                             </button>
                         `}
@@ -1952,122 +1930,87 @@ async function cargarAgendamientos() {
         }).join('');
 
     } catch (error) {
-        console.error('Error al cargar agendamientos:', error);
-        container.innerHTML = `
-            <p style="color: var(--danger); text-align: center; padding: 1rem;">
-                ⚠️ Error al cargar agendamientos: ${error.message}
-            </p>
-        `;
+        console.error('Error al renderizar agendamientos:', error);
+        container.innerHTML = `<p style="color: var(--danger); text-align: center;">⚠️ Error: ${error.message}</p>`;
     }
 }
 
-// 3. Mapear datos en el formulario al presionar "Editar / Liquidar"
-function cargarParaEditar(ag) {
-    document.getElementById('agId').value = ag.id;
-    document.getElementById('agCliente').value = ag.cliente;
-    document.getElementById('agTipoServicio').value = ag.tipo_servicio;
-    document.getElementById('agFecha').value = ag.fecha;
-    document.getElementById('agHora').value = ag.hora;
-    document.getElementById('agTecnico').value = ag.tecnico || '';
-    document.getElementById('agValor').value = ag.valor || 0;
-    document.getElementById('agObservaciones').value = ag.observaciones || '';
-
-    document.getElementById('tituloFormAgendamiento').innerText = '🛠️ Liquidar / Editar Servicio';
-    document.getElementById('btnTextoAgendamiento').innerText = 'Actualizar Cambios';
-    document.getElementById('btnCancelarEdicion').style.display = 'block';
+// 3. Abrir el Modal de Liquidación y precargar datos
+function completarServicio(ag) {
+    document.getElementById('liqId').value = ag.id;
+    document.getElementById('liqCliente').value = ag.cliente;
+    document.getElementById('liqTecnico').value = ag.tecnico !== 'Sin asignar' ? ag.tecnico : '';
+    document.getElementById('liqValor').value = ag.valor || 0;
+    document.getElementById('liqObservaciones').value = ag.observaciones !== 'Sin observaciones' ? ag.observaciones : '';
     
-    document.getElementById('tituloFormAgendamiento').scrollIntoView({ behavior: 'smooth' });
-}
+    // Ocultos para pasarlos directo a la impresión sin hacer otra consulta
+    document.getElementById('liqTipoServicio').value = ag.tipo_servicio;
+    document.getElementById('liqFecha').value = ag.fecha;
 
-// =================================================================
-// NUEVO FLUJO DE CIERRE Y LIQUIDACIÓN
-// =================================================================
-
-// 1. Abrir el modal de liquidación cuando hacen clic en "Cerrar Servicio"
-function completarServicio(id) {
-    // Buscar los datos del agendamiento directamente del DOM o de la base de datos
-    // Para no complicarlo, buscamos el contenedor visual que ya tiene los datos pintados
-    const items = document.querySelectorAll('.orden-item');
-    let agData = null;
-
-    // Buscamos el agendamiento por ID
-    // Buscaremos el elemento del botón que disparó el evento para mapear los datos
-    const btn = event.currentTarget;
-    const parent = btn.closest('.orden-item');
-    
-    // Obtenemos los campos desde el texto del elemento pintado
-    const cliente = parent.querySelector('span').innerText.replace('👤 ', '').trim();
-    const textoInfo = parent.querySelector('.orden-info div').innerHTML;
-    
-    // Intentamos extraer el valor actual
-    let valorActual = 0;
-    const matchValor = textoInfo.match(/💵 <strong>Valor:<\/strong>.*?([\d.]+)/);
-    if (matchValor) {
-        valorActual = parseFloat(matchValor[1].replace(/\./g, ''));
-    }
-
-    // Limpiar y llenar campos del modal
-    document.getElementById('liqId').value = id;
-    document.getElementById('liqCliente').value = cliente;
-    document.getElementById('liqValor').value = valorActual || 0;
-    document.getElementById('liqObservaciones').value = '';
-
-    // Mostrar modal
     document.getElementById('modalLiquidar').style.display = 'flex';
 }
 
-// Cerrar el modal visualmente
 function cerrarModalLiquidar() {
     document.getElementById('modalLiquidar').style.display = 'none';
 }
 
-// 2. Procesar el cierre enviando los datos al Backend
+// 4. Enviar liquidación e imprimir de inmediato
 async function procesarCierreServicio() {
     const id = document.getElementById('liqId').value;
     const valor = parseFloat(document.getElementById('liqValor').value) || 0;
+    const tecnico = document.getElementById('liqTecnico').value.trim();
     const observaciones = document.getElementById('liqObservaciones').value.trim();
-
-    if (valor <= 0) {
-        if (!confirm('¿Seguro que deseas registrar este servicio con un valor de $0?')) return;
-    }
 
     try {
         const response = await fetch(`${API_URL}/api/servicios/agendamiento/${id}/completar`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ valor, observaciones })
+            body: JSON.stringify({ 
+                valor, 
+                observaciones: observaciones || 'Servicio finalizado.', 
+                tecnico: tecnico || 'Sin asignar' 
+            })
         });
 
         const data = await response.json();
 
         if (response.ok) {
-            showToast('✅ Servicio completado e impreso con éxito', 'success');
+            showToast('✅ Servicio liquidado con éxito', 'success');
             cerrarModalLiquidar();
-            
-            // Traemos los datos frescos para mandar a imprimir inmediatamente
-            const agImprimir = {
-                id: id,
+
+            // Preparar objeto para imprimir idéntico
+            const agImpresion = {
+                id,
                 cliente: document.getElementById('liqCliente').value,
-                valor: valor,
-                observaciones: observaciones || 'Servicio finalizado de conformidad.',
-                fecha: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                tecnico: 'Técnico Mecatron', // Valor genérico si no se recupera
-                tipo_servicio: 'Mantenimiento General'
+                tecnico: tecnico || 'Sin asignar',
+                valor,
+                observaciones: observaciones || 'Servicio finalizado.',
+                tipo_servicio: document.getElementById('liqTipoServicio').value,
+                fecha: document.getElementById('liqFecha').value.split('T')[0],
+                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
-            // Mandamos a imprimir automáticamente
-            imprimirReciboServicio(agImprimir);
-
-            // Recargamos la lista del Dashboard
+            // Ejecuta recibo
+            imprimirReciboServicio(agImpresion);
             cargarAgendamientos();
         } else {
-            showToast(data.error || 'No se pudo liquidar el servicio', 'error');
+            showToast(data.error || 'Fallo al cerrar', 'error');
         }
     } catch (error) {
         console.error(error);
-        showToast('❌ Error de conexión al liquidar', 'error');
+        showToast('❌ Error de conexión al cerrar', 'error');
     }
+}
+
+// 5. Resetear Formulario Superior (SIEMPRE MANTIENE TÍTULO DE CREACIÓN)
+function resetearFormularioAgendamiento() {
+    document.getElementById('agCliente').value = '';
+    document.getElementById('agTipoServicio').selectedIndex = 0;
+    document.getElementById('agFecha').value = '';
+    document.getElementById('agHora').value = '';
+    document.getElementById('agTecnico').value = '';
+    document.getElementById('agValor').value = 0;
+    document.getElementById('agObservaciones').value = '';
 }
 
 // =================================================================

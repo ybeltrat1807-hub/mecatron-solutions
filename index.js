@@ -1761,27 +1761,27 @@ app.put('/api/servicios/agendamiento/:id', async (req, res) => {
     }
 });
 
-// Completar agendamiento
-// Completar y Liquidar agendamiento (PostgreSQL)
+// Completar, Liquidar y reasignar Técnico en agendamiento (Supabase / Postgres)
 app.put('/api/servicios/agendamiento/:id/completar', async (req, res) => {
     const { id } = req.params;
-    const { valor, observaciones } = req.body;
+    const { valor, observaciones, tecnico } = req.body;
 
     const valorNumerico = isNaN(parseFloat(valor)) ? 0.00 : parseFloat(valor);
+    const tecnicoFinal = (tecnico && tecnico.trim() !== '') ? tecnico.trim() : 'Sin asignar';
 
     try {
         const { rowCount } = await db.query(
             `UPDATE agendamientos 
-             SET estado = 'COMPLETADO', valor = $1, observaciones = $2 
-             WHERE id = $3`,
-            [valorNumerico, observaciones || null, id]
+             SET estado = 'COMPLETADO', valor = $1, observaciones = $2, tecnico = $3
+             WHERE id = $4`,
+            [valorNumerico, observaciones || null, tecnicoFinal, id]
         );
 
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Agendamiento no encontrado' });
         }
 
-        res.json({ mensaje: 'Servicio completado y liquidado exitosamente' });
+        res.json({ mensaje: 'Servicio completado exitosamente' });
     } catch (error) {
         console.error('Error al completar y liquidar:', error);
         res.status(500).json({ error: 'Error al completar y liquidar el servicio' });

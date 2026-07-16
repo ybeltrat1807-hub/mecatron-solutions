@@ -1667,66 +1667,78 @@
         ordenActivaReingreso = null;
     }
 
-    // ==========================================
-    // CARGAR HERRAMIENTAS EN REPARACIÓN
-    // ==========================================
-    async function cargarHerramientasEnReparacion() {
-        const container = document.getElementById('herramientasReparacion');
-        if (!container) return;
+    // =================================================================
+// CARGAR HERRAMIENTAS EN REPARACIÓN (Versión PostgreSQL)
+// =================================================================
+async function cargarHerramientasEnReparacion() {
+    const container = document.getElementById('herramientasReparacion');
+    if (!container) return;
 
-        container.innerHTML = `
-            <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                <i class="fas fa-spinner fa-spin"></i> Cargando herramientas en reparación...
-            </p>
-        `;
-        try {
-            const res = await fetch(`${API_URL}/api/servicios/inventario`);
-            const data = await res.json();
-            const herramientasFiltradas = data.filter(h => h.estado === 'EN_REPARACION' || h.estado === 'DADO_BAJA');
-            
-            if (herramientasFiltradas.length === 0) {
-                container.innerHTML = `
-                    <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
-                        ✅ No hay herramientas en reparación o baja
-                    </p>
-                `;
-                return;
-            }
-            container.innerHTML = herramientasFiltradas.map(h => {
-                const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
-                const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
-                const mostrarBoton = h.estado === 'EN_REPARACION';
-                return `
-                    <div class="orden-item" style="border-left: 4px solid ${color};">
-                        <div class="orden-info">
-                            <span style="font-weight: 700; font-size: 1rem;">🔹 ${h.nombre}</span>
-                            <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;"> ID: #${h.id} </span>
-                            <div style="font-size: 0.8rem; margin-top: 0.2rem;">
-                                <span style="color: ${color}; font-weight: 600;"> ${estadoDisplay} </span>
-                                ${h.observaciones ? ` | 📝 ${h.observaciones}` : ''}
-                            </div>
-                        </div>
-                        <div class="orden-actions">
-                            ${mostrarBoton ? `
-                                <button onclick="procesarReparacion(${h.id}, '${h.nombre}')" class="btn-icon reingreso" style="background: var(--gradient-secondary); color: white; padding: 0.3rem 1rem;">
-                                    🛠️ Procesar
-                                </button>
-                            ` : `
-                                <span style="font-size: 0.7rem; color: var(--text-light);"> 🔒 Procesamiento no disponible </span>
-                            `}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Error al cargar herramientas en reparación:', error);
+    container.innerHTML = `
+        <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando herramientas en reparación...
+        </p>
+    `;
+    
+    try {
+        // Apuntamos directamente al endpoint optimizado de reparaciones
+        const res = await fetch(`${API_URL}/api/servicios/herramientas-reparacion`);
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || 'Error al obtener datos');
+
+        // El backend responde con { herramientas: rows }, así que extraemos la lista
+        const herramientasFiltradas = data.herramientas || [];
+        
+        if (herramientasFiltradas.length === 0) {
             container.innerHTML = `
-                <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
-                    ⚠️ Error al cargar herramientas en reparación
+                <p style="color: var(--text-light); text-align: center; padding: 0.5rem;">
+                    ✅ No hay herramientas en reparación o de baja
                 </p>
             `;
+            return;
         }
+
+        container.innerHTML = herramientasFiltradas.map(h => {
+            const estadoDisplay = h.estado === 'EN_REPARACION' ? '🔧 En reparación' : '❌ Dada de baja';
+            const color = h.estado === 'EN_REPARACION' ? 'var(--gold)' : 'var(--danger)';
+            const mostrarBoton = h.estado === 'EN_REPARACION';
+            
+            // Reemplazamos las comillas simples del nombre para evitar errores de sintaxis en el HTML inline
+            const nombreLimpio = h.nombre.replace(/'/g, "\\'");
+
+            return `
+                <div class="orden-item" style="border-left: 4px solid ${color}; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; padding: 1rem;">
+                    <div class="orden-info" style="flex: 1;">
+                        <span style="font-weight: 700; font-size: 1rem; color: var(--primary);">🔹 ${h.nombre}</span>
+                        <span style="font-size: 0.8rem; color: var(--text-light); margin-left: 0.5rem;"> ID: #${h.id} </span>
+                        <div style="font-size: 0.8rem; margin-top: 0.2rem; color: var(--text-dark);">
+                            <span style="color: ${color}; font-weight: 600;"> ${estadoDisplay} </span>
+                            ${h.observaciones ? ` | 📝 ${h.observaciones}` : ''}
+                        </div>
+                    </div>
+                    <div class="orden-actions" style="min-width: 120px; text-align: right;">
+                        ${mostrarBoton ? `
+                            <button onclick="procesarReparacion(${h.id}, '${nombreLimpio}')" class="btn" style="background: var(--primary); color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">
+                                🛠️ Procesar
+                            </button>
+                        ` : `
+                            <span style="font-size: 0.75rem; color: var(--text-light); font-weight: bold;"> 🔒 Completado </span>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error al cargar herramientas en reparación:', error);
+        container.innerHTML = `
+            <p style="color: var(--danger); text-align: center; padding: 0.5rem;">
+                ⚠️ Error al cargar herramientas en reparación: ${error.message}
+            </p>
+        `;
     }
+}
 
     // ==========================================
     // PROCESAR REPARACIÓN

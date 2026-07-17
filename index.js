@@ -1793,6 +1793,55 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
 // =================================================================
 // MÓDULO DE INVENTARIO - VERSIÓN LIMPIA POSTGRESQL
 // =================================================================
+// INVENTARIO GENERAL CON PAGINACIÓN - FIX FINAL
+app.get('/api/inventario', async (req, res) => {
+  try {
+    const buscar = req.query.buscar || req.query.q || '';
+    const tipo = req.query.tipo || 'TODOS';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+
+    let conditions = [];
+    let params = [];
+    let idx = 1;
+
+    if (buscar) {
+      conditions.push(`nombre ILIKE $${idx}`);
+      params.push(`%${buscar}%`);
+      idx++;
+    }
+    if (tipo && tipo !== 'TODOS') {
+      conditions.push(`tipo = $${idx}`);
+      params.push(tipo);
+      idx++;
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countRes = await db.query(`SELECT COUNT(*) FROM inventario_venta ${whereClause}`, params);
+    const total = parseInt(countRes.rows[0].count);
+
+    const dataRes = await db.query(
+      `SELECT * FROM inventario_venta ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx+1}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      productos: dataRes.rows,
+      paginacion: {
+        pagina_actual: page,
+        total_paginas: Math.ceil(total / limit),
+        total_productos: total,
+        por_pagina: limit
+      }
+    });
+
+  } catch (error) {
+    console.error('Error inventario:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // HISTORIAL - FINAL CON NOMBRES REALES
 app.get('/api/inventario/historial', async (req, res) => {

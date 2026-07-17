@@ -744,16 +744,20 @@ function agregarDetalleFactura() {
                 setTimeout(() => toast.remove(), 300);
             }, 4000);
         }
-
-        // ==========================================
+// ==========================================
 // INICIALIZACIÓN
 // ==========================================
+// FIX temporal - agregar función faltante
+function mostrarFiltrosActivos() { 
+  // función vacía para que no bloquee el onload
+  console.log("filtros activos");
+}
+
 window.onload = function() {
-    document.getElementById('facturaFecha').value = new Date().toISOString().split('T')[0];
-    cargarInventario();
-    cargarHistorialInventario();
-    mostrarFiltrosActivos();
-};
+  if (typeof mostrarFiltrosActivos === 'function') mostrarFiltrosActivos();
+  cargarInventario(); // tu función original
+  cargarHistorial();
+}
         // ==========================================
 // BUSCAR PRODUCTO PARA FACTURA (AUTOCOMPLETADO)
 // ==========================================

@@ -1839,48 +1839,8 @@ app.get('/api/inventario', async (req, res) => {
     }
 });
 
-// 5. HISTORIAL DE FACTURAS - CORREGIDO PARA POSTGRES
+// 2. HISTORIAL DE FACTURAS - FIX GROUP BY
 app.get('/api/inventario/historial', async (req, res) => {
-    try {
-        const { rows: facturas } = await db.query(`
-            SELECT 
-                fc.id,
-                fc.numero_factura AS numero,
-                fc.proveedor,
-                fc.fecha_factura AS fecha,
-                fc.fecha_registro,
-                fc.usuario,
-                fc.total_compra AS total,
-                COUNT(fd.id) AS productos,
-                COALESCE(SUM(fd.cantidad),0) AS unidades,
-                fc.observaciones
-            FROM facturas_compra fc
-            LEFT JOIN facturas_detalle fd ON fc.id = fd.factura_id
-            GROUP BY 
-                fc.id,
-                fc.numero_factura,
-                fc.proveedor,
-                fc.fecha_factura,
-                fc.fecha_registro,
-                fc.usuario,
-                fc.total_compra,
-                fc.observaciones
-            ORDER BY fc.fecha_registro DESC
-            LIMIT 100
-        `);
-
-        res.json({ facturas });
-
-    } catch (error) {
-        console.error('Error historial:', error);
-        res.status(500).json({ error: 'Error historial', detalle: error.message });
-    }
-});
-
-// 3. DETALLE DE UNA FACTURA ESPECÍFICA - UN SOLO ENDPOINT
-// FIX - DETALLE DE FACTURA - CORREGIR GROUP BY
-app.get('/api/inventario/factura/:id', async (req, res) => {
-  const { id } = req.params;
   try {
     const query = `
       SELECT
@@ -1889,51 +1849,49 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
         fc.fecha,
         fc.proveedor,
         fc.total,
+        COUNT(fd.id) as total_items
+      FROM facturas_compra fc
+      LEFT JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
+      GROUP BY fc.id, fc.numero_factura, fc.fecha, fc.proveedor, fc.total
+      ORDER BY fc.fecha DESC, fc.id DESC
+    `;
+    const { rows } = await db.query(query);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error historial:', error);
+    res.status(500).json({ error: 'Error al cargar historial' });
+  }
+});
+
+// 3. DETALLE DE UNA FACTURA - SIN GROUP BY
+app.get('/api/inventario/factura/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Primero la cabecera
+    const cabecera = await db.query(`SELECT * FROM facturas_compra WHERE id = $1`, [id]);
+    if (cabecera.rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    // Luego el detalle - sin agregados, sin GROUP BY
+    const detalle = await db.query(`
+      SELECT
         fd.producto_id,
-        p.nombre as producto_nombre,
+        COALESCE(iv.nombre, p.nombre) as producto_nombre,
         fd.cantidad,
         fd.precio_unitario,
         (fd.cantidad * fd.precio_unitario) as subtotal
-      FROM facturas_compra fc
-      JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
-      JOIN inventario_venta p ON p.id = fd.producto_id
-      WHERE fc.id = $1
-    `;
-
-    // Si tu query original usaba SUM, usa esta versión con GROUP BY completo:
-    /*
-    SELECT
-        fc.id,
-        fc.numero_factura,
-        fc.fecha,
-        fc.proveedor,
-        SUM(fd.cantidad * fd.precio_unitario) as total_calculado
-    FROM facturas_compra fc
-    JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
-    WHERE fc.id = $1
-    GROUP BY fc.id, fc.numero_factura, fc.fecha, fc.proveedor
-    */
-
-    const { rows } = await db.query(query, [id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Factura no encontrada' });
-    }
+      FROM factura_compra_detalle fd
+      LEFT JOIN inventario_venta iv ON iv.id = fd.producto_id
+      LEFT JOIN inventario_venta p ON p.id = fd.producto_id
+      WHERE fd.factura_id = $1
+    `, [id]);
 
     res.json({
-      factura: {
-        id: rows[0].id,
-        numero_factura: rows[0].numero_factura,
-        fecha: rows[0].fecha,
-        proveedor: rows[0].proveedor,
-        total: rows[0].total
-      },
-      detalle: rows
+      factura: cabecera.rows[0],
+      detalle: detalle.rows
     });
-
   } catch (error) {
     console.error('Error detalle factura:', error);
-    res.status(500).json({ error: 'Error al cargar detalle' });
+    res.status(500).json({ error: 'Error al cargar detalle: ' + error.message });
   }
 });
 // 4. REGISTRAR NUEVA FACTURA DE COMPRA - FALTABA ESTE

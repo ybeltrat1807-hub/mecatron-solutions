@@ -1774,104 +1774,67 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
     }
 });
 // =================================================================
-//   MÓDULO DE INVENTARIO (CON TABLAS EXISTENTES)
+// MÓDULO DE INVENTARIO - VERSIÓN LIMPIA POSTGRESQL
 // =================================================================
 
-// 1. Obtener inventario unificado (ventas + servicios)
+// 1. INVENTARIO UNIFICADO (VENTA + SERVICIOS) - UN SOLO ENDPOINT
 app.get('/api/inventario', async (req, res) => {
-    const { buscar, tipo, estado } = req.query;
-    
+    const { buscar, tipo } = req.query;
     try {
-        let queryParts = [];
-        let params = [];
+        if (tipo === 'VENTA') {
+            const q = buscar
+               ? `SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta WHERE nombre ILIKE $1 ORDER BY nombre`
+                : `SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta ORDER BY nombre`;
+            const p = buscar? [`%${buscar}%`] : [];
+            const { rows } = await db.query(q, p);
+            return res.json({ productos: rows });
+        }
 
-        // Consulta para productos de VENTA
-        let queryVenta = 'SELECT id, nombre, "VENTA" as tipo, stock, costo, precio_venta, "DISPONIBLE" as estado FROM inventario_venta';
-        let queryServicio = 'SELECT id, nombre, "SERVICIO" as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio';
-        
-        let conditions = [];
-        
-        if (buscar) {
-            conditions.push(`nombre LIKE ?`);
-            params.push(`%${buscar}%`);
+        if (tipo === 'SERVICIO') {
+            const q = buscar
+               ? `SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio WHERE nombre ILIKE $1 ORDER BY nombre`
+                : `SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio ORDER BY nombre`;
+            const p = buscar? [`%${buscar}%`] : [];
+            const { rows } = await db.query(q, p);
+            return res.json({ productos: rows });
         }
-        
-        if (tipo && tipo !== 'TODOS') {
-            // Si se filtra por tipo, solo consultamos esa tabla
-            if (tipo === 'VENTA') {
-                const ventaQuery = `SELECT id, nombre, "VENTA" as tipo, stock, costo, precio_venta, "DISPONIBLE" as estado FROM inventario_venta`;
-                const { rows } = await db.query(
-                    buscar ? `${ventaQuery} WHERE nombre LIKE ?` : ventaQuery,
-                    buscar ? [`%${buscar}%`] : []
-                );
-                return res.json({ productos: rows });
-            } else if (tipo === 'SERVICIO') {
-                const servicioQuery = `SELECT id, nombre, "SERVICIO" as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio`;
-                const { rows } = await db.query(
-                    buscar ? `${servicioQuery} WHERE nombre LIKE $1` : servicioQuery,
-                    buscar ? [`%${buscar}%`] : []
-                );
-                return res.json({ productos: rows });
-            }
-        }
-        
-        // Si no hay filtro de tipo, unir ambas tablas
+
+        // Sin filtro de tipo - trae todo
         let fullQuery = `
             SELECT id, nombre, tipo, stock, costo, precio_venta, estado FROM (
-                SELECT id, nombre, "VENTA" as tipo, stock, costo, precio_venta, "DISPONIBLE" as estado FROM inventario_venta
+                SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta
                 UNION ALL
-                SELECT id, nombre, "SERVICIO" as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio
+                SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio
             ) as inventario_unificado
         `;
-        
+        let params = [];
         if (buscar) {
-            fullQuery += ` WHERE nombre LIKE ?`;
+            fullQuery += ` WHERE nombre ILIKE $1`;
             params = [`%${buscar}%`];
         }
-        
         fullQuery += ' ORDER BY nombre';
-        
         const { rows } = await db.query(fullQuery, params);
         res.json({ productos: rows });
-        
+
     } catch (error) {
         console.error('Error al obtener inventario:', error);
-        res.status(500).json({ error: 'Error al obtener inventario' });
+        res.status(500).json({ error: 'Error al obtener inventario', detalle: error.message });
     }
 });
 
-// ==========================================
-// HISTORIAL DE FACTURAS DE COMPRA (AGRUPADO)
-// ==========================================
+// 2. HISTORIAL DE FACTURAS DE COMPRA
 app.get('/api/inventario/historial', async (req, res) => {
     try {
-        // Obtener el resumen de facturas
-        const [facturas] = await db.query(`
-            SELECT 
-                fc.id as factura_id,
-                fc.numero_factura,
-                fc.proveedor,
-                fc.fecha_factura,
-                fc.fecha_registro,
-                fc.usuario,
-                fc.total_compra,
-                fc.observaciones,
-                COUNT(fd.id) as total_productos,
-                SUM(fd.cantidad) as total_unidades
+        const { rows: facturas } = await db.query(`
+            SELECT fc.id as factura_id, fc.numero_factura, fc.proveedor, fc.fecha_factura, fc.fecha_registro, fc.usuario, fc.total_compra, fc.observaciones, COUNT(fd.id) as total_productos, SUM(fd.cantidad) as total_unidades
             FROM facturas_compra fc
             LEFT JOIN facturas_detalle fd ON fc.id = fd.factura_id
             GROUP BY fc.id
             ORDER BY fc.fecha_factura DESC, fc.id DESC
         `);
 
-        if (facturas.length === 0) {
-            return res.json({ 
-                facturas: [],
-                mensaje: 'No hay facturas de compra registradas aún.'
-            });
-        }
+        if (facturas.length === 0) return res.json({ facturas: [], mensaje: 'No hay facturas' });
 
-        // Formatear los datos
         const resultado = facturas.map(f => ({
             id: f.factura_id,
             numero: f.numero_factura || 'S/N',
@@ -1885,65 +1848,73 @@ app.get('/api/inventario/historial', async (req, res) => {
         }));
 
         res.json({ facturas: resultado });
-
     } catch (error) {
-        console.error('Error al obtener historial de facturas:', error);
-        res.status(500).json({ 
-            error: 'Error al obtener historial de facturas',
-            detalle: error.message 
-        });
+        console.error('Error historial:', error);
+        res.status(500).json({ error: 'Error historial', detalle: error.message });
     }
 });
 
-// ==========================================
-// OBTENER DETALLE DE UNA FACTURA ESPECÍFICA
-// ==========================================
+// 3. DETALLE DE UNA FACTURA ESPECÍFICA - UN SOLO ENDPOINT
 app.get('/api/inventario/factura/:id', async (req, res) => {
     const facturaId = req.params.id;
-
     try {
-        // Obtener cabecera de la factura
-        const [cabecera] = await db.query(`
-            SELECT 
-                fc.*,
-                COUNT(fd.id) as total_productos,
-                SUM(fd.cantidad) as total_unidades
+        const { rows: cabecera } = await db.query(`
+            SELECT fc.*, COUNT(fd.id) as total_productos, SUM(fd.cantidad) as total_unidades
             FROM facturas_compra fc
             LEFT JOIN facturas_detalle fd ON fc.id = fd.factura_id
-            WHERE fc.id = ?
+            WHERE fc.id = $1
             GROUP BY fc.id
         `, [facturaId]);
 
-        if (cabecera.length === 0) {
-            return res.status(404).json({ error: 'Factura no encontrada' });
-        }
+        if (cabecera.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
 
-        // Obtener detalles de la factura
-        const [detalles] = await db.query(`
-            SELECT 
-                id,
-                producto_nombre as nombre,
-                producto_tipo as tipo,
-                cantidad,
-                costo_unitario as costo,
-                precio_venta,
-                subtotal
-            FROM facturas_detalle
-            WHERE factura_id = ?
-            ORDER BY id
+        const { rows: detalles } = await db.query(`
+            SELECT id, producto_nombre as nombre, producto_tipo as tipo, cantidad, costo_unitario as costo, precio_venta, subtotal
+            FROM facturas_detalle WHERE factura_id = $1 ORDER BY id
         `, [facturaId]);
 
-        res.json({
-            cabecera: cabecera[0],
-            detalles: detalles
-        });
-
+        res.json({ cabecera: cabecera[0], detalles });
     } catch (error) {
-        console.error('Error al obtener detalle de factura:', error);
-        res.status(500).json({ 
-            error: 'Error al obtener detalle de factura',
-            detalle: error.message 
-        });
+        console.error('Error detalle factura:', error);
+        res.status(500).json({ error: 'Error detalle', detalle: error.message });
+    }
+});
+
+// 4. REGISTRAR NUEVA FACTURA DE COMPRA - FALTABA ESTE
+app.post('/api/inventario/ingresar', async (req, res) => {
+    const { numero_factura, proveedor, fecha_factura, usuario, observaciones, productos } = req.body;
+    if (!productos || productos.length === 0) return res.status(400).json({ error: 'Sin productos' });
+
+    try {
+        await db.query('BEGIN');
+        const total_compra = productos.reduce((acc, p) => acc + (parseInt(p.cantidad) * parseFloat(p.costo)), 0);
+
+        const { rows: facturaRows } = await db.query(`
+            INSERT INTO facturas_compra (numero_factura, proveedor, fecha_factura, usuario, total_compra, observaciones)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+        `, [numero_factura, proveedor, fecha_factura || new Date(), usuario || 'Sistema', total_compra, observaciones]);
+
+        const facturaId = facturaRows[0].id;
+
+        for (const prod of productos) {
+            await db.query(`
+                INSERT INTO facturas_detalle (factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [facturaId, prod.nombre, prod.tipo, prod.cantidad, prod.costo, prod.precio_venta, prod.cantidad * prod.costo]);
+
+            if (prod.tipo === 'VENTA') {
+                await db.query(`UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2`, [prod.cantidad, prod.id]);
+            } else {
+                await db.query(`UPDATE inventario_uso_servicio SET stock_total = stock_total + $1, disponibles = disponibles + $1 WHERE id = $2`, [prod.cantidad, prod.id]);
+            }
+        }
+
+        await db.query('COMMIT');
+        res.json({ mensaje: 'Factura registrada', factura_id: facturaId });
+    } catch (error) {
+        await db.query('ROLLBACK');
+        console.error('Error ingresar factura:', error);
+        res.status(500).json({ error: 'Error al ingresar', detalle: error.message });
     }
 });
 const server = app.listen(PORT, () => {

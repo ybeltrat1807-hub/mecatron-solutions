@@ -1794,75 +1794,75 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
 // MÓDULO DE INVENTARIO - VERSIÓN LIMPIA POSTGRESQL
 // =================================================================
 
-// 1. INVENTARIO UNIFICADO (VENTA + SERVICIOS) - UN SOLO ENDPOINT
-app.get('/api/inventario', async (req, res) => {
-    const { buscar, tipo } = req.query;
-    try {
-        if (tipo === 'VENTA') {
-            const q = buscar
-               ? `SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta WHERE nombre ILIKE $1 ORDER BY nombre`
-                : `SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta ORDER BY nombre`;
-            const p = buscar? [`%${buscar}%`] : [];
-            const { rows } = await db.query(q, p);
-            return res.json({ productos: rows });
-        }
-
-        if (tipo === 'SERVICIO') {
-            const q = buscar
-               ? `SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio WHERE nombre ILIKE $1 ORDER BY nombre`
-                : `SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio ORDER BY nombre`;
-            const p = buscar? [`%${buscar}%`] : [];
-            const { rows } = await db.query(q, p);
-            return res.json({ productos: rows });
-        }
-
-        // Sin filtro de tipo - trae todo
-        let fullQuery = `
-            SELECT id, nombre, tipo, stock, costo, precio_venta, estado FROM (
-                SELECT id, nombre, 'VENTA' as tipo, stock, costo, precio_venta, 'DISPONIBLE' as estado FROM inventario_venta
-                UNION ALL
-                SELECT id, nombre, 'SERVICIO' as tipo, disponibles as stock, 0 as costo, 0 as precio_venta, estado FROM inventario_uso_servicio
-            ) as inventario_unificado
-        `;
-        let params = [];
-        if (buscar) {
-            fullQuery += ` WHERE nombre ILIKE $1`;
-            params = [`%${buscar}%`];
-        }
-        fullQuery += ' ORDER BY nombre';
-        const { rows } = await db.query(fullQuery, params);
-        res.json({ productos: rows });
-
-    } catch (error) {
-        console.error('Error al obtener inventario:', error);
-        res.status(500).json({ error: 'Error al obtener inventario', detalle: error.message });
-    }
-});
-
-// 2. HISTORIAL DE FACTURAS - FIX GROUP BY
+// HISTORIAL CON PAGINACIÓN - NOMBRES REALES
 app.get('/api/inventario/historial', async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = 50;
+  const offset = (page - 1) * limit;
+  const busqueda = req.query.q || '';
+
   try {
+    let whereClause = '';
+    let params = [];
+    if (busqueda) {
+      whereClause = `WHERE fc.numero_factura ILIKE $1 OR fc.proveedor ILIKE $1`;
+      params.push(`%${busqueda}%`);
+    }
+
+    const countResult = await db.query(`SELECT COUNT(*) as total FROM facturas_compra fc ${whereClause}`, params);
+    const totalFacturas = parseInt(countResult.rows[0].total);
+
     const query = `
-      SELECT
-        fc.id,
-        fc.numero_factura,
-        fc.fecha,
-        fc.proveedor,
-        fc.total,
-        COUNT(fd.id) as total_items
-      FROM facturas_compra fc
-      LEFT JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
-      GROUP BY fc.id, fc.numero_factura, fc.fecha, fc.proveedor, fc.total
-      ORDER BY fc.fecha DESC, fc.id DESC
+      SELECT fc.* FROM facturas_compra fc
+      ${whereClause}
+      ORDER BY fc.id DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
-    const { rows } = await db.query(query);
-    res.json(rows);
+    const { rows } = await db.query(query, [...params, limit, offset]);
+
+    res.json({
+      facturas: rows,
+      paginacion: {
+        pagina_actual: page,
+        total_paginas: Math.ceil(totalFacturas / limit),
+        total_facturas: totalFacturas
+      }
+    });
   } catch (error) {
-    console.error('Error historial:', error);
-    res.status(500).json({ error: 'Error al cargar historial' });
+    console.error('Error historial:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
+// DETALLE DE FACTURA - NOMBRES REALES
+app.get('/api/inventario/factura/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const cabecera = await db.query(`SELECT * FROM facturas_compra WHERE id = $1`, [id]);
+    if (cabecera.rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const detalle = await db.query(`
+      SELECT
+        fd.producto_id,
+        fd.cantidad,
+        fd.precio_unitario,
+        (fd.cantidad * fd.precio_unitario) as subtotal,
+        COALESCE(iv.nombre, 'Producto ' || fd.producto_id) as producto_nombre
+      FROM facturas_detalle fd
+      LEFT JOIN inventario_venta iv ON iv.id = fd.producto_id
+      WHERE fd.factura_id = $1
+      ORDER BY fd.id ASC
+    `, [id]);
+
+    res.json({
+      factura: cabecera.rows[0],
+      detalle: detalle.rows
+    });
+  } catch (error) {
+    console.error('Error detalle factura:', error.message);
+    res.status(500).json({ error: 'Error al cargar detalle: ' + error.message });
+  }
+});
 // 3. DETALLE DE UNA FACTURA - SIN GROUP BY
 app.get('/api/inventario/factura/:id', async (req, res) => {
   const { id } = req.params;
@@ -1879,7 +1879,7 @@ app.get('/api/inventario/factura/:id', async (req, res) => {
         fd.cantidad,
         fd.precio_unitario,
         (fd.cantidad * fd.precio_unitario) as subtotal
-      FROM factura_compra_detalle fd
+      FROM facturas_detalle fd
       LEFT JOIN inventario_venta iv ON iv.id = fd.producto_id
       LEFT JOIN inventario_venta p ON p.id = fd.producto_id
       WHERE fd.factura_id = $1

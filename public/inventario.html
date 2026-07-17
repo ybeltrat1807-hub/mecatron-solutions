@@ -540,6 +540,7 @@
         let paginaActualInventario = 1;
         let paginaActualHistorial = 1;
         const LIMITE_POR_PAGINA = 50;
+        const LIMITE_INVENTARIO = 30;
 
         function mostrarFiltrosActivos() { console.log("filtros ok"); }
 
@@ -619,13 +620,12 @@
             const tbody = document.getElementById('tablaInventario');
             tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>`;
             try {
-                const res = await fetch(`${API_URL}/api/inventario?buscar=${encodeURIComponent(buscar)}&tipo=${tipo}&page=${pagina}&limit=${LIMITE_POR_PAGINA}&q=${encodeURIComponent(buscar)}`, {cache:'no-store'});
+                const res = await fetch(`${API_URL}/api/inventario?buscar=${encodeURIComponent(buscar)}&tipo=${tipo}&page=${pagina}&limit=${LIMITE_INVENTARIO}&q=${encodeURIComponent(buscar)}`, {cache:'no-store'});
                 const data = await res.json();
                 const productos = data.productos || data || [];
                 const pag = data.paginacion || { total_paginas:1, pagina_actual:1, total_productos: productos.length };
                 if (productos.length===0){ tbody.innerHTML=`<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-light);">📭 No hay productos</td></tr>`; document.getElementById('paginacionInventario').innerHTML=''; return; }
-                const tipoLabel = (data.tipo||tipo)==='VENTA' ? '🛒 Venta' : '🔧 Servicio';
-                tbody.innerHTML = productos.map(p=>{ const stockVal = p.stock ?? p.disponibles ?? p.stock_total ?? 0; return `<tr><td>${p.id}</td><td><strong>${p.nombre}</strong></td><td>${tipoLabel}</td><td style="font-weight:700; ${stockVal<=0?'color:var(--danger);':'color:var(--success);'}">${stockVal}</td><td>$${parseFloat(p.costo||0).toLocaleString()}</td><td>$${parseFloat(p.precio_venta||0).toLocaleString()}</td><td><span class="badge-estado ${(p.estado||'disponible').toLowerCase()}">${p.estado||'DISPONIBLE'}</span></td></tr>`; }).join('');
+                tbody.innerHTML = productos.map(p=>{ const stockVal = p.stock ?? p.disponibles ?? p.stock_total ?? 0; const tipoLabel = p.tipo==='VENTA'?'🛒 Venta':'🔧 Servicio'; return `<tr><td>${p.id}</td><td><strong>${p.nombre}</strong></td><td>${tipoLabel}</td><td style="font-weight:700; ${stockVal<=0?'color:var(--danger);':'color:var(--success);'}">${stockVal}</td><td>$${parseFloat(p.costo||0).toLocaleString()}</td><td>$${parseFloat(p.precio_venta||0).toLocaleString()}</td><td><span class="badge-estado ${(p.estado||'disponible').toLowerCase()}">${p.estado||'DISPONIBLE'}</span></td></tr>`; }).join('');
                 renderPaginacion('paginacionInventario', pag, 'cargarInventario');
                 productosCache = productos;
                 productosCacheTipo = data.tipo||tipo;
@@ -671,10 +671,10 @@
             const div=document.getElementById('sugerenciasProductos');
             if(texto.length<2){ div.style.display='none'; return; }
             try{
-                if(productosCache.length===0){ const filtroActual=document.getElementById('filtroTipo').value; const r=await fetch(`${API_URL}/api/inventario?tipo=${filtroActual}&limit=200`,{cache:'no-store'}); const d=await r.json(); productosCache=d.productos||d||[]; productosCacheTipo=d.tipo||filtroActual; }
+                if(productosCache.length===0){ const filtroActual=document.getElementById('filtroTipo').value; const r=await fetch(`${API_URL}/api/inventario?tipo=${filtroActual}&limit=200`,{cache:'no-store'}); const d=await r.json(); productosCache=d.productos||d||[]; }
                 const coincidencias=productosCache.filter(p=>p.nombre.toLowerCase().includes(texto.toLowerCase()));
                 if(coincidencias.length===0){ div.innerHTML=`<div style="padding:0.5rem; text-align:center; font-size:0.85rem; color:var(--text-light);">📭 No hay coincidencias</div>`; div.style.display='block'; return; }
-                div.innerHTML=coincidencias.slice(0,10).map(p=>{ const stockVal=p.stock ?? p.disponibles ?? p.stock_total ?? 0; return `<div style="padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'" onclick="seleccionarProductoParaFactura(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', '${productosCacheTipo}')"><div><strong>${p.nombre}</strong><span style="font-size:0.7rem; color:var(--text-light);"> ${productosCacheTipo}</span></div><div style="font-size:0.7rem;">Stock:${stockVal}</div></div>`; }).join('');
+                div.innerHTML=coincidencias.slice(0,10).map(p=>{ const stockVal=p.stock ?? p.disponibles ?? p.stock_total ?? 0; return `<div style="padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'" onclick="seleccionarProductoParaFactura(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', '${p.tipo}')"><div><strong>${p.nombre}</strong><span style="font-size:0.7rem; color:var(--text-light);"> ${p.tipo}</span></div><div style="font-size:0.7rem;">Stock:${stockVal}</div></div>`; }).join('');
                 div.style.display='block';
             }catch(e){ console.error(e); }
         }

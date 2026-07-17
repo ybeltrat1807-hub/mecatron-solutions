@@ -1800,6 +1800,46 @@ app.get('/api/inventario', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
+    const buscarParam = `%${buscar}%`;
+
+    // TODOS: combina inventario_venta + inventario_uso_servicio con paginación real
+    if (tipo === 'TODOS') {
+      const countRes = await db.query(`
+        SELECT COUNT(*) FROM (
+          SELECT id FROM inventario_venta WHERE nombre ILIKE $1
+          UNION ALL
+          SELECT id FROM inventario_uso_servicio WHERE nombre ILIKE $1
+        ) combinado
+      `, [buscarParam]);
+      const total = parseInt(countRes.rows[0].count);
+
+      const dataRes = await db.query(`
+        SELECT * FROM (
+          SELECT id, nombre, 'VENTA' AS tipo, stock, costo, precio_venta,
+                 'DISPONIBLE'::varchar AS estado
+          FROM inventario_venta
+          WHERE nombre ILIKE $1
+          UNION ALL
+          SELECT id, nombre, 'SERVICIO' AS tipo, disponibles AS stock,
+                 NULL::numeric AS costo, NULL::numeric AS precio_venta, estado
+          FROM inventario_uso_servicio
+          WHERE nombre ILIKE $1
+        ) combinado
+        ORDER BY nombre ASC
+        LIMIT $2 OFFSET $3
+      `, [buscarParam, limit, offset]);
+
+      return res.json({
+        tipo,
+        productos: dataRes.rows,
+        paginacion: {
+          pagina_actual: page,
+          total_paginas: Math.ceil(total / limit),
+          total_productos: total,
+          por_pagina: limit
+        }
+      });
+    }
 
     // Selecciona la tabla según el tipo de inventario
     const tabla = tipo === 'SERVICIO' || tipo === 'HERRAMIENTA'
@@ -1821,8 +1861,12 @@ app.get('/api/inventario', async (req, res) => {
     const countRes = await db.query(`SELECT COUNT(*) FROM ${tabla} ${whereClause}`, params);
     const total = parseInt(countRes.rows[0].count);
 
+    const selectCols = tabla === 'inventario_uso_servicio'
+      ? `id, nombre, 'SERVICIO' AS tipo, disponibles AS stock, estado, observaciones, created_at, usa_mantenimiento`
+      : `id, nombre, 'VENTA' AS tipo, stock, costo, precio_venta, created_at`;
+
     const dataRes = await db.query(
-      `SELECT * FROM ${tabla} ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx + 1}`,
+      `SELECT ${selectCols} FROM ${tabla} ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx + 1}`,
       [...params, limit, offset]
     );
 

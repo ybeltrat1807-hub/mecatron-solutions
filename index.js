@@ -1917,6 +1917,55 @@ app.post('/api/inventario/ingresar', async (req, res) => {
         res.status(500).json({ error: 'Error al ingresar', detalle: error.message });
     }
 });
+// 4. REGISTRAR FACTURA - COMPATIBLE CON TU INVENTARIO.HTML
+app.post('/api/inventario/factura', async (req, res) => {
+    const { numero, proveedor, fecha, detalles, usuario } = req.body;
+    if (!detalles || detalles.length === 0) {
+        return res.status(400).json({ error: 'Sin productos en la factura' });
+    }
+    try {
+        await db.query('BEGIN');
+        const total_compra = detalles.reduce((acc, p) => acc + (parseInt(p.cantidad) * parseFloat(p.costo)), 0);
+        const { rows: facturaRows } = await db.query(`
+            INSERT INTO facturas_compra (numero_factura, proveedor, fecha_factura, usuario, total_compra, observaciones)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+        `, [numero, proveedor, fecha || new Date(), usuario || 'Sistema', total_compra, '']);
+        const facturaId = facturaRows[0].id;
+
+        for (const prod of detalles) {
+            let productoId = prod.id;
+            if (!productoId) {
+                if (prod.tipo === 'VENTA') {
+                    const { rows } = await db.query(`SELECT id FROM inventario_venta WHERE nombre ILIKE $1 LIMIT 1`, [prod.nombre]);
+                    if (rows.length > 0) productoId = rows[0].id;
+                    else {
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [prod.nombre, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
+                        productoId = newRows[0].id;
+                    }
+                } else {
+                    const { rows } = await db.query(`SELECT id FROM inventario_uso_servicio WHERE nombre ILIKE $1 LIMIT 1`, [prod.nombre]);
+                    if (rows.length > 0) productoId = rows[0].id;
+                    else {
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_uso_servicio (nombre, stock_total, disponibles, estado) VALUES ($1, $2, $2, 'DISPONIBLE') RETURNING id`, [prod.nombre, 0]);
+                        productoId = newRows[0].id;
+                    }
+                }
+            }
+            await db.query(`INSERT INTO facturas_detalle (factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [facturaId, prod.nombre, prod.tipo, prod.cantidad, prod.costo, prod.precio_venta || 0, prod.cantidad * prod.costo]);
+            if (prod.tipo === 'VENTA') {
+                await db.query(`UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2`, [prod.cantidad, productoId]);
+            } else {
+                await db.query(`UPDATE inventario_uso_servicio SET stock_total = stock_total + $1, disponibles = disponibles + $1 WHERE id = $2`, [prod.cantidad, productoId]);
+            }
+        }
+        await db.query('COMMIT');
+        res.json({ mensaje: 'Factura registrada', factura_id: facturaId });
+    } catch (error) {
+        await db.query('ROLLBACK');
+        console.error('Error registrar factura:', error);
+        res.status(500).json({ error: 'Error al guardar factura', detalle: error.message });
+    }
+});
 const server = app.listen(PORT, () => {
     console.log(`🚀 Servidor de Mecatron Solutions corriendo en'mecatron-solutions-production.up.railway.app;${PORT}`);
 });

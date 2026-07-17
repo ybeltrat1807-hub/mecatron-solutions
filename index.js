@@ -1918,6 +1918,7 @@ app.post('/api/inventario/ingresar', async (req, res) => {
     }
 });
 // 4. REGISTRAR FACTURA - COMPATIBLE CON TU INVENTARIO.HTML
+// POST /api/inventario/factura - VERSIÓN AJUSTADA A TUS TABLAS REALES
 app.post('/api/inventario/factura', async (req, res) => {
     const { numero, proveedor, fecha, detalles, usuario } = req.body;
     if (!detalles || detalles.length === 0) {
@@ -1925,44 +1926,75 @@ app.post('/api/inventario/factura', async (req, res) => {
     }
     try {
         await db.query('BEGIN');
+
         const total_compra = detalles.reduce((acc, p) => acc + (parseInt(p.cantidad) * parseFloat(p.costo)), 0);
+
+        // Ajustado a tu esquema: numero_factura, proveedor, fecha_factura, fecha_registro, usuario, total_compra, observaciones
         const { rows: facturaRows } = await db.query(`
-            INSERT INTO facturas_compra (numero_factura, proveedor, fecha_factura, usuario, total_compra, observaciones)
-            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
-        `, [numero, proveedor, fecha || new Date(), usuario || 'Sistema', total_compra, '']);
+            INSERT INTO facturas_compra (numero_factura, proveedor, fecha_factura, fecha_registro, usuario, total_compra, observaciones)
+            VALUES ($1, $2, $3, NOW(), $4, $5, '') RETURNING id
+        `, [
+            numero || 'S/N',
+            proveedor || 'Sin proveedor',
+            fecha || new Date().toISOString().split('T')[0],
+            usuario || 'Sistema',
+            total_compra
+        ]);
+
         const facturaId = facturaRows[0].id;
 
         for (const prod of detalles) {
             let productoId = prod.id;
+            let nombreLimpio = prod.nombre.trim();
+
             if (!productoId) {
                 if (prod.tipo === 'VENTA') {
-                    const { rows } = await db.query(`SELECT id FROM inventario_venta WHERE nombre ILIKE $1 LIMIT 1`, [prod.nombre]);
+                    const { rows } = await db.query(`SELECT id FROM inventario_venta WHERE nombre ILIKE $1 LIMIT 1`, [nombreLimpio]);
                     if (rows.length > 0) productoId = rows[0].id;
                     else {
-                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [prod.nombre, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [nombreLimpio, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
                         productoId = newRows[0].id;
                     }
                 } else {
-                    const { rows } = await db.query(`SELECT id FROM inventario_uso_servicio WHERE nombre ILIKE $1 LIMIT 1`, [prod.nombre]);
+                    const { rows } = await db.query(`SELECT id FROM inventario_uso_servicio WHERE nombre ILIKE $1 LIMIT 1`, [nombreLimpio]);
                     if (rows.length > 0) productoId = rows[0].id;
                     else {
-                        const { rows: newRows } = await db.query(`INSERT INTO inventario_uso_servicio (nombre, stock_total, disponibles, estado) VALUES ($1, $2, $2, 'DISPONIBLE') RETURNING id`, [prod.nombre, 0]);
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_uso_servicio (nombre, stock_total, disponibles, estado) VALUES ($1, $2, $2, 'DISPONIBLE') RETURNING id`, [nombreLimpio, 0]);
                         productoId = newRows[0].id;
                     }
                 }
             }
-            await db.query(`INSERT INTO facturas_detalle (factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [facturaId, prod.nombre, prod.tipo, prod.cantidad, prod.costo, prod.precio_venta || 0, prod.cantidad * prod.costo]);
+
+            // Ajustado a tu esquema: factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal
+            await db.query(`
+                INSERT INTO facturas_detalle (factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+                facturaId,
+                nombreLimpio,
+                prod.tipo,
+                parseInt(prod.cantidad),
+                parseFloat(prod.costo),
+                parseFloat(prod.precio_venta || 0),
+                parseInt(prod.cantidad) * parseFloat(prod.costo)
+            ]);
+
             if (prod.tipo === 'VENTA') {
-                await db.query(`UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2`, [prod.cantidad, productoId]);
+                await db.query(`UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2`, [parseInt(prod.cantidad), productoId]);
             } else {
-                await db.query(`UPDATE inventario_uso_servicio SET stock_total = stock_total + $1, disponibles = disponibles + $1 WHERE id = $2`, [prod.cantidad, productoId]);
+                await db.query(`UPDATE inventario_uso_servicio SET stock_total = stock_total + $1, disponibles = disponibles + $1 WHERE id = $2`, [parseInt(prod.cantidad), productoId]);
             }
         }
+
         await db.query('COMMIT');
         res.json({ mensaje: 'Factura registrada', factura_id: facturaId });
+
     } catch (error) {
         await db.query('ROLLBACK');
-        console.error('Error registrar factura:', error);
+        console.error('--- ERROR REAL AL GUARDAR FACTURA ---');
+        console.error(error.message);
+        console.error(error.detail);
+        console.error('------------------------------------');
         res.status(500).json({ error: 'Error al guardar factura', detalle: error.message });
     }
 });

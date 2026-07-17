@@ -389,7 +389,7 @@
 </div>
                     <div class="form-group">
                         <label>📂 Tipo</label>
-                        <select id="detalleTipo">
+                        <select id="detalleTipo" onchange="toggleCampoPrecioVenta()">
                             <option value="VENTA">🛒 Venta</option>
                             <option value="SERVICIO">🔧 Servicio</option>
                         </select>
@@ -555,6 +555,15 @@
             setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateX(100%)'; setTimeout(()=>toast.remove(),300); }, 4000);
         }
 
+        function formatearFechaFactura(valor) {
+            if (!valor) return '';
+            const soloFecha = String(valor).split('T')[0]; // toma solo YYYY-MM-DD, ignora hora/zona horaria
+            const partes = soloFecha.split('-');
+            if (partes.length !== 3) return soloFecha;
+            const [anio, mes, dia] = partes;
+            return `${dia}/${mes}/${anio}`;
+        }
+
         function renderPaginacion(containerId, pag, funcName) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -567,6 +576,19 @@
                 <span style="font-size:0.85rem; font-weight:600;">Página ${pag.pagina_actual} de ${pag.total_paginas} (${pag.total_productos || pag.total_facturas || 0} total)</span>
                 <button onclick="${funcName}(${pag.pagina_actual + 1})" ${pag.pagina_actual >= pag.total_paginas ? 'disabled' : ''} style="padding:0.4rem 0.8rem; border-radius:6px; border:1px solid #ddd; cursor:pointer;">Siguiente ➡️</button>
             `;
+        }
+
+        function toggleCampoPrecioVenta() {
+            const tipo = document.getElementById('detalleTipo').value;
+            const campoPrecio = document.getElementById('detallePrecio');
+            if (tipo === 'SERVICIO') {
+                campoPrecio.value = '';
+                campoPrecio.disabled = true;
+                campoPrecio.placeholder = 'No aplica (uso interno)';
+            } else {
+                campoPrecio.disabled = false;
+                campoPrecio.placeholder = '0';
+            }
         }
 
         function agregarDetalleFactura() {
@@ -648,7 +670,7 @@
                 document.getElementById('contadorMovimientos').textContent = `(${pag.total_facturas||facturas.length})`;
                 if (facturas.length===0){ container.innerHTML=`<div style="text-align:center; padding:2rem; color:var(--text-light);">📭 No hay facturas</div>`; document.getElementById('paginacionHistorial').innerHTML=''; return; }
                 container.innerHTML = facturas.map(f=>{
-                    const fechaStr = new Date(f.fecha||f.fecha_registro).toLocaleDateString('es-CO');
+                    const fechaStr = formatearFechaFactura(f.fecha_factura||f.fecha||f.fecha_registro);
                     return `<div style="background:white; border:1px solid #E8ECF1; border-radius:12px; padding:1rem; margin-bottom:0.8rem;"><div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;"><div><strong style="color:var(--primary);">🧾 ${f.numero_factura||f.numero||'FAC-'+f.id}</strong><span style="font-size:0.75rem; color:var(--text-light); margin-left:0.5rem;">📅 ${fechaStr}</span><div style="font-size:0.85rem; color:var(--text-light);">🏢 ${f.proveedor||'Sin proveedor'}</div><div style="font-size:0.75rem; color:var(--text-light);">👤 Registrada por ${f.usuario||'Sistema'}</div></div><div style="text-align:right;"><div style="font-weight:700;">$${parseFloat(f.total_compra||f.total||0).toLocaleString()}</div><button onclick="verDetalleFactura(${f.id})" class="btn btn-primary btn-sm" style="margin-top:0.3rem; padding:0.2rem 0.8rem; font-size:0.7rem;">📄 Ver Detalle</button></div></div></div>`;
                 }).join('');
                 renderPaginacion('paginacionHistorial', { ...pag, total_productos: pag.total_facturas }, 'cargarHistorialInventario');
@@ -662,7 +684,7 @@
                 const res=await fetch(`${API_URL}/api/inventario/factura/${facturaId}`); const data=await res.json();
                 if(!res.ok) throw new Error(data.error||'Error');
                 const c=data.factura; const detalles=data.detalle||data.detalles||[];
-                const fechaStr=new Date(c.fecha||c.fecha_registro).toLocaleDateString('es-CO');
+                const fechaStr=formatearFechaFactura(c.fecha||c.fecha_registro);
                 titulo.textContent=`🧾 ${c.numero_factura||'Factura #'+c.id}`;
                 contenido.innerHTML=`<div style="background:#F8F9FA; padding:1rem; border-radius:8px; margin-bottom:1rem; display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.85rem;"><div><strong>📅 Fecha:</strong> ${fechaStr}</div><div><strong>🏢 Proveedor:</strong> ${c.proveedor||'N/A'}</div><div><strong>💰 Total:</strong> $${parseFloat(c.total||0).toLocaleString()}</div><div><strong>🔢 Número:</strong> ${c.numero_factura||''}</div><div><strong>👤 Registrada por:</strong> ${c.usuario||'Sistema'}</div></div><table style="width:100%; font-size:0.85rem; border-collapse:collapse;"><thead><tr style="background:#F0F2F5;"><th style="padding:0.4rem; text-align:left;">Producto</th><th style="text-align:center;">Cant</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Subtotal</th></tr></thead><tbody>${detalles.map(d=>`<tr style="border-bottom:1px solid #eee;"><td style="padding:0.4rem;">${d.producto_nombre||d.nombre||'Producto '+d.producto_id}</td><td style="text-align:center;">${d.cantidad}</td><td style="text-align:right;">$${parseFloat(d.precio_unitario||d.costo||0).toLocaleString()}</td><td style="text-align:right; font-weight:600;">$${parseFloat(d.subtotal|| (d.cantidad*(d.precio_unitario||0))).toLocaleString()}</td></tr>`).join('')}</tbody></table>`;
             }catch(e){ contenido.innerHTML=`<p style="color:var(--danger);">❌ ${e.message}</p>`; }

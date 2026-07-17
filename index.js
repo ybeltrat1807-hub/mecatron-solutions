@@ -1804,17 +1804,8 @@ app.get('/api/inventario', async (req, res) => {
 
     // TODOS: combina inventario_venta + inventario_uso_servicio con paginación real
     if (tipo === 'TODOS') {
-      const countRes = await db.query(`
-        SELECT COUNT(*) FROM (
-          SELECT id FROM inventario_venta WHERE nombre ILIKE $1
-          UNION ALL
-          SELECT id FROM inventario_uso_servicio WHERE nombre ILIKE $1
-        ) combinado
-      `, [buscarParam]);
-      const total = parseInt(countRes.rows[0].count);
-
       const dataRes = await db.query(`
-        SELECT * FROM (
+        SELECT *, COUNT(*) OVER() AS total_count FROM (
           SELECT id, nombre, 'VENTA' AS tipo, stock, costo, precio_venta,
                  'DISPONIBLE'::varchar AS estado
           FROM inventario_venta
@@ -1825,13 +1816,16 @@ app.get('/api/inventario', async (req, res) => {
           FROM inventario_uso_servicio
           WHERE nombre ILIKE $1
         ) combinado
-        ORDER BY nombre ASC
+        ORDER BY nombre ASC, id ASC
         LIMIT $2 OFFSET $3
       `, [buscarParam, limit, offset]);
 
+      const total = dataRes.rows.length > 0 ? parseInt(dataRes.rows[0].total_count) : 0;
+      const productos = dataRes.rows.map(({ total_count, ...resto }) => resto);
+
       return res.json({
         tipo,
-        productos: dataRes.rows,
+        productos,
         paginacion: {
           pagina_actual: page,
           total_paginas: Math.ceil(total / limit),
@@ -1866,7 +1860,7 @@ app.get('/api/inventario', async (req, res) => {
       : `id, nombre, 'VENTA' AS tipo, stock, costo, precio_venta, created_at`;
 
     const dataRes = await db.query(
-      `SELECT ${selectCols} FROM ${tabla} ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx + 1}`,
+      `SELECT ${selectCols} FROM ${tabla} ${whereClause} ORDER BY nombre ASC, id ASC LIMIT $${idx} OFFSET $${idx + 1}`,
       [...params, limit, offset]
     );
 
@@ -2029,8 +2023,13 @@ app.post('/api/inventario/factura', async (req, res) => {
             if (!productoId) {
                 if (prod.tipo === 'VENTA') {
                     const { rows } = await db.query(`SELECT id FROM inventario_venta WHERE nombre ILIKE $1 LIMIT 1`, [nombreLimpio]);
-                    if (rows.length > 0) productoId = rows[0].id;
-                    else {
+                    if (rows.length > 0) {
+                        productoId = rows[0].id;
+                        await db.query(
+                            `UPDATE inventario_venta SET costo = $1, precio_venta = $2 WHERE id = $3`,
+                            [parseFloat(prod.costo), parseFloat(prod.precio_venta) || parseFloat(prod.costo) * 1.3, productoId]
+                        );
+                    } else {
                         const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [nombreLimpio, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
                         productoId = newRows[0].id;
                     }

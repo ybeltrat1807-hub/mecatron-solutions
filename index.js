@@ -558,49 +558,66 @@ app.get('/api/preventa/consultar/:idRemision', (req, res) => {
 // =================================================================
 // 💡 RECOMENDADOR DE HERRAMIENTAS POR TIPO DE SERVICIO (Versión PostgreSQL Relacional)
 app.get('/api/servicios/recomendar', async (req, res) => {
-    // Captura el parámetro como lo hacías antes (?tipo_servicio=...)
-    const { tipo_servicio } = req.query;
+  const { tipo_servicio } = req.query;
+  
+  const mapaColumnas = {
+    'MANTENIMIENTO_ELECTRICO': 'usa_mantenimiento_electrico',
+    'MANTENIMIENTO_AIRE': 'usa_mantenimiento_aire',
+    'MONTAJE_ELECTRICO': 'usa_montaje_electrico',
+    'MONTAJE_AIRE': 'usa_montaje_aire',
+    'REPARACION_ELECTRICA': 'usa_reparacion_electrica',
+    'REPARACION_AIRE': 'usa_reparacion_aire'
+  };
 
-    if (!tipo_servicio) {
-        return res.status(400).json({ error: "Debe especificar el tipo_servicio." });
-    }
+  const columna = mapaColumnas[tipo_servicio];
+  
+  if (!columna) {
+    return res.status(400).json({ error: `Tipo servicio no válido: ${tipo_servicio}` });
+  }
 
-    try {
-        // Hacemos el JOIN con la tabla intermedia plantilla_servicios
-        const query = `
-            SELECT h.id, h.nombre, h.disponibles, h.estado 
-            FROM plantilla_servicios p
-            JOIN inventario_uso_servicio h ON p.id_herramienta = h.id
-            WHERE p.tipo_servicio = $1 AND h.disponibles > 0
-            ORDER BY h.nombre
-        `;
-        
-        const { rows } = await db.query(query, [tipo_servicio]);
+  try {
+    // Ahora filtra por la columna booleana, no por tipo_servicio repetido
+    // Y como ya deduplicaste, trae 1 fila por herramienta
+    const query = `
+      SELECT id, nombre, stock_total, disponibles, estado,
+             usa_mantenimiento_electrico, usa_mantenimiento_aire,
+             usa_montaje_electrico, usa_montaje_aire,
+             usa_reparacion_electrica, usa_reparacion_aire
+      FROM inventario_uso_servicio
+      WHERE ${columna} = true AND disponibles > 0
+      ORDER BY nombre ASC
+    `;
+    
+    const { rows } = await db.query(query);
+    
+    res.json({ 
+      herramientas: rows,
+      total: rows.length,
+      servicio: tipo_servicio
+    });
+    
+  } catch (error) {
+    console.error('Error en recomendador:', error);
+    res.status(500).json({ error: 'Error al obtener herramientas recomendadas' });
+  }
+});
 
-        if (rows.length === 0) {
-            return res.status(404).json({ 
-                error: "No hay herramientas disponibles para este tipo de servicio",
-                tipo_servicio: tipo_servicio
-            });
-        }
-
-        // Devolvemos exactamente el mismo formato de JSON que tu frontend ya conoce
-        res.json({
-            tipo_servicio: tipo_servicio,
-            totalHerramientas: rows.length,
-            herramientas: rows.map(h => ({
-                id: h.id,
-                nombre: h.nombre,
-                disponible: h.disponibles > 0,
-                disponibles: h.disponibles,
-                estado: h.estado
-            }))
-        });
-
-    } catch (error) {
-        console.error("Error al consultar la BD para recomendaciones:", error);
-        res.status(500).json({ error: "Error interno al conectar con la base de datos." });
-    }
+// ENDPOINT DE INVENTARIO PARA SERVICIOS - ya devuelve todo sumado
+app.get('/api/servicios/inventario', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT id, nombre, stock_total, disponibles, estado,
+             usa_mantenimiento_electrico, usa_mantenimiento_aire,
+             usa_montaje_electrico, usa_montaje_aire,
+             usa_reparacion_electrica, usa_reparacion_aire
+      FROM inventario_uso_servicio
+      ORDER BY nombre ASC
+    `);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error inventario servicios:', error);
+    res.status(500).json({ error: 'Error al cargar inventario' });
+  }
 });
 // ==========================================================
 // DESPACHO DE HERRAMIENTAS (SALIDA) - COMPLETO Y CORREGIDO

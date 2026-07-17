@@ -695,13 +695,22 @@
             const div=document.getElementById('sugerenciasProductos');
             if(texto.length<2){ div.style.display='none'; return; }
             try{
-                if(productosCache.length===0){ const filtroActual=document.getElementById('filtroTipo').value; const r=await fetch(`${API_URL}/api/inventario?tipo=${filtroActual}&limit=200`,{cache:'no-store'}); const d=await r.json(); productosCache=d.productos||d||[]; }
+                // CORREGIDO: Usa detalleTipo (del formulario) no filtroTipo (de la tabla)
+                const tipoFormulario = document.getElementById('detalleTipo').value || 'VENTA';
+                // Fuerza recarga si cambia de tipo
+                if(productosCache.length===0 || productosCache[0]?.tipo !== tipoFormulario){
+                    const r=await fetch(`${API_URL}/api/inventario?tipo=${tipoFormulario}&limit=500`,{cache:'no-store'});
+                    const d=await r.json();
+                    productosCache=d.productos||d||[];
+                }
                 const coincidencias=productosCache.filter(p=>p.nombre.toLowerCase().includes(texto.toLowerCase()));
-                if(coincidencias.length===0){ div.innerHTML=`<div style="padding:0.5rem; text-align:center; font-size:0.85rem; color:var(--text-light);">📭 No hay coincidencias</div>`; div.style.display='block'; return; }
-                div.innerHTML=coincidencias.slice(0,10).map(p=>{ const stockVal=p.stock ?? p.disponibles ?? p.stock_total ?? 0; return `<div style="padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'" onclick="seleccionarProductoParaFactura(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', '${p.tipo}')"><div><strong>${p.nombre}</strong><span style="font-size:0.7rem; color:var(--text-light);"> ${p.tipo}</span></div><div style="font-size:0.7rem;">Stock:${stockVal}</div></div>`; }).join('');
+                if(coincidencias.length===0){ div.innerHTML=`<div style="padding:0.5rem; text-align:center; font-size:0.85rem; color:var(--text-light);">📭 No hay coincidencias en ${tipoFormulario}</div>`; div.style.display='block'; return; }
+                div.innerHTML=coincidencias.slice(0,10).map(p=>{ const stockVal=p.stock ?? p.disponibles ?? p.stock_total ?? 0; const tipoReal = p.tipo || tipoFormulario; return `<div style="padding:0.5rem 0.8rem; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'" onclick="seleccionarProductoParaFactura(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', '${tipoReal}')"><div><strong>${p.nombre}</strong><span style="font-size:0.7rem; color:var(--text-light);"> ${tipoReal}</span></div><div style="font-size:0.7rem;">Stock:${stockVal}</div></div>`; }).join('');
                 div.style.display='block';
             }catch(e){ console.error(e); }
         }
+        // Limpiar cache cuando cambias VENTA/SERVICIO en el formulario
+        document.getElementById('detalleTipo')?.addEventListener('change', ()=>{ productosCache=[]; document.getElementById('sugerenciasProductos').style.display='none'; });
         function seleccionarProductoParaFactura(id,nombre,tipo){ document.getElementById('sugerenciasProductos').style.display='none'; document.getElementById('detalleNombre').value=nombre; document.getElementById('detalleTipo').value=tipo; const prod=productosCache.find(p=>p.id===id); if(prod){ if(prod.costo>0) document.getElementById('detalleCosto').value=prod.costo; if(prod.precio_venta>0) document.getElementById('detallePrecio').value=prod.precio_venta; } }
         document.addEventListener('click', function(e){ const s=document.getElementById('sugerenciasProductos'); const inp=document.getElementById('detalleNombre'); if(s && !s.contains(e.target) && e.target!==inp){ s.style.display='none'; } });
 

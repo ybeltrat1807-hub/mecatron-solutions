@@ -2019,6 +2019,9 @@ app.post('/api/inventario/factura', async (req, res) => {
         for (const prod of detalles) {
             let productoId = prod.id;
             let nombreLimpio = prod.nombre.trim();
+            // PRECIO REAL: respeta exactamente lo que escribes en el formulario
+            let precioVentaReal = parseFloat(prod.precio_venta || prod.precio || 0) || 0;
+            if (precioVentaReal <= 0) precioVentaReal = parseFloat(prod.costo); // sin margen automático
 
             if (!productoId) {
                 if (prod.tipo === 'VENTA') {
@@ -2026,11 +2029,11 @@ app.post('/api/inventario/factura', async (req, res) => {
                     if (rows.length > 0) {
                         productoId = rows[0].id;
                         await db.query(
-                            `UPDATE inventario_venta SET costo = $1, precio_venta = $2 WHERE id = $3`,
-                            [parseFloat(prod.costo), parseFloat(prod.precio_venta || prod.precio || 0) || parseFloat(prod.costo), productoId]
+                            `UPDATE inventario_venta SET costo = $1, precio_venta = $2, tipo = 'VENTA' WHERE id = $3`,
+                            [parseFloat(prod.costo), precioVentaReal, productoId]
                         );
                     } else {
-                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [nombreLimpio, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta, tipo) VALUES ($1, $2, $3, $4, 'VENTA') RETURNING id`, [nombreLimpio, 0, prod.costo, precioVentaReal]);
                         productoId = newRows[0].id;
                     }
                 } else {
@@ -2043,7 +2046,6 @@ app.post('/api/inventario/factura', async (req, res) => {
                 }
             }
 
-            // Ajustado a tu esquema: factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal
             await db.query(`
                 INSERT INTO facturas_detalle (factura_id, producto_nombre, producto_tipo, cantidad, costo_unitario, precio_venta, subtotal)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -2053,7 +2055,7 @@ app.post('/api/inventario/factura', async (req, res) => {
                 prod.tipo,
                 parseInt(prod.cantidad),
                 parseFloat(prod.costo),
-                parseFloat(prod.precio_venta || prod.precio || 0),
+                precioVentaReal,
                 parseInt(prod.cantidad) * parseFloat(prod.costo)
             ]);
 

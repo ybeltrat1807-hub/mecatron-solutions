@@ -2027,7 +2027,7 @@ app.post('/api/inventario/factura', async (req, res) => {
                         productoId = rows[0].id;
                         await db.query(
                             `UPDATE inventario_venta SET costo = $1, precio_venta = $2 WHERE id = $3`,
-                            [parseFloat(prod.costo), parseFloat(prod.precio_venta) || parseFloat(prod.costo) * 1.3, productoId]
+                            [parseFloat(prod.costo), parseFloat(prod.precio_venta || prod.precio || 0) || parseFloat(prod.costo), productoId]
                         );
                     } else {
                         const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [nombreLimpio, 0, prod.costo, prod.precio_venta || prod.costo * 1.3]);
@@ -2053,7 +2053,7 @@ app.post('/api/inventario/factura', async (req, res) => {
                 prod.tipo,
                 parseInt(prod.cantidad),
                 parseFloat(prod.costo),
-                parseFloat(prod.precio_venta || 0),
+                parseFloat(prod.precio_venta || prod.precio || 0),
                 parseInt(prod.cantidad) * parseFloat(prod.costo)
             ]);
 

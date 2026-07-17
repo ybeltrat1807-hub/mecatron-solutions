@@ -2029,11 +2029,11 @@ app.post('/api/inventario/factura', async (req, res) => {
                     if (rows.length > 0) {
                         productoId = rows[0].id;
                         await db.query(
-                            `UPDATE inventario_venta SET costo = $1, precio_venta = $2, tipo = 'VENTA' WHERE id = $3`,
+                            `UPDATE inventario_venta SET costo = $1, precio_venta = $2 WHERE id = $3`,
                             [parseFloat(prod.costo), precioVentaReal, productoId]
                         );
                     } else {
-                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta, tipo) VALUES ($1, $2, $3, $4, 'VENTA') RETURNING id`, [nombreLimpio, 0, prod.costo, precioVentaReal]);
+                        const { rows: newRows } = await db.query(`INSERT INTO inventario_venta (nombre, stock, costo, precio_venta) VALUES ($1, $2, $3, $4) RETURNING id`, [nombreLimpio, 0, prod.costo, precioVentaReal]);
                         productoId = newRows[0].id;
                     }
                 } else {

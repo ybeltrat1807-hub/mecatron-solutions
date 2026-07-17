@@ -1793,14 +1793,18 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
 // =================================================================
 // MÓDULO DE INVENTARIO - VERSIÓN LIMPIA POSTGRESQL
 // =================================================================
-// INVENTARIO GENERAL CON PAGINACIÓN - FIX FINAL
 app.get('/api/inventario', async (req, res) => {
   try {
     const buscar = req.query.buscar || req.query.q || '';
-    const tipo = req.query.tipo || 'TODOS';
+    const tipo = (req.query.tipo || 'VENTA').toUpperCase();
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
+
+    // Selecciona la tabla según el tipo de inventario
+    const tabla = tipo === 'SERVICIO' || tipo === 'HERRAMIENTA'
+      ? 'inventario_uso_servicio'
+      : 'inventario_venta';
 
     let conditions = [];
     let params = [];
@@ -1811,23 +1815,19 @@ app.get('/api/inventario', async (req, res) => {
       params.push(`%${buscar}%`);
       idx++;
     }
-    if (tipo && tipo !== 'TODOS') {
-      conditions.push(`tipo = $${idx}`);
-      params.push(tipo);
-      idx++;
-    }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const countRes = await db.query(`SELECT COUNT(*) FROM inventario_venta ${whereClause}`, params);
+    const countRes = await db.query(`SELECT COUNT(*) FROM ${tabla} ${whereClause}`, params);
     const total = parseInt(countRes.rows[0].count);
 
     const dataRes = await db.query(
-      `SELECT * FROM inventario_venta ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx+1}`,
+      `SELECT * FROM ${tabla} ${whereClause} ORDER BY nombre ASC LIMIT $${idx} OFFSET $${idx + 1}`,
       [...params, limit, offset]
     );
 
     res.json({
+      tipo,
       productos: dataRes.rows,
       paginacion: {
         pagina_actual: page,

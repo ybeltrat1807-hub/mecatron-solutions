@@ -1878,31 +1878,64 @@ app.get('/api/inventario/historial', async (req, res) => {
 });
 
 // 3. DETALLE DE UNA FACTURA ESPECÍFICA - UN SOLO ENDPOINT
+// FIX - DETALLE DE FACTURA - CORREGIR GROUP BY
 app.get('/api/inventario/factura/:id', async (req, res) => {
-    const facturaId = req.params.id;
-    try {
-        const { rows: cabecera } = await db.query(`
-            SELECT fc.*, COUNT(fd.id) as total_productos, SUM(fd.cantidad) as total_unidades
-            FROM facturas_compra fc
-            LEFT JOIN facturas_detalle fd ON fc.id = fd.factura_id
-            WHERE fc.id = $1
-            GROUP BY fc.id
-        `, [facturaId]);
+  const { id } = req.params;
+  try {
+    const query = `
+      SELECT
+        fc.id,
+        fc.numero_factura,
+        fc.fecha,
+        fc.proveedor,
+        fc.total,
+        fd.producto_id,
+        p.nombre as producto_nombre,
+        fd.cantidad,
+        fd.precio_unitario,
+        (fd.cantidad * fd.precio_unitario) as subtotal
+      FROM facturas_compra fc
+      JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
+      JOIN inventario_venta p ON p.id = fd.producto_id
+      WHERE fc.id = $1
+    `;
 
-        if (cabecera.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
+    // Si tu query original usaba SUM, usa esta versión con GROUP BY completo:
+    /*
+    SELECT
+        fc.id,
+        fc.numero_factura,
+        fc.fecha,
+        fc.proveedor,
+        SUM(fd.cantidad * fd.precio_unitario) as total_calculado
+    FROM facturas_compra fc
+    JOIN factura_compra_detalle fd ON fd.factura_id = fc.id
+    WHERE fc.id = $1
+    GROUP BY fc.id, fc.numero_factura, fc.fecha, fc.proveedor
+    */
 
-        const { rows: detalles } = await db.query(`
-            SELECT id, producto_nombre as nombre, producto_tipo as tipo, cantidad, costo_unitario as costo, precio_venta, subtotal
-            FROM facturas_detalle WHERE factura_id = $1 ORDER BY id
-        `, [facturaId]);
+    const { rows } = await db.query(query, [id]);
 
-        res.json({ cabecera: cabecera[0], detalles });
-    } catch (error) {
-        console.error('Error detalle factura:', error);
-        res.status(500).json({ error: 'Error detalle', detalle: error.message });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Factura no encontrada' });
     }
-});
 
+    res.json({
+      factura: {
+        id: rows[0].id,
+        numero_factura: rows[0].numero_factura,
+        fecha: rows[0].fecha,
+        proveedor: rows[0].proveedor,
+        total: rows[0].total
+      },
+      detalle: rows
+    });
+
+  } catch (error) {
+    console.error('Error detalle factura:', error);
+    res.status(500).json({ error: 'Error al cargar detalle' });
+  }
+});
 // 4. REGISTRAR NUEVA FACTURA DE COMPRA - FALTABA ESTE
 app.post('/api/inventario/ingresar', async (req, res) => {
     const { numero_factura, proveedor, fecha_factura, usuario, observaciones, productos } = req.body;

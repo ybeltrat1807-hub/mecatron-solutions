@@ -1794,103 +1794,75 @@ app.put('/api/servicios/agendamiento/:id/cancelar', async (req, res) => {
 // MÓDULO DE INVENTARIO - VERSIÓN LIMPIA POSTGRESQL
 // =================================================================
 
-// HISTORIAL CON PAGINACIÓN - NOMBRES REALES
+// HISTORIAL - FINAL CON NOMBRES REALES
 app.get('/api/inventario/historial', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 50;
   const offset = (page - 1) * limit;
-  const busqueda = req.query.q || '';
+  const q = req.query.q || '';
 
   try {
-    let whereClause = '';
+    let where = '';
     let params = [];
-    if (busqueda) {
-      whereClause = `WHERE fc.numero_factura ILIKE $1 OR fc.proveedor ILIKE $1`;
-      params.push(`%${busqueda}%`);
+    if (q) {
+      where = `WHERE numero_factura ILIKE $1 OR proveedor ILIKE $1`;
+      params.push(`%${q}%`);
     }
 
-    const countResult = await db.query(`SELECT COUNT(*) as total FROM facturas_compra fc ${whereClause}`, params);
-    const totalFacturas = parseInt(countResult.rows[0].total);
+    const countRes = await db.query(`SELECT COUNT(*) FROM facturas_compra ${where}`, params);
+    const total = parseInt(countRes.rows[0].count);
 
-    const query = `
-      SELECT fc.* FROM facturas_compra fc
-      ${whereClause}
-      ORDER BY fc.id DESC
-      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-    `;
-    const { rows } = await db.query(query, [...params, limit, offset]);
+    const rowsRes = await db.query(
+      `SELECT * FROM facturas_compra ${where} ORDER BY fecha_factura DESC, id DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`,
+      [...params, limit, offset]
+    );
 
     res.json({
-      facturas: rows,
-      paginacion: {
-        pagina_actual: page,
-        total_paginas: Math.ceil(totalFacturas / limit),
-        total_facturas: totalFacturas
-      }
+      facturas: rowsRes.rows,
+      paginacion: { pagina_actual: page, total_paginas: Math.ceil(total/limit), total_facturas: total }
     });
-  } catch (error) {
-    console.error('Error historial:', error.message);
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    console.error('Historial error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
-// DETALLE DE FACTURA - NOMBRES REALES
+// DETALLE DE FACTURA - FINAL CON NOMBRES REALES
 app.get('/api/inventario/factura/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const cabecera = await db.query(`SELECT * FROM facturas_compra WHERE id = $1`, [id]);
-    if (cabecera.rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
+    const cab = await db.query(`SELECT * FROM facturas_compra WHERE id = $1`, [id]);
+    if (cab.rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
 
-    const detalle = await db.query(`
+    const det = await db.query(`
       SELECT
-        fd.producto_id,
-        fd.cantidad,
-        fd.precio_unitario,
-        (fd.cantidad * fd.precio_unitario) as subtotal,
-        COALESCE(iv.nombre, 'Producto ' || fd.producto_id) as producto_nombre
-      FROM facturas_detalle fd
-      LEFT JOIN inventario_venta iv ON iv.id = fd.producto_id
-      WHERE fd.factura_id = $1
-      ORDER BY fd.id ASC
+        producto_nombre,
+        producto_tipo,
+        cantidad,
+        costo_unitario,
+        precio_venta,
+        subtotal
+      FROM facturas_detalle
+      WHERE factura_id = $1
+      ORDER BY id ASC
     `, [id]);
 
     res.json({
-      factura: cabecera.rows[0],
-      detalle: detalle.rows
+      factura: {
+        id: cab.rows[0].id,
+        numero_factura: cab.rows[0].numero_factura,
+        proveedor: cab.rows[0].proveedor,
+        fecha: cab.rows[0].fecha_factura,
+        fecha_registro: cab.rows[0].fecha_registro,
+        usuario: cab.rows[0].usuario,
+        total: cab.rows[0].total_compra,
+        observaciones: cab.rows[0].observaciones
+      },
+      detalle: det.rows
     });
-  } catch (error) {
-    console.error('Error detalle factura:', error.message);
-    res.status(500).json({ error: 'Error al cargar detalle: ' + error.message });
-  }
-});
-// 3. DETALLE DE UNA FACTURA - SIN GROUP BY
-app.get('/api/inventario/factura/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Primero la cabecera
-    const cabecera = await db.query(`SELECT * FROM facturas_compra WHERE id = $1`, [id]);
-    if (cabecera.rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
 
-    // Luego el detalle - sin agregados, sin GROUP BY
-    const detalle = await db.query(`
-      SELECT
-        fd.producto_id,
-        COALESCE(iv.nombre, p.nombre) as producto_nombre,
-        fd.cantidad,
-        fd.precio_unitario,
-        (fd.cantidad * fd.precio_unitario) as subtotal
-      FROM facturas_detalle fd
-      LEFT JOIN inventario_venta iv ON iv.id = fd.producto_id
-      LEFT JOIN inventario_venta p ON p.id = fd.producto_id
-      WHERE fd.factura_id = $1
-    `, [id]);
-
-    res.json({
-      factura: cabecera.rows[0],
-      detalle: detalle.rows
-    });
   } catch (error) {
-    console.error('Error detalle factura:', error);
+    console.error('Detalle error:', error.message);
     res.status(500).json({ error: 'Error al cargar detalle: ' + error.message });
   }
 });

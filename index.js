@@ -1822,32 +1822,38 @@ app.get('/api/inventario', async (req, res) => {
     }
 });
 
-// 2. HISTORIAL DE FACTURAS DE COMPRA
+// 5. HISTORIAL DE FACTURAS - CORREGIDO PARA POSTGRES
 app.get('/api/inventario/historial', async (req, res) => {
     try {
         const { rows: facturas } = await db.query(`
-            SELECT fc.id as factura_id, fc.numero_factura, fc.proveedor, fc.fecha_factura, fc.fecha_registro, fc.usuario, fc.total_compra, fc.observaciones, COUNT(fd.id) as total_productos, SUM(fd.cantidad) as total_unidades
+            SELECT 
+                fc.id,
+                fc.numero_factura AS numero,
+                fc.proveedor,
+                fc.fecha_factura AS fecha,
+                fc.fecha_registro,
+                fc.usuario,
+                fc.total_compra AS total,
+                COUNT(fd.id) AS productos,
+                COALESCE(SUM(fd.cantidad),0) AS unidades,
+                fc.observaciones
             FROM facturas_compra fc
             LEFT JOIN facturas_detalle fd ON fc.id = fd.factura_id
-            GROUP BY fc.id
-            ORDER BY fc.fecha_factura DESC, fc.id DESC
+            GROUP BY 
+                fc.id,
+                fc.numero_factura,
+                fc.proveedor,
+                fc.fecha_factura,
+                fc.fecha_registro,
+                fc.usuario,
+                fc.total_compra,
+                fc.observaciones
+            ORDER BY fc.fecha_registro DESC
+            LIMIT 100
         `);
 
-        if (facturas.length === 0) return res.json({ facturas: [], mensaje: 'No hay facturas' });
+        res.json({ facturas });
 
-        const resultado = facturas.map(f => ({
-            id: f.factura_id,
-            numero: f.numero_factura || 'S/N',
-            proveedor: f.proveedor || 'Sin proveedor',
-            fecha: f.fecha_factura || f.fecha_registro,
-            usuario: f.usuario || 'Sistema',
-            total: parseFloat(f.total_compra || 0),
-            productos: parseInt(f.total_productos || 0),
-            unidades: parseInt(f.total_unidades || 0),
-            observaciones: f.observaciones || ''
-        }));
-
-        res.json({ facturas: resultado });
     } catch (error) {
         console.error('Error historial:', error);
         res.status(500).json({ error: 'Error historial', detalle: error.message });

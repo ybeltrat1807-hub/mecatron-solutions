@@ -1862,7 +1862,7 @@ app.get('/api/inventario', async (req, res) => {
     const total = parseInt(countRes.rows[0].count);
 
     const selectCols = tabla === 'inventario_uso_servicio'
-      ? `id, nombre, 'SERVICIO' AS tipo, disponibles AS stock, estado, observaciones, created_at, usa_mantenimiento`
+      ? `id, nombre, 'SERVICIO' AS tipo, disponibles AS stock, estado, created_at`
       : `id, nombre, 'VENTA' AS tipo, stock, costo, precio_venta, created_at`;
 
     const dataRes = await db.query(

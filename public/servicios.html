@@ -2296,7 +2296,6 @@ function imprimirReciboServicio(ag) {
                 </div>
                 <div class="brand-title">MECATRON SOLUTIONS</div>
                 <div class="slogan">INNOVAMOS, INTEGRAMOS, SOLUCIONAMOS</div>
-                <span style="font-size: 10px; color: #444;">Soluciones Tecnológicas e Industriales</span><br>
                 <span style="font-size: 10px; font-weight: bold;">El Bagre, Antioquia</span><br>
                 <div class="divider"></div>
                 <span class="bold" style="font-size: 12px; background: #0056b3; color: white; padding: 2px 6px; border-radius: 3px;">RECIBO DE SERVICIO: #SER-${ag.id}</span>
@@ -2307,6 +2306,7 @@ function imprimirReciboServicio(ag) {
             <div style="font-size: 11px; line-height: 1.4;">
                 <strong>FECHA EMISIÓN:</strong> ${new Date().toLocaleDateString('es-CO')} | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}<br>
                 <strong>FECHA PROG.:</strong> ${fechaLimpia}<br>
+                <strong>SERVICIO PRESTADO POR: Electron DM. <br>
                 <strong>CLIENTE:</strong> ${ag.cliente.toUpperCase()}<br>
                 <strong>TÉCNICO ASIG.:</strong> ${(ag.tecnico || 'Sin asignar').toUpperCase()}<br>
             </div>

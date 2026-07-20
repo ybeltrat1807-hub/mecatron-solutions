@@ -7,13 +7,10 @@ const db = require('./conexion');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
 app.use(cors({
-  origin: ['mecatron-solutions-production.up.railway.app'], // pon tu URL real del frontend
+  origin: true, // Permitir todos los orígenes para desarrollo
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // Middleware de enrutamiento estático para Mecatron Solutions
 app.use(express.json());
@@ -51,14 +48,7 @@ app.get('/api/test-db', async (req, res) => {
 // ==========================================
 // ENDPOINT DE PRUEBA - PARA VERIFICAR QUE EL SERVIDOR FUNCIONA
 // ==========================================
-app.get('/api/test', (req, res) => {
-    res.json({ 
-        mensaje: 'Servidor de Mecatron Solutions funcionando correctamente',
-        hora: new Date().toISOString(),
-        estado: '✅ Activo'
-    });
-});
-// CORS - Permitir peticiones del frontend
+// CORS - Permitir peticiones del frontend (solo una vez)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -266,15 +256,15 @@ app.post('/api/preventa/salida', async (req, res) => {
         res.status(500).json({ error: "Error interno: " + error.message });
     }
 });
-// Ruta para el listado detallado en ventas.html
+// Ruta para el listado detallado en ventas.html - FIX REAL TABLA
 app.get('/api/preventa/remisiones-activas', async (req,res)=>{
   try{
-    const {rows} = await db.query(`SELECT id_remision, total_ventas, fecha_creacion FROM remisiones ORDER BY fecha_creacion DESC LIMIT 20`);
+    const {rows} = await db.query(`SELECT id_remision, total_ventas, fecha_creacion FROM remisiones WHERE estado='ACTIVA' ORDER BY fecha_creacion DESC LIMIT 20`);
     const activas = await Promise.all(rows.map(async r=>{
-      const {rows: prods} = await db.query(`SELECT cantidad_vendida FROM remisiones_productos WHERE id_remision=$1`, [r.id_remision]);
+      const {rows: prods} = await db.query(`SELECT id_producto, nombre, cantidad_vendida, cantidad_cargada FROM remisiones_productos WHERE id_remision=$1`, [r.id_remision]);
       return {
         idRemision: r.id_remision,
-        productos: prods.map(p=>({vendidos: Number(p.cantidad_vendida||0)})),
+        productos: prods.map(p=>({idProducto:p.id_producto, nombre:p.nombre, vendidos: Number(p.cantidad_vendida||0), cargados: Number(p.cantidad_cargada||0)})),
         totalVentas: Number(r.total_ventas||0),
         fechaCreacion: r.fecha_creacion
       }
@@ -621,7 +611,7 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
     }
 });
 
-// NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta
+// NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta - FIX COLUMNAS REALES
 app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
     const id = req.params.idRemision.trim();
     console.log('🔍 Consultando remisión:', id);
@@ -639,8 +629,8 @@ app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
 
         const remisionDB = rows[0];
 
-        // Productos están en tabla separada
-        const { rows: prods } = await db.query(`SELECT * FROM remisiones_productos WHERE id_remision = $1`, [id]);
+        // Productos están en tabla separada - USANDO NOMBRES REALES DE TU BD
+        const { rows: prods } = await db.query(`SELECT id_producto, nombre, cantidad_cargada, cantidad_vendida, costo_unidad, precio_venta_unidad FROM remisiones_productos WHERE id_remision = $1`, [id]);
 
         if (prods.length === 0) {
             console.log(`⚠️ Remisión ${id} existe pero sin productos en remisiones_productos`);
@@ -648,12 +638,12 @@ app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
 
         const productosFormateados = prods.map(p => ({
             idProducto: p.id_producto,
-            nombre: p.nombre_producto || `Producto ${p.id_producto}`,
-            cantidadCargadaInicial: Number(p.cantidad_cargada || p.cantidad || 0),
+            nombre: p.nombre,
+            cantidadCargadaInicial: Number(p.cantidad_cargada || 0),
             cantidadVendidaEnCalle: Number(p.cantidad_vendida || 0),
-            costoUnidadFijo: Number(p.costo_unitario || p.costo || 0),
-            precioVentaUnidadFijo: Number(p.precio_venta || p.precio || 0),
-            precioVentaRealCalle: p.precio_real? Number(p.precio_real) : null
+            costoUnidadFijo: Number(p.costo_unidad || 0),
+            precioVentaUnidadFijo: Number(p.precio_venta_unidad || 0),
+            precioVentaRealCalle: null
         }));
 
         const remision = {
@@ -670,7 +660,7 @@ app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
 
     } catch (error) {
         console.error('❌ ERROR en consultar remisión:', error.message);
-        return res.status(404).json({ error: `Remisión ${id} no encontrada: ${error.message}` });
+        return res.status(500).json({ error: `Error: ${error.message}` });
     }
 });
 // =================================================================
@@ -2198,6 +2188,55 @@ app.post('/api/inventario/factura', async (req, res) => {
         res.status(500).json({ error: 'Error al guardar factura', detalle: error.message });
     }
 });
+
+// =================================================================
+// MÓDULO VENTA A CRÉDITO - AGREGADO SIN BORRAR NADA
+// =================================================================
+app.post('/api/ventas/credito', async (req,res)=>{
+  try{
+    const {remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, productos, fecha_vencimiento, usuario} = req.body;
+    if(!remision_id || !cliente_nombre || !productos || productos.length===0) return res.status(400).json({error:"Datos crédito incompletos"});
+    const {rows: remCheck}= await db.query(`SELECT id_remision FROM remisiones WHERE id_remision=$1`,[remision_id]);
+    if(remCheck.length===0) return res.status(404).json({error:`Remisión ${remision_id} no existe`});
+    await db.query('BEGIN');
+    const {rows: creditoRows}= await db.query(
+      `INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion, fecha_creacion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING id`,
+      [remision_id, cliente_nombre, cliente_cc||'', cliente_telefono||'', cliente_direccion||'', Number(total_venta||0), Number(abono_inicial||0), Number(saldo_pendiente||0), fecha_vencimiento||null, 'PENDIENTE', usuario||'Sistema']
+    );
+    const creditoId= creditoRows[0].id;
+    for(const prod of productos){
+      const cantidad= parseInt(prod.cantidad||prod.cantidadCargadaInicial||1);
+      const precio= parseFloat(prod.precio||prod.precioVentaUnidadFijo||0);
+      const nombreProd= prod.nombre||'Producto';
+      const idProd= prod.idProducto||prod.id_producto||null;
+      await db.query(`INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) VALUES ($1,$2,$3,$4,$5,$6)`,[creditoId, idProd, nombreProd, cantidad, precio, cantidad*precio]);
+      if(idProd){
+        await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[cantidad, remision_id, idProd]);
+      }
+      try{
+        await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, cantidad, precio, total, vendedor, fecha_venta, tipo_venta) VALUES ($1,$2,$3,$4,$5,$6,NOW(),'CREDITO')`,[remision_id, idProd, cantidad, precio, cantidad*precio, usuario||'Sistema']);
+      }catch{}
+    }
+    await db.query(`UPDATE remisiones SET total_ventas = COALESCE(total_ventas,0) + $1 WHERE id_remision=$2`,[Number(abono_inicial||0), remision_id]);
+    await db.query('COMMIT');
+    delete remisionesVentaActivas[remision_id];
+    console.log(`💳 Crédito ${remision_id} creado ID ${creditoId} saldo ${saldo_pendiente}`);
+    res.json({mensaje:`Crédito guardado`, credito_id:creditoId, remision_id});
+  }catch(error){
+    try{await db.query('ROLLBACK');}catch{}
+    console.error('Error crédito', error);
+    res.status(500).json({error:error.message});
+  }
+});
+
+app.get('/api/ventas/creditos', async (req,res)=>{
+  try{
+    const {rows}= await db.query(`SELECT * FROM ventas_credito ORDER BY fecha_creacion DESC LIMIT 100`);
+    res.json({creditos:rows});
+  }catch(e){ res.json({creditos:[]}); }
+});
+
 const server = app.listen(PORT, () => {
     console.log(`🚀 Servidor de Mecatron Solutions corriendo en'mecatron-solutions-production.up.railway.app;${PORT}`);
 });

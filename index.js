@@ -267,43 +267,28 @@ app.post('/api/preventa/salida', async (req, res) => {
     }
 });
 // Ruta para el listado detallado en ventas.html
-app.get('/api/preventa/remisiones-activas', async (req, res) => {
-    try {
-        const query = `
-            SELECT r.id_remision, r.fecha_creacion, rp.nombre, rp.cantidad_cargada, rp.cantidad_vendida
-            FROM remisiones r
-            LEFT JOIN remisiones_productos rp ON r.id_remision = rp.id_remision
-            WHERE r.estado = 'ACTIVA'
-            ORDER BY r.fecha_creacion DESC
-        `;
-        const { rows } = await db.query(query);
-        const remisionesAgrupadas = {};
-
-        rows.forEach(row => {
-            if (!remisionesAgrupadas[row.id_remision]) {
-                remisionesAgrupadas[row.id_remision] = {
-                    idRemision: row.id_remision,
-                    fechaCreacion: row.fecha_creacion,
-                    productos: [],
-                    totalVentas: 0 
-                };
-            }
-            if (row.nombre) {
-                const cargados = parseInt(row.cantidad_cargada, 10) || 0;
-                const vendidos = parseInt(row.cantidad_vendida, 10) || 0;
-                remisionesAgrupadas[row.id_remision].productos.push({
-                    nombre: row.nombre,
-                    cargados: cargados,
-                    vendidos: vendidos,
-                    disponibles: cargados - vendidos
-                });
-            }
-        });
-        res.json({ activas: Object.values(remisionesAgrupadas) });
-    } catch (error) {
-        console.error("Error al obtener remisiones para ventas:", error);
-        res.status(500).json({ error: "Error al obtener remisiones" });
-    }
+app.get('/api/preventa/remisiones-activas', async (req,res)=>{
+  try{
+    const {rows} = await db.query(`SELECT id_remision, total_ventas, fecha_creacion FROM remisiones ORDER BY fecha_creacion DESC LIMIT 20`);
+    const activas = await Promise.all(rows.map(async r=>{
+      const {rows: prods} = await db.query(`SELECT cantidad_vendida FROM remisiones_productos WHERE id_remision=$1`, [r.id_remision]);
+      return {
+        idRemision: r.id_remision,
+        productos: prods.map(p=>({vendidos: Number(p.cantidad_vendida||0)})),
+        totalVentas: Number(r.total_ventas||0),
+        fechaCreacion: r.fecha_creacion
+      }
+    }));
+    res.json({activas});
+  }catch(e){
+    console.error(e);
+    res.json({activas: Object.values(remisionesVentaActivas).map(r=>({
+      idRemision: r.idRemision,
+      productos: r.productos.map(p=>({vendidos: p.cantidadVendidaEnCalle})),
+      totalVentas: r.preFactura?.totalVentasEmitidas||0,
+      fechaCreacion: r.fechaCreacion
+    }))});
+  }
 });
 // Ruta para el contador rápido en panel.html
 app.get('/ventas/remisiones-activas', async (req, res) => {
@@ -639,56 +624,55 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
 // NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta
 app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
     const id = req.params.idRemision.trim();
-    try {
-        // 1. Intenta en memoria primero (rápido)
-        let remision = remisionesVentaActivas[id];
-        if (remision) {
-            return res.json({ remision });
-        }
+    console.log('🔍 Consultando remisión:', id);
 
-        // 2. Si no está en memoria, búscala en BD (Supabase/Postgres)
-        const { rows } = await db.query(
-            `SELECT id_remision, productos, total_ventas, fecha_creacion FROM remisiones WHERE id_remision = $1 LIMIT 1`,
-            [id]
-        );
+    if (remisionesVentaActivas[id]) {
+        return res.json({ remision: remisionesVentaActivas[id] });
+    }
+
+    try {
+        const { rows } = await db.query(`SELECT * FROM remisiones WHERE id_remision = $1 LIMIT 1`, [id]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: `Remisión ${id} no encontrada en BD ni en memoria.` });
+            return res.status(404).json({ error: `Remisión ${id} no encontrada.` });
         }
 
-        const dbRem = rows[0];
-        const productosDB = typeof dbRem.productos === 'string'? JSON.parse(dbRem.productos) : dbRem.productos;
+        const remisionDB = rows[0];
 
-        // Reconstruir formato que espera tu frontend
-        const productosFormateados = productosDB.map(p => ({
-            idProducto: p.idProducto || p.id_producto || p.id,
-            nombre: p.nombre || p.nombre_producto,
-            cantidadCargadaInicial: p.cantidadCargadaInicial || p.cantidad || 0,
-            cantidadVendidaEnCalle: p.cantidadVendidaEnCalle || p.cantidad_vendida || 0,
-            costoUnidadFijo: p.costoUnidadFijo || p.costo || 0,
-            precioVentaUnidadFijo: p.precioVentaUnidadFijo || p.precio || 0,
-            precioVentaRealCalle: p.precioVentaRealCalle || null
+        // Productos están en tabla separada
+        const { rows: prods } = await db.query(`SELECT * FROM remisiones_productos WHERE id_remision = $1`, [id]);
+
+        if (prods.length === 0) {
+            console.log(`⚠️ Remisión ${id} existe pero sin productos en remisiones_productos`);
+        }
+
+        const productosFormateados = prods.map(p => ({
+            idProducto: p.id_producto,
+            nombre: p.nombre_producto || `Producto ${p.id_producto}`,
+            cantidadCargadaInicial: Number(p.cantidad_cargada || p.cantidad || 0),
+            cantidadVendidaEnCalle: Number(p.cantidad_vendida || 0),
+            costoUnidadFijo: Number(p.costo_unitario || p.costo || 0),
+            precioVentaUnidadFijo: Number(p.precio_venta || p.precio || 0),
+            precioVentaRealCalle: p.precio_real? Number(p.precio_real) : null
         }));
 
-        remision = {
-            idRemision: dbRem.id_remision,
+        const remision = {
+            idRemision: remisionDB.id_remision,
             productos: productosFormateados,
-            fechaCreacion: dbRem.fecha_creacion,
-            totalVentas: dbRem.total_ventas || 0
+            fechaCreacion: remisionDB.fecha_creacion || remisionDB.fecha || new Date(),
+            totalVentas: Number(remisionDB.total_ventas || 0)
         };
 
-        // Guardarla de nuevo en memoria para futuras ventas
         remisionesVentaActivas[id] = remision;
+        console.log(`♻️ Remisión ${id} restaurada con ${productosFormateados.length} productos`);
 
-        console.log(`♻️ Remisión ${id} restaurada desde BD a memoria`);
         return res.json({ remision });
 
     } catch (error) {
-        console.error('Error en consultar remisión:', error);
-        res.status(500).json({ error: 'Error interno al consultar remisión: ' + error.message });
+        console.error('❌ ERROR en consultar remisión:', error.message);
+        return res.status(404).json({ error: `Remisión ${id} no encontrada: ${error.message}` });
     }
 });
-
 // =================================================================
 //      MÓDULO DE SERVICIOS (RECOMENDADOR Y HERRAMIENTAS)
 // =================================================================

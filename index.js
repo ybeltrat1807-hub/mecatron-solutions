@@ -637,10 +637,56 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
 });
 
 // NUEVO ENDPOINT AUXILIAR: Para traer el carrito actual de una remisión en ruta
-app.get('/api/preventa/consultar/:idRemision', (req, res) => {
-    let remision = remisionesVentaActivas[req.params.idRemision];
-    if (!remision) return res.status(404).json({ error: "Remisión no encontrada." });
-    res.json(remision);
+app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
+    const id = req.params.idRemision.trim();
+    try {
+        // 1. Intenta en memoria primero (rápido)
+        let remision = remisionesVentaActivas[id];
+        if (remision) {
+            return res.json({ remision });
+        }
+
+        // 2. Si no está en memoria, búscala en BD (Supabase/Postgres)
+        const { rows } = await db.query(
+            `SELECT id_remision, productos, total_ventas, fecha_creacion FROM remisiones WHERE id_remision = $1 LIMIT 1`,
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: `Remisión ${id} no encontrada en BD ni en memoria.` });
+        }
+
+        const dbRem = rows[0];
+        const productosDB = typeof dbRem.productos === 'string'? JSON.parse(dbRem.productos) : dbRem.productos;
+
+        // Reconstruir formato que espera tu frontend
+        const productosFormateados = productosDB.map(p => ({
+            idProducto: p.idProducto || p.id_producto || p.id,
+            nombre: p.nombre || p.nombre_producto,
+            cantidadCargadaInicial: p.cantidadCargadaInicial || p.cantidad || 0,
+            cantidadVendidaEnCalle: p.cantidadVendidaEnCalle || p.cantidad_vendida || 0,
+            costoUnidadFijo: p.costoUnidadFijo || p.costo || 0,
+            precioVentaUnidadFijo: p.precioVentaUnidadFijo || p.precio || 0,
+            precioVentaRealCalle: p.precioVentaRealCalle || null
+        }));
+
+        remision = {
+            idRemision: dbRem.id_remision,
+            productos: productosFormateados,
+            fechaCreacion: dbRem.fecha_creacion,
+            totalVentas: dbRem.total_ventas || 0
+        };
+
+        // Guardarla de nuevo en memoria para futuras ventas
+        remisionesVentaActivas[id] = remision;
+
+        console.log(`♻️ Remisión ${id} restaurada desde BD a memoria`);
+        return res.json({ remision });
+
+    } catch (error) {
+        console.error('Error en consultar remisión:', error);
+        res.status(500).json({ error: 'Error interno al consultar remisión: ' + error.message });
+    }
 });
 
 // =================================================================

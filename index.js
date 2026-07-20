@@ -410,7 +410,97 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
         ventaActual: ventaActual
     });
 });
+// === VENTA A CRÉDITO ===
+function abrirModalCredito(){
+  // Validamos que haya productos en tu variable que ya usas
+  const lista = typeof productosVenta !== 'undefined' ? productosVenta : (typeof carrito !== 'undefined' ? carrito : []);
+  if(lista.length===0) return alert('⚠️ Agrega productos a la venta primero');
 
+  const remisionInput = document.getElementById('idRemision') || document.getElementById('inputRemisionId') || {value: 'REM-'+Date.now().toString().slice(-6)};
+  const remisionId = remisionInput.value || 'REM-'+Date.now().toString().slice(-6);
+  
+  document.getElementById('creditoRemisionId').textContent = remisionId;
+  document.getElementById('modalCredito').style.display='flex';
+
+  const total = lista.reduce((s,p)=> s + (parseFloat(p.precio||p.precio_pactado||0) * parseInt(p.cantidad||1)),0);
+  
+  document.getElementById('listaCreditoProductos').innerHTML = `
+    <strong>Productos (${lista.length}) - Total: $${total.toLocaleString()}</strong>
+    ${lista.map((p,i)=>`
+      <label style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem; padding:0.4rem; background:white; border-radius:6px;">
+        <input type="checkbox" class="chk-credito" data-index="${i}" checked style="width:18px; height:18px;">
+        <span>${p.nombre || p.producto || 'Producto'} - ${p.cantidad} x $${parseFloat(p.precio||p.precio_pactado).toLocaleString()}</span>
+      </label>`).join('')}
+  `;
+  
+  actualizarSaldoFinanciar();
+  // Escuchar abono
+  document.getElementById('credito_abono').oninput = actualizarSaldoFinanciar;
+}
+
+function actualizarSaldoFinanciar(){
+  const lista = typeof productosVenta !== 'undefined' ? productosVenta : (typeof carrito !== 'undefined' ? carrito : []);
+  const total = lista.reduce((s,p)=> s + (parseFloat(p.precio||p.precio_pactado||0) * parseInt(p.cantidad||1)),0);
+  const abono = parseFloat(document.getElementById('credito_abono').value)||0;
+  document.getElementById('saldoFinanciar').textContent = `$${(total-abono).toLocaleString()}`;
+}
+
+function cerrarModalCredito(){ 
+  document.getElementById('modalCredito').style.display='none'; 
+}
+
+async function guardarVentaCredito(){
+  const lista = typeof productosVenta !== 'undefined' ? productosVenta : (typeof carrito !== 'undefined' ? carrito : []);
+  if(!lista.length) return;
+
+  const nombre = document.getElementById('cli_nombre').value.trim();
+  if(!nombre) return alert('El nombre del cliente es obligatorio');
+
+  const checks = document.querySelectorAll('.chk-credito:checked');
+  if(checks.length===0) return alert('Selecciona al menos un producto a crédito');
+
+  // Filtrar solo productos chequeados
+  const productosCredito = Array.from(checks).map(c => lista[parseInt(c.dataset.index)]);
+  const totalCredito = productosCredito.reduce((s,p)=> s + (parseFloat(p.precio||p.precio_pactado||0) * parseInt(p.cantidad||1)),0);
+  
+  const abono = parseFloat(document.getElementById('credito_abono').value)||0;
+  const saldo = totalCredito - abono;
+
+  const payload = {
+    remision_id: document.getElementById('creditoRemisionId').textContent,
+    cliente_nombre: nombre,
+    cliente_cc: document.getElementById('cli_cc').value,
+    cliente_telefono: document.getElementById('cli_tel').value,
+    cliente_direccion: document.getElementById('cli_dir').value,
+    total_venta: totalCredito,
+    abono_inicial: abono,
+    saldo_pendiente: saldo,
+    productos: productosCredito,
+    fecha_vencimiento: document.getElementById('credito_vence').value || null,
+    usuario: 'Sistema'
+  };
+
+  try{
+    const res = await fetch(`${typeof API_URL !== 'undefined' ? API_URL : ''}/api/ventas/credito`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||'Error');
+
+    alert(`✅ Crédito guardado: ${payload.remision_id} - Saldo: $${saldo.toLocaleString()}`);
+    cerrarModalCredito();
+    
+    // Limpia tu carrito (usa tu función existente)
+    if(typeof vaciarCarrito === 'function') vaciarCarrito();
+    if(typeof productosVenta !== 'undefined') { productosVenta = []; actualizarTablaVenta && actualizarTablaVenta(); }
+    location.reload(); // para refrescar estado contable
+    
+  }catch(e){
+    alert('❌ Error: '+e.message);
+  }
+}
 // 🏁 SUBMÓDULO 3: CIERRE DE JORNADA (CORREGIDO)
 app.post('/api/preventa/cierre-jornada', async (req, res) => {
     const { idRemision } = req.body;

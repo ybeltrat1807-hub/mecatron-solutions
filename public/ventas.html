@@ -737,9 +737,12 @@
             <div class="carrito-container" id="carritoVenta">
                 <div class="carrito-vacio">No hay productos agregados</div>
             </div>
+            <button id="btnCredito" onclick="abrirModalCredito()" type="button" style="width:100%; margin-bottom:0.7rem; background:#102A43; color:white; border:1px dashed #FF8C00; padding:0.75rem; border-radius:10px; font-weight:700; cursor:pointer; letter-spacing:0.3px;">
+            💳 Registrar como Venta a Crédito
+            </button>
             <button onclick="finalizarVentaMultiple()" class="btn btn-success btn-block" style="margin-top: 0.5rem;">
     <i class="fas fa-check"></i> Finalizar Venta Múltiple
-</button>
+    </button>
         </div>
 
         <div class="auditoria-box" style="margin-top: 1rem;">
@@ -1766,6 +1769,30 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
         setInterval(cargarListaRemisiones, 30000);
 
     </script>
-
+    <!-- MODAL CREDITO -->
+<div id="modalCredito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:white; width:95%; max-width:550px; border-radius:12px; padding:1.5rem; max-height:90vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; color:#102A43;">💳 Venta a Crédito</h3>
+      <small id="creditoRemisionId" style="background:#FFF3E0; padding:4px 8px; border-radius:6px; font-weight:700;"></small>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin:1.2rem 0;">
+      <input id="cli_nombre" placeholder="Nombre cliente *" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px; grid-column: span 2;">
+      <input id="cli_cc" placeholder="C.C / NIT" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px;">
+      <input id="cli_tel" placeholder="Teléfono / WhatsApp" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px;">
+      <input id="cli_dir" placeholder="Dirección" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px; grid-column: span 2;">
+      <input id="credito_abono" type="number" placeholder="Abono inicial ($) Ej: 50000" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px;">
+      <input id="credito_vence" type="date" style="padding:0.7rem; border:1px solid #ddd; border-radius:8px;">
+    </div>
+    <div id="listaCreditoProductos" style="background:#F8FAFC; border:1px solid #E2E8F0; padding:0.8rem; border-radius:8px; margin-bottom:1.2rem; font-size:0.9rem;"></div>
+    <div id="resumenCredito" style="background:#102A43; color:white; padding:0.8rem; border-radius:8px; margin-bottom:1.2rem; display:flex; justify-content:space-between;">
+      <span>Saldo a financiar:</span><strong id="saldoFinanciar">$0</strong>
+    </div>
+    <div style="display:flex; gap:0.6rem;">
+      <button onclick="cerrarModalCredito()" type="button" style="flex:1; background:#E2E8F0; padding:0.8rem; border-radius:8px; border:none; font-weight:600;">Cancelar</button>
+      <button onclick="guardarVentaCredito()" type="button" style="flex:2; background:#FF8C00; color:white; padding:0.8rem; border-radius:8px; border:none; font-weight:800;">✅ Guardar Crédito</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

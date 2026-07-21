@@ -1,5 +1,5 @@
 // =================================================================
-//   MECATRON SOLUTIONS
+//   MECATRON SOLUTIONS - SISTEMA DE CONTROL DE INVENTARIO CENTRAL
 //   Desarrollado por: Beltrán Software Solutions
 // =================================================================
 const express = require('express');

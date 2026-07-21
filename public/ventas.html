@@ -1896,19 +1896,12 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
         window.cerrarModalCredito();
 
         // CORREGIDO: Solo quitar del carrito los productos que fueron a crédito, NO vaciar remisión
+        // ... dentro de guardarVentaCredito después del showToast éxito
         const indicesCredito = Array.from(checks).map(c=> parseInt(c.dataset.index)).sort((a,b)=> b-a);
         indicesCredito.forEach(idx=> carritoVentaActual.splice(idx,1));
-        
-        if (typeof renderizarCarritoVenta === 'function') renderizarCarritoVenta();
-        
-        // NO borrar remisionBuscar - permitir seguir vendiendo
-        // Recargar datos de la remisión para actualizar disponibles
-        const remId = payload.remision_id;
-        if(remId && typeof buscarRemisionRuta === 'function'){
-            // Mantener el input
-            document.getElementById('remisionBuscar').value = remId;
-            await buscarRemisionRuta();
-        }
+        renderizarCarritoVenta();
+        document.getElementById('remisionBuscar').value = payload.remision_id; // NO borrar
+        await buscarRemisionRuta(); // recarga disponibles
         
         if (typeof cargarListaRemisiones === 'function') {
             await cargarListaRemisiones();

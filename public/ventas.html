@@ -1128,7 +1128,7 @@
             }
         }
 
-        // ==========================================
+// ==========================================
 // BUSCAR REMISIÓN EN RUTA (CON PRECIO)
 // ==========================================
 async function buscarRemisionRuta() {
@@ -1142,9 +1142,12 @@ async function buscarRemisionRuta() {
         const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
         const data = await res.json();
 
-        if (res.ok) {
+        if (res.ok && data.remision) {
+            // CORREGIDO: Accedemos a data.remision.productos
+            const productos = data.remision.productos || [];
             const select = document.getElementById('selectProductoCalle');
-            select.innerHTML = data.productos.map(p => {
+            
+            select.innerHTML = productos.map(p => {
                 let disponible = p.cantidadCargadaInicial - p.cantidadVendidaEnCalle;
                 let precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
                 return `<option value="${p.idProducto}" data-precio="${precio}">
@@ -1153,24 +1156,28 @@ async function buscarRemisionRuta() {
             }).join('');
 
             // Auto-completar precio al seleccionar
-            select.addEventListener('change', function() {
+            select.onchange = function() { // Usar .onchange directo previene duplicar eventos si se busca varias veces
                 const selected = this.options[this.selectedIndex];
                 if (selected && selected.dataset.precio) {
                     document.getElementById('precioVentaReal').value = selected.dataset.precio;
                 }
-            });
+            };
 
             if (select.options.length > 0) {
                 select.dispatchEvent(new Event('change'));
             }
 
+            // CORREGIDO: Usamos el totalVentas que viene en el JSON de la remisión
+            const totalVentas = data.remision.totalVentas || 0;
             document.getElementById('infoRecaudado').innerHTML = 
-                `💰 $${data.preFactura.totalVentasEmitidas.toLocaleString()}`;
+                `💰 $${totalVentas.toLocaleString()}`;
+                
             showToast(`✅ Remisión ${idRemision} cargada`, 'success');
         } else {
             showToast('Remisión no encontrada en ruta', 'error');
         }
     } catch (error) {
+        console.error("Detalle del error:", error); // Esto te ayudará a verlo en F12 si vuelve a pasar
         showToast('Error de conexión', 'error');
     }
 }

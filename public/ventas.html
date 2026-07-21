@@ -123,6 +123,13 @@
             border-color: var(--secondary);
         }
 
+        
+        /* FIX BOTONES SUPERPUESTOS CREDITO */
+        #modalCredito { z-index: 10000 !important; }
+        #modalCredito > div { position: relative; z-index: 10001; }
+        .btn-credito-fix { margin-top: 1rem; display:flex; gap:0.8rem; }
+        .btn-credito-fix button { flex:1; min-height: 44px; }
+
         /* CONTENEDOR */
         .app-container {
             max-width: 1200px;
@@ -1721,7 +1728,7 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
     `).join('');
 
     return `
-        <div id="reciboVenta" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px;">
+        <div id="reciboVenta" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:10000; padding:20px;">
             <div style="background:white; border-radius:16px; max-width:480px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); font-family:'Courier New', monospace;">
                 <div style="text-align:center; border-bottom:2px solid #1A3A5C; padding-bottom:1rem; margin-bottom:1rem;">
                     <div style="font-size:2rem; margin-bottom:0.3rem;">🛒</div>
@@ -1885,23 +1892,34 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al guardar el crédito');
 
-        showToast(`✅ Crédito ${payload.remision_id} guardado con éxito. Saldo pendiente: $${saldo.toLocaleString()}`, 'success');
+        showToast(`✅ Crédito ${payload.remision_id} guardado. Abono $${abono.toLocaleString()} - Saldo $${saldo.toLocaleString()}`, 'success');
         window.cerrarModalCredito();
 
-        // Limpieza segura del carrito y campos de la interfaz
-        if (typeof vaciarCarritoVenta === 'function') {
-            vaciarCarritoVenta();
-        } else {
-            carritoVentaActual = [];
-            if (typeof renderizarCarritoVenta === 'function') renderizarCarritoVenta();
+        // CORREGIDO: Solo quitar del carrito los productos que fueron a crédito, NO vaciar remisión
+        const indicesCredito = Array.from(checks).map(c=> parseInt(c.dataset.index)).sort((a,b)=> b-a);
+        indicesCredito.forEach(idx=> carritoVentaActual.splice(idx,1));
+        
+        if (typeof renderizarCarritoVenta === 'function') renderizarCarritoVenta();
+        
+        // NO borrar remisionBuscar - permitir seguir vendiendo
+        // Recargar datos de la remisión para actualizar disponibles
+        const remId = payload.remision_id;
+        if(remId && typeof buscarRemisionRuta === 'function'){
+            // Mantener el input
+            document.getElementById('remisionBuscar').value = remId;
+            await buscarRemisionRuta();
         }
-
-        const remBuscar = document.getElementById('remisionBuscar');
-        if (remBuscar) remBuscar.value = '';
         
         if (typeof cargarListaRemisiones === 'function') {
             await cargarListaRemisiones();
         }
+
+        // Limpiar modal cliente
+        document.getElementById('cli_nombre').value='';
+        document.getElementById('cli_cc').value='';
+        document.getElementById('cli_tel').value='';
+        document.getElementById('cli_dir').value='';
+        document.getElementById('credito_abono').value='';
 
         if (btn) { btn.innerHTML = txtOrig; btn.disabled = false; }
 
@@ -1919,7 +1937,7 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
 
     </script>
     <!-- MODAL CREDITO -->
-<div id="modalCredito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+<div id="modalCredito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
   <div style="background:white; width:95%; max-width:550px; border-radius:12px; padding:1.5rem; max-height:90vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h3 style="margin:0; color:#102A43;">💳 Venta a Crédito</h3>

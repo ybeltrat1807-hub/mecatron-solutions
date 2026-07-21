@@ -1829,62 +1829,89 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
         }
 
         window.guardarVentaCredito = async function(){
-            try{
-                const checks = document.querySelectorAll('.chk-credito:checked');
-                if(checks.length===0){ showToast('Selecciona al menos un producto','error'); return; }
-
-                const nombre = document.getElementById('cli_nombre').value.trim();
-                if(!nombre){ showToast('Nombre del cliente obligatorio','error'); return; }
-
-                const productosCredito = Array.from(checks).map(c => carritoVentaActual[parseInt(c.dataset.index)]);
-                const totalCredito = productosCredito.reduce((s,p)=> s + (parseFloat(p.precio||0) * parseInt(p.cantidad||1)),0);
-                const abono = parseFloat(document.getElementById('credito_abono').value)||0;
-                const saldo = totalCredito - abono;
-
-                const payload = {
-                    remision_id: document.getElementById('creditoRemisionId').textContent,
-                    cliente_nombre: nombre,
-                    cliente_cc: document.getElementById('cli_cc').value,
-                    cliente_telefono: document.getElementById('cli_tel').value,
-                    cliente_direccion: document.getElementById('cli_dir').value,
-                    total_venta: totalCredito,
-                    abono_inicial: abono,
-                    saldo_pendiente: saldo,
-                    productos: productosCredito,
-                    fecha_vencimiento: document.getElementById('credito_vence').value || null,
-                    usuario: 'Sistema'
-                };
-
-                const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
-                const txtOrig = btn ? btn.innerHTML : '';
-                if(btn){ btn.innerHTML = '⏳ Guardando...'; btn.disabled=true; }
-
-                const res = await fetch(`${API_URL}/api/ventas/credito`, {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if(!res.ok) throw new Error(data.error||'Error al guardar');
-
-                showToast(`✅ Crédito ${payload.remision_id} guardado - Saldo $${saldo.toLocaleString()}`,'success');
-                window.cerrarModalCredito();
-                // limpiar carrito
-                if(typeof vaciarCarritoVenta === 'function') vaciarCarritoVenta();
-                carritoVentaActual = [];
-                renderizarCarritoVenta();
-                document.getElementById('remisionBuscar').value='';
-                await cargarListaRemisiones();
-
-                if(btn){ btn.innerHTML = txtOrig; btn.disabled=false; }
-            }catch(e){
-                console.error(e);
-                showToast('❌ '+e.message,'error');
-                const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
-                if(btn){ btn.innerHTML='✅ Guardar Crédito'; btn.disabled=false; }
-            }
+    try {
+        const checks = document.querySelectorAll('.chk-credito:checked');
+        if (checks.length === 0) { 
+            showToast('Selecciona al menos un producto para el crédito', 'error'); 
+            return; 
         }
 
+        const nombreInput = document.getElementById('cli_nombre');
+        const nombre = nombreInput ? nombreInput.value.trim() : '';
+        if (!nombre) { 
+            showToast('El nombre del cliente es obligatorio', 'error'); 
+            return; 
+        }
+
+        // Mapeo seguro asegurando que los IDs y nombres viajen limpios
+        const productosCredito = Array.from(checks).map(c => {
+            const p = carritoVentaActual[parseInt(c.dataset.index)];
+            return {
+                idProducto: p.idProducto || p.id_producto || p.id || null,
+                nombre: p.nombre || p.nombre_producto || 'Producto',
+                cantidad: parseInt(p.cantidad || 1),
+                precio: parseFloat(p.precio || p.precioVentaUnidadFijo || 0)
+            };
+        });
+
+        const totalCredito = productosCredito.reduce((s, p) => s + (p.precio * p.cantidad), 0);
+        const abono = parseFloat(document.getElementById('credito_abono')?.value) || 0;
+        const saldo = totalCredito - abono;
+
+        const payload = {
+            remision_id: document.getElementById('creditoRemisionId').textContent.trim(),
+            cliente_nombre: nombre,
+            cliente_cc: document.getElementById('cli_cc')?.value || '',
+            cliente_telefono: document.getElementById('cli_tel')?.value || '',
+            cliente_direccion: document.getElementById('cli_dir')?.value || '',
+            total_venta: totalCredito,
+            abono_inicial: abono,
+            saldo_pendiente: saldo,
+            productos: productosCredito,
+            fecha_vencimiento: document.getElementById('credito_vence')?.value || null,
+            usuario: 'Sistema'
+        };
+
+        const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
+        const txtOrig = btn ? btn.innerHTML : '';
+        if (btn) { btn.innerHTML = '⏳ Guardando...'; btn.disabled = true; }
+
+        const res = await fetch(`${API_URL}/api/ventas/credito`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar el crédito');
+
+        showToast(`✅ Crédito ${payload.remision_id} guardado con éxito. Saldo pendiente: $${saldo.toLocaleString()}`, 'success');
+        window.cerrarModalCredito();
+
+        // Limpieza segura del carrito y campos de la interfaz
+        if (typeof vaciarCarritoVenta === 'function') {
+            vaciarCarritoVenta();
+        } else {
+            carritoVentaActual = [];
+            if (typeof renderizarCarritoVenta === 'function') renderizarCarritoVenta();
+        }
+
+        const remBuscar = document.getElementById('remisionBuscar');
+        if (remBuscar) remBuscar.value = '';
+        
+        if (typeof cargarListaRemisiones === 'function') {
+            await cargarListaRemisiones();
+        }
+
+        if (btn) { btn.innerHTML = txtOrig; btn.disabled = false; }
+
+    } catch (e) {
+        console.error('Error en guardarVentaCredito:', e);
+        showToast('❌ ' + e.message, 'error');
+        const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
+        if (btn) { btn.innerHTML = '✅ Guardar Crédito'; btn.disabled = false; }
+    }
+}
         // ==========================================
         // ACTUALIZACIÓN AUTOMÁTICA
         // ==========================================

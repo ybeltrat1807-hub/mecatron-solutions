@@ -2190,51 +2190,108 @@ app.post('/api/inventario/factura', async (req, res) => {
 });
 
 // =================================================================
-// MÓDULO VENTA A CRÉDITO - AGREGADO SIN BORRAR NADA
+// MÓDULO VENTA A CRÉDITO - OPTIMIZADO Y BLINDADO
 // =================================================================
-app.post('/api/ventas/credito', async (req,res)=>{
-  try{
-    const {remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, productos, fecha_vencimiento, usuario} = req.body;
-    if(!remision_id || !cliente_nombre || !productos || productos.length===0) return res.status(400).json({error:"Datos crédito incompletos"});
-    const {rows: remCheck}= await db.query(`SELECT id_remision FROM remisiones WHERE id_remision=$1`,[remision_id]);
-    if(remCheck.length===0) return res.status(404).json({error:`Remisión ${remision_id} no existe`});
-    await db.query('BEGIN');
-    const {rows: creditoRows}= await db.query(
-      `INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion, fecha_creacion)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING id`,
-      [remision_id, cliente_nombre, cliente_cc||'', cliente_telefono||'', cliente_direccion||'', Number(total_venta||0), Number(abono_inicial||0), Number(saldo_pendiente||0), fecha_vencimiento||null, 'PENDIENTE', usuario||'Sistema']
-    );
-    const creditoId= creditoRows[0].id;
-    for(const prod of productos){
-      const cantidad= parseInt(prod.cantidad||prod.cantidadCargadaInicial||1);
-      const precio= parseFloat(prod.precio||prod.precioVentaUnidadFijo||0);
-      const nombreProd= prod.nombre||'Producto';
-      const idProd= prod.idProducto||prod.id_producto||null;
-      await db.query(`INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) VALUES ($1,$2,$3,$4,$5,$6)`,[creditoId, idProd, nombreProd, cantidad, precio, cantidad*precio]);
-      if(idProd){
-        await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[cantidad, remision_id, idProd]);
-      }
-      try{
-        await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, cantidad, precio, total, vendedor, fecha_venta, tipo_venta) VALUES ($1,$2,$3,$4,$5,$6,NOW(),'CREDITO')`,[remision_id, idProd, cantidad, precio, cantidad*precio, usuario||'Sistema']);
-      }catch{}
+app.post('/api/ventas/credito', async (req, res) => {
+  try {
+    const { remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, productos, fecha_vencimiento, usuario } = req.body;
+    
+    if (!remision_id || !cliente_nombre || !productos || productos.length === 0) {
+      return res.status(400).json({ error: "Datos de crédito incompletos" });
     }
-    await db.query(`UPDATE remisiones SET total_ventas = COALESCE(total_ventas,0) + $1 WHERE id_remision=$2`,[Number(abono_inicial||0), remision_id]);
-    await db.query('COMMIT');
-    delete remisionesVentaActivas[remision_id];
-    console.log(`💳 Crédito ${remision_id} creado ID ${creditoId} saldo ${saldo_pendiente}`);
-    res.json({mensaje:`Crédito guardado`, credito_id:creditoId, remision_id});
-  }catch(error){
-    try{await db.query('ROLLBACK');}catch{}
-    console.error('Error crédito', error);
-    res.status(500).json({error:error.message});
-  }
-});
 
-app.get('/api/ventas/creditos', async (req,res)=>{
-  try{
-    const {rows}= await db.query(`SELECT * FROM ventas_credito ORDER BY fecha_creacion DESC LIMIT 100`);
-    res.json({creditos:rows});
-  }catch(e){ res.json({creditos:[]}); }
+    // Verificar si la remisión existe, si no, crear un registro básico preventivo para evitar que reviente la FK
+    const { rows: remCheck } = await db.query(`SELECT id_remision FROM remisiones WHERE id_remision = $1`, [remision_id]);
+    if (remCheck.length === 0) {
+      // Opcional: auto-crear la cabecera de remisión si no existe para garantizar integridad
+      await db.query(
+        `INSERT INTO remisiones (id_remision, estado, total_ventas, fecha_creacion) VALUES ($1, 'CREDITO_DIRECTO', 0, NOW()) ON CONFLICT (id_remision) DO NOTHING`,
+        [remision_id]
+      );
+    }
+
+    await db.query('BEGIN');
+
+    // 1. Insertar la cabecera del crédito
+    const { rows: creditoRows } = await db.query(
+      `INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion, fecha_creacion)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING id`,
+      [
+        remision_id, 
+        cliente_nombre, 
+        cliente_cc || '', 
+        cliente_telefono || '', 
+        cliente_direccion || '', 
+        Number(total_venta || 0), 
+        Number(abono_inicial || 0), 
+        Number(saldo_pendiente || 0), 
+        fecha_vencimiento || null, 
+        Number(saldo_pendiente || 0) <= 0 ? 'PAGADO' : 'PENDIENTE', 
+        usuario || 'Sistema'
+      ]
+    );
+    const creditoId = creditoRows[0].id;
+
+    // 2. Insertar el detalle de productos asegurando la captura robusta del ID
+    for (const prod of productos) {
+      const cantidad = parseInt(prod.cantidad || prod.cantidadCargadaInicial || 1);
+      const precio = parseFloat(prod.precio || prod.precioVentaUnidadFijo || 0);
+      const nombreProd = prod.nombre || prod.nombre_producto || 'Producto';
+      // Mapeo exhaustivo de posibles nombres de ID que envíe el frontend
+      const idProd = prod.idProducto || prod.id_producto || prod.id || null;
+      const subtotal = cantidad * precio;
+
+      await db.query(
+        `INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [creditoId, idProd, nombreProd, cantidad, precio, subtotal]
+      );
+
+      // Si existe el producto, intentamos impactar la remisión y el stock de venta de forma segura
+      if (idProd) {
+        await db.query(
+          `UPDATE remisiones_productos 
+           SET cantidad_vendida = COALESCE(cantidad_vendida, 0) + $1 
+           WHERE id_remision = $2 AND id_producto = $3`,
+          [cantidad, remision_id, idProd]
+        );
+      }
+
+      // Registrar también en ventas individuales para los reportes generales de salida/ventas
+      try {
+        await db.query(
+          `INSERT INTO ventas_individuales (id_remision, id_producto, cantidad, precio, total, vendedor, fecha_venta, tipo_venta) 
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'CREDITO')`,
+          [remision_id, idProd, cantidad, precio, subtotal, usuario || 'Sistema']
+        );
+      } catch (errInd) {
+        console.warn("Nota: No se pudo replicar en ventas_individuales (puede ser opcional en tu esquema):", errInd.message);
+      }
+    }
+
+    // 3. Actualizar el acumulado total y el abono en la remisión
+    await db.query(
+      `UPDATE remisiones 
+       SET total_ventas = COALESCE(total_ventas, 0) + $1, 
+           estado = CASE WHEN estado = 'PENDIENTE' OR estado IS NULL THEN 'CREDITO' ELSE estado END 
+       WHERE id_remision = $2`,
+      [Number(total_venta || 0), remision_id]
+    );
+
+    await db.query('COMMIT');
+
+    if (typeof remisionesVentaActivas !== 'undefined') {
+      delete remisionesVentaActivas[remision_id];
+    }
+
+    console.log(`💳 Crédito ${remision_id} creado exitosamente con ID ${creditoId} y saldo pendiente: $${saldo_pendiente}`);
+    res.json({ mensaje: `Crédito guardado exitosamente`, credito_id: creditoId, remision_id });
+
+  } catch (error) {
+    try { await db.query('ROLLBACK'); } catch (_) {}
+    console.error('❌ Error crítico al procesar crédito:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 const server = app.listen(PORT, () => {

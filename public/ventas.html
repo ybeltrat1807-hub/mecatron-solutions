@@ -123,13 +123,6 @@
             border-color: var(--secondary);
         }
 
-        
-        /* FIX BOTONES SUPERPUESTOS CREDITO */
-        #modalCredito { z-index: 10000 !important; }
-        #modalCredito > div { position: relative; z-index: 10001; }
-        .btn-credito-fix { margin-top: 1rem; display:flex; gap:0.8rem; }
-        .btn-credito-fix button { flex:1; min-height: 44px; }
-
         /* CONTENEDOR */
         .app-container {
             max-width: 1200px;
@@ -1135,7 +1128,7 @@
             }
         }
 
-// ==========================================
+        // ==========================================
 // BUSCAR REMISIÓN EN RUTA (CON PRECIO)
 // ==========================================
 async function buscarRemisionRuta() {
@@ -1149,12 +1142,9 @@ async function buscarRemisionRuta() {
         const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
         const data = await res.json();
 
-        if (res.ok && data.remision) {
-            // CORREGIDO: Accedemos a data.remision.productos
-            const productos = data.remision.productos || [];
+        if (res.ok) {
             const select = document.getElementById('selectProductoCalle');
-            
-            select.innerHTML = productos.map(p => {
+            select.innerHTML = data.productos.map(p => {
                 let disponible = p.cantidadCargadaInicial - p.cantidadVendidaEnCalle;
                 let precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
                 return `<option value="${p.idProducto}" data-precio="${precio}">
@@ -1163,33 +1153,29 @@ async function buscarRemisionRuta() {
             }).join('');
 
             // Auto-completar precio al seleccionar
-            select.onchange = function() { // Usar .onchange directo previene duplicar eventos si se busca varias veces
+            select.addEventListener('change', function() {
                 const selected = this.options[this.selectedIndex];
                 if (selected && selected.dataset.precio) {
                     document.getElementById('precioVentaReal').value = selected.dataset.precio;
                 }
-            };
+            });
 
             if (select.options.length > 0) {
                 select.dispatchEvent(new Event('change'));
             }
 
-            // CORREGIDO: Usamos el totalVentas que viene en el JSON de la remisión
-            const totalVentas = data.remision.totalVentas || 0;
             document.getElementById('infoRecaudado').innerHTML = 
-                `💰 $${totalVentas.toLocaleString()}`;
-                
+                `💰 $${data.preFactura.totalVentasEmitidas.toLocaleString()}`;
             showToast(`✅ Remisión ${idRemision} cargada`, 'success');
         } else {
             showToast('Remisión no encontrada en ruta', 'error');
         }
     } catch (error) {
-        console.error("Detalle del error:", error); // Esto te ayudará a verlo en F12 si vuelve a pasar
         showToast('Error de conexión', 'error');
     }
 }
 
-  // ==========================================
+ // ==========================================
  // REGISTRAR VENTA EN CALLE CON RECIBO INDIVIDUAL
  // ==========================================
  async function registrarVentaCalle(btn) {
@@ -1323,22 +1309,38 @@ function agregarAlCarritoVenta() {
     document.getElementById('precioVentaReal').value = '';
 }
 
+
 function renderizarCarritoVenta() {
     const container = document.getElementById('carritoVenta');
     if (carritoVentaActual.length === 0) {
         container.innerHTML = '<div class="carrito-vacio">No hay productos agregados</div>';
+        document.getElementById('infoRecaudado').textContent = '$0';
+        const infoCred = document.getElementById('infoCredito');
+        if(infoCred){ infoCred.style.display='none'; }
         return;
     }
 
-    let totalVenta = 0;
-    container.innerHTML = carritoVentaActual.map(item => {
-        totalVenta += item.total;
+    let totalContado = 0;
+    let totalAbono = 0;
+    let totalSaldo = 0;
+    let totalCredito = 0;
+
+    container.innerHTML = carritoVentaActual.map((item, idx) => {
+        const esCredito = item.tipo==='CREDITO';
+        const total = parseFloat(item.precio||0) * parseInt(item.cantidad||1);
+        if(esCredito){
+            totalCredito += total;
+            totalAbono += parseFloat(item.cliente?.abono||0);
+            totalSaldo += parseFloat(item.cliente?.saldo||0);
+        }else{
+            totalContado += total;
+        }
         return `
-            <div class="carrito-item">
-                <span>🔹 ${item.nombre} x${item.cantidad}</span>
+            <div class="carrito-item" style="border-left:4px solid ${esCredito?'#8E44AD':'#27AE60'}">
+                <span>🔹 ${item.nombre} x${item.cantidad} <span style="background:${esCredito?'#8E44AD':'#27AE60'};color:white;padding:2px 6px;border-radius:10px;font-size:0.6rem;margin-left:4px">${esCredito?'CREDITO '+ (item.cliente?.nombre||'') :'CONTADO'}</span></span>
                 <div>
-                    <span style="font-weight: 600;">$${item.total.toLocaleString()}</span>
-                    <button onclick="eliminarDelCarritoVenta(${item.idProducto})" 
+                    <span style="font-weight:600;">$${total.toLocaleString()}</span>
+                    <button onclick="carritoVentaActual.splice(${idx},1);renderizarCarritoVenta()" 
                             style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.1rem 0.5rem; cursor: pointer; font-size: 0.7rem; margin-left: 0.5rem;">
                         ✕
                     </button>
@@ -1347,11 +1349,30 @@ function renderizarCarritoVenta() {
         `;
     }).join('');
 
+    const efectivoRecaudado = totalContado + totalAbono;
+
     const totalDiv = document.createElement('div');
-    totalDiv.style.cssText = 'text-align: right; font-weight: 700; padding: 0.5rem; border-top: 2px solid var(--secondary); margin-top: 0.3rem;';
-    totalDiv.textContent = `Total Venta: $${totalVenta.toLocaleString()}`;
+    totalDiv.style.cssText = 'text-align: right; font-weight: 700; padding: 0.5rem; border-top: 2px solid var(--secondary); margin-top: 0.3rem; background:white; border-radius:6px;';
+    totalDiv.innerHTML = `
+        <div style="display:flex;justify-content:space-between"><span>Contado:</span><span>$${totalContado.toLocaleString()}</span></div>
+        ${totalCredito>0?`<div style="display:flex;justify-content:space-between"><span>Crédito total:</span><span>$${totalCredito.toLocaleString()}</span></div><div style="display:flex;justify-content:space-between"><span>Abono crédito:</span><span style="color:#8E44AD">$${totalAbono.toLocaleString()}</span></div><div style="display:flex;justify-content:space-between"><span>Saldo por cobrar:</span><span style="color:#E74C3C">$${totalSaldo.toLocaleString()}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;border-top:2px solid var(--primary);margin-top:0.4rem;padding-top:0.4rem;font-size:1.1rem"><span>RECAUDADO HOY:</span><span style="color:var(--primary)">$${efectivoRecaudado.toLocaleString()}</span></div>
+    `;
     container.appendChild(totalDiv);
+
+    document.getElementById('infoRecaudado').textContent = `$${efectivoRecaudado.toLocaleString()}`;
+
+    const infoCred = document.getElementById('infoCredito');
+    if(infoCred){
+        if(totalCredito>0){
+            infoCred.style.display='block';
+            infoCred.innerHTML = `💳 Carrito mixto: Contado $${totalContado.toLocaleString()} + Abono $${totalAbono.toLocaleString()} = <strong>$${efectivoRecaudado.toLocaleString()} recaudado hoy</strong> | Saldo por cobrar $${totalSaldo.toLocaleString()}`;
+        }else{
+            infoCred.style.display='none';
+        }
+    }
 }
+
 
 function eliminarDelCarritoVenta(idProducto) {
     carritoVentaActual = carritoVentaActual.filter(item => item.idProducto !== idProducto);
@@ -1617,95 +1638,126 @@ function cerrarReciboVenta() {
                 btn.disabled = false;
             }
         }
+
 // ==========================================
-// FINALIZAR VENTA MÚLTIPLE (CORREGIDO)
+// FINALIZAR VENTA MIXTA - UNIFICADA CONTADO + CREDITO
 // ==========================================
 async function finalizarVentaMultiple() {
-    console.log('🟢 Botón Finalizar Venta Múltiple presionado');
+    console.log('🟢 Finalizar Venta Mixta presionado - Flujo: contado + credito, efectivo = contado + abonos');
     
     if (carritoVentaActual.length === 0) {
         showToast('Agregue al menos un producto a la venta', 'error');
         return;
     }
 
-    const idRemision = document.getElementById('remisionBuscar').value;
+    const idRemision = document.getElementById('remisionBuscar').value.trim();
     if (!idRemision) {
         showToast('Cargue una remisión primero', 'error');
         return;
     }
 
-    const vendedor = sessionStorage.getItem('usuario') || 'Sistema';
-    
-    console.log('📦 Productos en carrito:', carritoVentaActual);
-    console.log('📋 Remisión:', idRemision);
+    // Separar contado y credito
+    const itemsContado = carritoVentaActual.filter(p=> !p.tipo || p.tipo==='CONTADO');
+    const itemsCredito = carritoVentaActual.filter(p=> p.tipo==='CREDITO');
 
-    const btn = document.querySelector('#pantallaVendedor .btn-success.btn-block');
-    if (!btn) {
-        showToast('Error: No se encontró el botón', 'error');
+    const totalContado = itemsContado.reduce((s,p)=> s + (parseFloat(p.precio||0)*parseInt(p.cantidad||1)),0);
+    const totalCredito = itemsCredito.reduce((s,p)=> s + (parseFloat(p.precio||0)*parseInt(p.cantidad||1)),0);
+    const totalAbono = itemsCredito.reduce((s,p)=> s + (parseFloat(p.cliente?.abono||0)),0);
+    const totalSaldo = totalCredito - totalAbono;
+    const efectivoRecaudado = totalContado + totalAbono;
+
+    if(itemsCredito.length>0 && !itemsCredito[0].cliente){
+        showToast('Falta datos cliente crédito','error');
         return;
     }
-    
-    const textoOriginal = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-    btn.disabled = true;
 
-    try {
-        const productos = carritoVentaActual.map(item => ({
-            idProducto: item.idProducto,
-            cantidad: item.cantidad,
-            precioUnitario: item.precio
-        }));
+    if(!confirm(`Confirmar venta mixta?\nContado: $${totalContado.toLocaleString()}\nCrédito: $${totalCredito.toLocaleString()} (Abono $${totalAbono.toLocaleString()} + Saldo $${totalSaldo.toLocaleString()})\nTOTAL RECAUDADO HOY: $${efectivoRecaudado.toLocaleString()}`)){
+        return;
+    }
 
-        console.log('📤 Enviando al backend:', { idRemision, productos, vendedor });
+    const btn = document.querySelector('#pantallaVendedor .btn-success.btn-block') || document.querySelector('button[onclick="finalizarVentaMultiple()"]');
+    const textoOriginal = btn ? btn.innerHTML : 'Finalizar';
+    if(btn){ btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; btn.disabled=true; }
 
-        const res = await fetch(`${API_URL}/api/preventa/venta-multiple`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                idRemision,
-                productos,
-                vendedor
-            })
+    try{
+        // Usar nuevo endpoint mixto si existe, sino fallback a venta-multiple + credito
+        let payloadMixto = {
+            idRemision: idRemision,
+            items: carritoVentaActual.map(p=>({idProducto: p.idProducto, nombre: p.nombre, cantidad: p.cantidad, precio: p.precio, tipo: p.tipo||'CONTADO'})),
+            cliente: itemsCredito.length>0 ? {
+                nombre: itemsCredito[0].cliente.nombre,
+                cc: itemsCredito[0].cliente.cc,
+                telefono: itemsCredito[0].cliente.telefono || itemsCredito[0].cliente.tel,
+                direccion: itemsCredito[0].cliente.direccion || itemsCredito[0].cliente.dir,
+                abono: totalAbono,
+                fecha_vencimiento: itemsCredito[0].cliente.vence || null,
+                total: totalCredito
+            } : null,
+            productos: carritoVentaActual.map(p=>({idProducto: p.idProducto, cantidad: p.cantidad, precioUnitario: p.precio})),
+            vendedor: sessionStorage.getItem('usuario') || 'Sistema'
+        };
+
+        // Intentar endpoint nuevo mixto
+        let res = await fetch(`${API_URL}/api/preventa/finalizar-mixta`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payloadMixto)
         });
+        let data;
+        try{ data = await res.json(); }catch{ data = {}; }
 
-        const data = await res.json();
-        console.log('📥 Respuesta del backend:', data);
-
-        if (res.ok) {
-            showToast(`✅ ${data.mensaje}`, 'success');
-
-            // Preguntar si desea imprimir recibo
-            const imprimir = confirm('🧾 ¿Desea imprimir el recibo de esta venta?');
-            if (imprimir) {
-                const reciboHTML = generarReciboVentaMultiple(
-                    data.productos,
-                    idRemision,
-                    vendedor,
-                    data.totalVenta
-                );
-                if (reciboHTML) {
-                    document.body.insertAdjacentHTML('beforeend', reciboHTML);
-                }
+        if(!res.ok){
+            console.log('Fallback a venta-multiple + credito separados');
+            // Fallback: si no existe endpoint mixto, usar venta-multiple para contado y credito por separado
+            if(itemsContado.length>0){
+                const r1 = await fetch(`${API_URL}/api/preventa/venta-multiple`,{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({idRemision, productos: itemsContado.map(p=>({idProducto:p.idProducto,cantidad:p.cantidad,precioUnitario:p.precio})), vendedor:'Sistema'})
+                });
+                if(!r1.ok){ const d1=await r1.json(); throw new Error(d1.error||'Error contado'); }
             }
-
-            // Limpiar carrito de venta
-            carritoVentaActual = [];
-            renderizarCarritoVenta();
-
-            // Actualizar estado
-            await buscarRemisionRuta();
-            await cargarListaRemisiones();
-        } else {
-            showToast('Error: ' + (data.error || 'Error desconocido'), 'error');
+            if(itemsCredito.length>0){
+                const cliente = payloadMixto.cliente;
+                const r2 = await fetch(`${API_URL}/api/ventas/credito`,{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        remision_id: idRemision,
+                        cliente_nombre: cliente.nombre,
+                        cliente_cc: cliente.cc,
+                        cliente_telefono: cliente.telefono,
+                        cliente_direccion: cliente.direccion,
+                        total_venta: totalCredito,
+                        abono_inicial: totalAbono,
+                        saldo_pendiente: totalSaldo,
+                        productos: itemsCredito.map(p=>({idProducto:p.idProducto,nombre:p.nombre,cantidad:p.cantidad,precio:p.precio})),
+                        fecha_vencimiento: cliente.fecha_vencimiento,
+                        usuario:'Sistema'
+                    })
+                });
+                const d2 = await r2.json();
+                if(!r2.ok) throw new Error(d2.error||'Error credito');
+            }
+            data = {ok:true, resumen:{totalContado, totalCredito, abono:totalAbono, saldo:totalSaldo, efectivoRecaudado}};
         }
-    } catch (error) {
-        console.error('❌ Error en finalizarVentaMultiple:', error);
-        showToast('Error de conexión: ' + error.message, 'error');
-    } finally {
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
+
+        showToast(`✅ Venta guardada - Recaudado $${(data.resumen?.efectivoRecaudado||efectivoRecaudado).toLocaleString()} (Contado $${(data.resumen?.totalContado||totalContado).toLocaleString()} + Abono $${(data.resumen?.abono||totalAbono).toLocaleString()})`,'success');
+
+        // NO borrar remisionBuscar, solo vaciar carrito mixto
+        carritoVentaActual = [];
+        renderizarCarritoVenta();
+        await buscarRemisionRuta();
+        await cargarListaRemisiones();
+
+    }catch(error){
+        console.error('❌ Error finalizarMixta', error);
+        showToast('Error: '+error.message,'error');
+    }finally{
+        if(btn){ btn.innerHTML = textoOriginal; btn.disabled=false; }
     }
 }
+
 // ==========================================
 // GENERAR RECIBO DE VENTA MÚLTIPLE
 // ==========================================
@@ -1728,7 +1780,7 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
     `).join('');
 
     return `
-        <div id="reciboVenta" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:10000; padding:20px;">
+        <div id="reciboVenta" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px;">
             <div style="background:white; border-radius:16px; max-width:480px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); font-family:'Courier New', monospace;">
                 <div style="text-align:center; border-bottom:2px solid #1A3A5C; padding-bottom:1rem; margin-bottom:1rem;">
                     <div style="font-size:2rem; margin-bottom:0.3rem;">🛒</div>
@@ -1836,93 +1888,62 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
         }
 
         window.guardarVentaCredito = async function(){
-    try {
-        const checks = document.querySelectorAll('.chk-credito:checked');
-        if (checks.length === 0) { 
-            showToast('Selecciona al menos un producto para el crédito', 'error'); 
-            return; 
+            try{
+                const checks = document.querySelectorAll('.chk-credito:checked');
+                if(checks.length===0){ showToast('Selecciona al menos un producto','error'); return; }
+
+                const nombre = document.getElementById('cli_nombre').value.trim();
+                if(!nombre){ showToast('Nombre del cliente obligatorio','error'); return; }
+
+                const productosCredito = Array.from(checks).map(c => carritoVentaActual[parseInt(c.dataset.index)]);
+                const totalCredito = productosCredito.reduce((s,p)=> s + (parseFloat(p.precio||0) * parseInt(p.cantidad||1)),0);
+                const abono = parseFloat(document.getElementById('credito_abono').value)||0;
+                const saldo = totalCredito - abono;
+
+                const payload = {
+                    remision_id: document.getElementById('creditoRemisionId').textContent,
+                    cliente_nombre: nombre,
+                    cliente_cc: document.getElementById('cli_cc').value,
+                    cliente_telefono: document.getElementById('cli_tel').value,
+                    cliente_direccion: document.getElementById('cli_dir').value,
+                    total_venta: totalCredito,
+                    abono_inicial: abono,
+                    saldo_pendiente: saldo,
+                    productos: productosCredito,
+                    fecha_vencimiento: document.getElementById('credito_vence').value || null,
+                    usuario: 'Sistema'
+                };
+
+                const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
+                const txtOrig = btn ? btn.innerHTML : '';
+                if(btn){ btn.innerHTML = '⏳ Guardando...'; btn.disabled=true; }
+
+                const res = await fetch(`${API_URL}/api/ventas/credito`, {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error||'Error al guardar');
+
+                showToast(`✅ Crédito ${payload.remision_id} guardado - Saldo $${saldo.toLocaleString()}`,'success');
+                window.cerrarModalCredito();
+                // limpiar carrito
+                if(typeof vaciarCarritoVenta === 'function') vaciarCarritoVenta();
+                carritoVentaActual = [];
+                renderizarCarritoVenta();
+                document.getElementById('remisionBuscar').value='';
+                await cargarListaRemisiones();
+
+                if(btn){ btn.innerHTML = txtOrig; btn.disabled=false; }
+            }catch(e){
+                console.error(e);
+                showToast('❌ '+e.message,'error');
+                const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
+                if(btn){ btn.innerHTML='✅ Guardar Crédito'; btn.disabled=false; }
+            }
         }
 
-        const nombreInput = document.getElementById('cli_nombre');
-        const nombre = nombreInput ? nombreInput.value.trim() : '';
-        if (!nombre) { 
-            showToast('El nombre del cliente es obligatorio', 'error'); 
-            return; 
-        }
-
-        // Mapeo seguro asegurando que los IDs y nombres viajen limpios
-        const productosCredito = Array.from(checks).map(c => {
-            const p = carritoVentaActual[parseInt(c.dataset.index)];
-            return {
-                idProducto: p.idProducto || p.id_producto || p.id || null,
-                nombre: p.nombre || p.nombre_producto || 'Producto',
-                cantidad: parseInt(p.cantidad || 1),
-                precio: parseFloat(p.precio || p.precioVentaUnidadFijo || 0)
-            };
-        });
-
-        const totalCredito = productosCredito.reduce((s, p) => s + (p.precio * p.cantidad), 0);
-        const abono = parseFloat(document.getElementById('credito_abono')?.value) || 0;
-        const saldo = totalCredito - abono;
-
-        const payload = {
-            remision_id: document.getElementById('creditoRemisionId').textContent.trim(),
-            cliente_nombre: nombre,
-            cliente_cc: document.getElementById('cli_cc')?.value || '',
-            cliente_telefono: document.getElementById('cli_tel')?.value || '',
-            cliente_direccion: document.getElementById('cli_dir')?.value || '',
-            total_venta: totalCredito,
-            abono_inicial: abono,
-            saldo_pendiente: saldo,
-            productos: productosCredito,
-            fecha_vencimiento: document.getElementById('credito_vence')?.value || null,
-            usuario: 'Sistema'
-        };
-
-        const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
-        const txtOrig = btn ? btn.innerHTML : '';
-        if (btn) { btn.innerHTML = '⏳ Guardando...'; btn.disabled = true; }
-
-        const res = await fetch(`${API_URL}/api/ventas/credito`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al guardar el crédito');
-
-        showToast(`✅ Crédito ${payload.remision_id} guardado. Abono $${abono.toLocaleString()} - Saldo $${saldo.toLocaleString()}`, 'success');
-        window.cerrarModalCredito();
-
-        // CORREGIDO: Solo quitar del carrito los productos que fueron a crédito, NO vaciar remisión
-        // ... dentro de guardarVentaCredito después del showToast éxito
-        const indicesCredito = Array.from(checks).map(c=> parseInt(c.dataset.index)).sort((a,b)=> b-a);
-        indicesCredito.forEach(idx=> carritoVentaActual.splice(idx,1));
-        renderizarCarritoVenta();
-        document.getElementById('remisionBuscar').value = payload.remision_id; // NO borrar
-        await buscarRemisionRuta(); // recarga disponibles
-        
-        if (typeof cargarListaRemisiones === 'function') {
-            await cargarListaRemisiones();
-        }
-
-        // Limpiar modal cliente
-        document.getElementById('cli_nombre').value='';
-        document.getElementById('cli_cc').value='';
-        document.getElementById('cli_tel').value='';
-        document.getElementById('cli_dir').value='';
-        document.getElementById('credito_abono').value='';
-
-        if (btn) { btn.innerHTML = txtOrig; btn.disabled = false; }
-
-    } catch (e) {
-        console.error('Error en guardarVentaCredito:', e);
-        showToast('❌ ' + e.message, 'error');
-        const btn = document.querySelector('#modalCredito button[onclick="guardarVentaCredito()"]');
-        if (btn) { btn.innerHTML = '✅ Guardar Crédito'; btn.disabled = false; }
-    }
-}
         // ==========================================
         // ACTUALIZACIÓN AUTOMÁTICA
         // ==========================================
@@ -1930,7 +1951,7 @@ function generarReciboVentaMultiple(productos, idRemision, vendedor, totalVenta)
 
     </script>
     <!-- MODAL CREDITO -->
-<div id="modalCredito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center;">
+<div id="modalCredito" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
   <div style="background:white; width:95%; max-width:550px; border-radius:12px; padding:1.5rem; max-height:90vh; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h3 style="margin:0; color:#102A43;">💳 Venta a Crédito</h3>

@@ -2274,6 +2274,112 @@ app.get('/api/ventas/credito/:remisionId', async (req,res)=>{
 });
 
 
+
+// =================================================================
+// NUEVO ENDPOINT UNIFICADO: FINALIZAR VENTA MIXTA (CONTADO + CREDITO)
+// =================================================================
+app.post('/api/preventa/finalizar-mixta', async (req,res)=>{
+  const {idRemision, items, cliente, vendedor} = req.body;
+  // items = [{idProducto, nombre, cantidad, precio, tipo:'CONTADO'|'CREDITO'}]
+  // cliente = {nombre, cc, telefono, direccion, abono, fecha_vencimiento} solo si hay credito
+  try{
+    console.log('🧩 Finalizar mixta', idRemision, 'items', items?.length, 'cliente', cliente?.nombre);
+    if(!idRemision || !items || items.length===0) return res.status(400).json({error:"Datos incompletos: remisión y productos"});
+
+    const {rows: remRows} = await db.query(`SELECT id_remision, estado FROM remisiones WHERE id_remision=$1`,[idRemision]);
+    if(remRows.length===0) return res.status(404).json({error:"Remisión no existe"});
+    if(remRows[0].estado==='CERRADA') return res.status(400).json({error:"Remisión ya cerrada"});
+
+    const tieneCredito = items.some(i=> i.tipo==='CREDITO');
+    if(tieneCredito && (!cliente || !cliente.nombre)) return res.status(400).json({error:"Para crédito debe indicar cliente"});
+
+    await db.query('BEGIN');
+
+    // Crear tablas si faltan
+    await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito (id SERIAL PRIMARY KEY, remision_id VARCHAR(50), cliente_nombre VARCHAR(200), cliente_cc VARCHAR(50), cliente_telefono VARCHAR(50), cliente_direccion TEXT, total_venta NUMERIC DEFAULT 0, abono_inicial NUMERIC DEFAULT 0, saldo_pendiente NUMERIC DEFAULT 0, fecha_vencimiento DATE, estado VARCHAR(20) DEFAULT 'PENDIENTE', usuario_creacion VARCHAR(100), fecha_creacion TIMESTAMP DEFAULT NOW())`);
+    await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito_productos (id SERIAL PRIMARY KEY, credito_id INTEGER, id_producto INTEGER, nombre VARCHAR(200), cantidad INTEGER, precio_unitario NUMERIC, subtotal NUMERIC)`);
+
+    let totalContado = 0;
+    let totalCredito = 0;
+    const productosCredito = items.filter(i=> i.tipo==='CREDITO');
+
+    // Validar stock
+    for(const it of items){
+      const {rows: st} = await db.query(`SELECT cantidad_cargada, cantidad_vendida FROM remisiones_productos WHERE id_remision=$1 AND id_producto=$2`,[idRemision, it.idProducto]);
+      if(st.length>0){
+        const disp = Number(st[0].cantidad_cargada||0) - Number(st[0].cantidad_vendida||0);
+        if(it.cantidad > disp) throw new Error(`Stock insuficiente para ${it.nombre}. Disponible ${disp}`);
+      }
+    }
+
+    // Guardar contado
+    for(const it of items.filter(i=> i.tipo==='CONTADO')){
+      const total = Number(it.cantidad)*Number(it.precio);
+      totalContado += total;
+      await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,[idRemision, it.idProducto, it.nombre, it.cantidad, it.precio, total, vendedor||'Sistema']);
+      await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[it.cantidad, idRemision, it.idProducto]);
+    }
+
+    let creditoId = null;
+    let abono = 0;
+    let saldo = 0;
+    if(tieneCredito){
+      totalCredito = productosCredito.reduce((s,i)=> s + Number(i.cantidad)*Number(i.precio),0);
+      abono = Number(cliente.abono||0);
+      saldo = totalCredito - abono;
+      if(abono<0 || abono>totalCredito) throw new Error(`Abono inválido. Total crédito $${totalCredito}, abono $${abono}`);
+
+      const {rows: credRows} = await db.query(`INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[idRemision, cliente.nombre, cliente.cc||'', cliente.telefono||'', cliente.direccion||'', totalCredito, abono, saldo, cliente.fecha_vencimiento||null, 'PENDIENTE', vendedor||'Sistema']);
+      creditoId = credRows[0].id;
+
+      for(const it of productosCredito){
+        const tot = Number(it.cantidad)*Number(it.precio);
+        await db.query(`INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) VALUES ($1,$2,$3,$4,$5,$6)`,[creditoId, it.idProducto, it.nombre, it.cantidad, it.precio, tot]);
+        await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[it.cantidad, idRemision, it.idProducto]);
+        await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,[idRemision, it.idProducto, it.nombre+' (CREDITO)', it.cantidad, it.precio, tot, vendedor||'Sistema']);
+      }
+    }
+
+    const efectivoRecaudado = totalContado + abono;
+    await db.query(`UPDATE remisiones SET total_ventas = COALESCE(total_ventas,0) + $1 WHERE id_remision=$2`,[efectivoRecaudado, idRemision]);
+
+    await db.query('COMMIT');
+
+    // Actualizar memoria
+    if(remisionesVentaActivas[idRemision]){
+      for(const it of items){
+        const p = remisionesVentaActivas[idRemision].productos.find(x=> x.idProducto==it.idProducto);
+        if(p) p.cantidadVendidaEnCalle += Number(it.cantidad);
+      }
+      remisionesVentaActivas[idRemision].totalVentas = (remisionesVentaActivas[idRemision].totalVentas||0) + efectivoRecaudado;
+    }
+
+    console.log(`✅ Mixta OK ${idRemision} contado $${totalContado} credito $${totalCredito} abono $${abono} efectivo $${efectivoRecaudado}`);
+
+    res.json({
+      ok:true,
+      mensaje:"Venta mixta guardada",
+      resumen:{
+        totalContado,
+        totalCredito,
+        abono,
+        saldo,
+        efectivoRecaudado,
+        creditoId
+      }
+    });
+
+  }catch(e){
+    try{await db.query('ROLLBACK')}catch{}
+    console.error('❌ Error finalizar-mixta', e.message);
+    res.status(500).json({error:e.message});
+  }
+});
+
+// GET para evitar Cannot GET
+app.get('/api/preventa/finalizar-mixta', (req,res)=> res.json({msg:"Usar POST"}));
+app.get('/api/preventa/venta-multiple', (req,res)=> res.json({msg:"Usar POST /api/preventa/venta-multiple o mejor /api/preventa/finalizar-mixta"}));
+
 const server = app.listen(PORT, () => {
     console.log(`🚀 Servidor de Mecatron Solutions corriendo en'mecatron-solutions-production.up.railway.app;${PORT}`);
 });

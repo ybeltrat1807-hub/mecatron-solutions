@@ -1395,7 +1395,7 @@
             }
 
             // ==========================================
-// BUSCAR REMISIÓN EN RUTA - CORREGIDO
+// BUSCAR REMISIÓN EN RUTA - CORREGIDO (DISPLAY DE STOCK)
 // ==========================================
 async function buscarRemisionRuta() {
     const idRemision = document.getElementById('remisionBuscar').value;
@@ -1412,28 +1412,75 @@ async function buscarRemisionRuta() {
             const remision = data.remision;
             const select = document.getElementById('selectProductoCalle');
             
-            select.innerHTML = remision.productos.map(p => {
-                // Usar los nombres correctos
-                const cargados = p.cantidadSacada !== undefined ? p.cantidadSacada : (p.cantidadCargadaInicial || 0);
-                let vendidos = p.cantidadVendidaEnCalle;
-                if (vendidos === undefined) {
-                    vendidos = (p.cantidadSacada || 0) - (p.cantidadDevuelta || 0);
-                }
-                const disponible = cargados - vendidos;
-                const precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
-                
-                return `<option value="${p.idProducto}" data-precio="${precio}" data-disponible="${disponible}">
-                            ${p.nombre} (${disponible} uds) - $${precio.toLocaleString()}
-                        </option>`;
-            }).join('');
+            // Limpiar el select
+            select.innerHTML = '';
+            
+            // Verificar que hay productos
+            if (!remision.productos || remision.productos.length === 0) {
+                showToast('⚠️ Esta remisión no tiene productos cargados', 'error');
+                return;
+            }
 
+            // Recorrer productos y mostrar disponibilidad
+            remision.productos.forEach(p => {
+                // 🔥 OBTENER DISPONIBLE CORRECTAMENTE
+                // Prioridad: usar cantidadSacada - cantidadDevuelta
+                let cargados = 0;
+                let vendidos = 0;
+                
+                // Intentar con los nuevos nombres
+                if (p.cantidadSacada !== undefined) {
+                    cargados = Number(p.cantidadSacada) || 0;
+                } else if (p.cantidadCargadaInicial !== undefined) {
+                    cargados = Number(p.cantidadCargadaInicial) || 0;
+                }
+                
+                // Calcular vendidos
+                if (p.cantidadVendidaEnCalle !== undefined) {
+                    vendidos = Number(p.cantidadVendidaEnCalle) || 0;
+                } else if (p.cantidadDevuelta !== undefined) {
+                    // En la nueva estructura, cantidadDevuelta = vendido
+                    vendidos = Number(p.cantidadDevuelta) || 0;
+                }
+                
+                const disponible = cargados - vendidos;
+                const precio = parseFloat(p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0);
+                
+                console.log(`📦 Producto: ${p.nombre}, Cargados: ${cargados}, Vendidos: ${vendidos}, Disponible: ${disponible}`);
+                
+                // Crear option con datos correctos
+                const option = document.createElement('option');
+                option.value = p.idProducto;
+                option.dataset.precio = precio;
+                option.dataset.disponible = disponible;
+                option.dataset.nombre = p.nombre;
+                option.textContent = `${p.nombre} (${disponible} uds disponibles) - $${precio.toLocaleString()}`;
+                
+                // Si no hay stock, deshabilitar la opción
+                if (disponible <= 0) {
+                    option.disabled = true;
+                    option.textContent = `${p.nombre} (AGOTADO) - $${precio.toLocaleString()}`;
+                    option.style.color = '#E74C3C';
+                }
+                
+                select.appendChild(option);
+            });
+
+            // Evento para auto-completar precio al seleccionar
             select.addEventListener('change', function() {
                 const selected = this.options[this.selectedIndex];
                 if (selected && selected.dataset.precio) {
                     document.getElementById('precioVentaReal').value = selected.dataset.precio;
+                    
+                    // Mostrar disponibilidad
+                    const disponible = selected.dataset.disponible || 0;
+                    if (parseInt(disponible) <= 0) {
+                        showToast('⚠️ Este producto no tiene stock disponible', 'error');
+                    }
                 }
             });
 
+            // Disparar evento para el primer elemento
             if (select.options.length > 0) {
                 select.dispatchEvent(new Event('change'));
             }
@@ -1442,15 +1489,21 @@ async function buscarRemisionRuta() {
             let totalVentas = remision.totalVentas || 0;
             if (totalVentas === 0 && remision.productos) {
                 totalVentas = remision.productos.reduce((sum, p) => {
-                    const vendidos = p.cantidadVendidaEnCalle || ((p.cantidadSacada || 0) - (p.cantidadDevuelta || 0));
-                    const precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
+                    let vendidos = 0;
+                    if (p.cantidadVendidaEnCalle !== undefined) {
+                        vendidos = Number(p.cantidadVendidaEnCalle) || 0;
+                    } else if (p.cantidadDevuelta !== undefined) {
+                        vendidos = Number(p.cantidadDevuelta) || 0;
+                    }
+                    const precio = parseFloat(p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0);
                     return sum + (vendidos * precio);
                 }, 0);
             }
 
             document.getElementById('infoRecaudado').innerHTML = 
                 `💰 $${totalVentas.toLocaleString()}`;
-            showToast(`✅ Remisión ${idRemision} cargada`, 'success');
+            
+            showToast(`✅ Remisión ${idRemision} cargada con ${select.options.length} productos`, 'success');
         } else {
             showToast('Remisión no encontrada en ruta', 'error');
         }
@@ -1461,54 +1514,62 @@ async function buscarRemisionRuta() {
 }
 
             // ==========================================
-            // CARRITO DE VENTA MÚLTIPLE
-            // ==========================================
-            function agregarAlCarritoVenta() {
-                const select = document.getElementById('selectProductoCalle');
-                const idProducto = select.value;
-                const cantidad = parseInt(document.getElementById('cantidadVenta').value);
-                const precio = parseFloat(document.getElementById('precioVentaReal').value);
+// AGREGAR AL CARRITO DE VENTA - CORREGIDO
+// ==========================================
+function agregarAlCarritoVenta() {
+    const select = document.getElementById('selectProductoCalle');
+    const selectedOption = select.options[select.selectedIndex];
+    
+    if (!selectedOption || selectedOption.disabled) {
+        showToast('Seleccione un producto con stock disponible', 'error');
+        return;
+    }
+    
+    const idProducto = select.value;
+    const cantidad = parseInt(document.getElementById('cantidadVenta').value);
+    const precio = parseFloat(document.getElementById('precioVentaReal').value);
 
-                if (!idProducto || !cantidad || cantidad <= 0 || !precio || precio <= 0) {
-                    showToast('Complete todos los datos del producto', 'error');
-                    return;
-                }
+    if (!idProducto || !cantidad || cantidad <= 0 || !precio || precio <= 0) {
+        showToast('Complete todos los datos del producto', 'error');
+        return;
+    }
 
-                const option = select.options[select.selectedIndex];
-                const nombre = option.text.split('(')[0].trim();
-                const disponible = parseInt(option.dataset.disponible || 0);
+    const nombre = selectedOption.dataset.nombre || selectedOption.text.split('(')[0].trim();
+    const disponible = parseInt(selectedOption.dataset.disponible || 0);
 
-                if (cantidad > disponible) {
-                    showToast(`Stock insuficiente. Disponible: ${disponible}`, 'error');
-                    return;
-                }
+    // Validar stock
+    if (cantidad > disponible) {
+        showToast(`❌ Stock insuficiente. Disponible: ${disponible}`, 'error');
+        return;
+    }
 
-                const existente = carritoVentaActual.find(item => item.idProducto === parseInt(idProducto));
-                if (existente) {
-                    const nuevaCantidad = existente.cantidad + cantidad;
-                    if (nuevaCantidad > disponible) {
-                        showToast(`Stock insuficiente. Disponible: ${disponible}`, 'error');
-                        return;
-                    }
-                    existente.cantidad = nuevaCantidad;
-                    existente.precio = precio;
-                    existente.total = nuevaCantidad * precio;
-                    showToast(`✅ ${nombre} cantidad actualizada a ${nuevaCantidad}`, 'success');
-                } else {
-                    carritoVentaActual.push({
-                        idProducto: parseInt(idProducto),
-                        nombre: nombre,
-                        cantidad: cantidad,
-                        precio: precio,
-                        total: cantidad * precio
-                    });
-                    showToast(`✅ ${nombre} agregado a la venta`, 'success');
-                }
+    // Verificar si ya está en el carrito
+    const existente = carritoVentaActual.find(item => item.idProducto === parseInt(idProducto));
+    if (existente) {
+        const nuevaCantidad = existente.cantidad + cantidad;
+        if (nuevaCantidad > disponible) {
+            showToast(`❌ No puedes agregar más. Stock disponible: ${disponible}`, 'error');
+            return;
+        }
+        existente.cantidad = nuevaCantidad;
+        existente.precio = precio;
+        existente.total = nuevaCantidad * precio;
+        showToast(`✅ ${nombre} cantidad actualizada a ${nuevaCantidad}`, 'success');
+    } else {
+        carritoVentaActual.push({
+            idProducto: parseInt(idProducto),
+            nombre: nombre,
+            cantidad: cantidad,
+            precio: precio,
+            total: cantidad * precio
+        });
+        showToast(`✅ ${nombre} agregado a la venta`, 'success');
+    }
 
-                renderizarCarritoVenta();
-                document.getElementById('cantidadVenta').value = '';
-                document.getElementById('precioVentaReal').value = '';
-            }
+    renderizarCarritoVenta();
+    document.getElementById('cantidadVenta').value = '';
+    document.getElementById('precioVentaReal').value = '';
+}
 
             function renderizarCarritoVenta() {
                 const container = document.getElementById('carritoVenta');

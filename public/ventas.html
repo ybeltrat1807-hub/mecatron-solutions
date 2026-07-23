@@ -1395,50 +1395,70 @@
             }
 
             // ==========================================
-            // BUSCAR REMISIÓN EN RUTA
-            // ==========================================
-            async function buscarRemisionRuta() {
-                const idRemision = document.getElementById('remisionBuscar').value;
-                if (!idRemision) {
-                    showToast('Digite el código de remisión', 'error');
-                    return;
+// BUSCAR REMISIÓN EN RUTA - CORREGIDO
+// ==========================================
+async function buscarRemisionRuta() {
+    const idRemision = document.getElementById('remisionBuscar').value;
+    if (!idRemision) {
+        showToast('Digite el código de remisión', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
+        const data = await res.json();
+
+        if (res.ok) {
+            const remision = data.remision;
+            const select = document.getElementById('selectProductoCalle');
+            
+            select.innerHTML = remision.productos.map(p => {
+                // Usar los nombres correctos
+                const cargados = p.cantidadSacada !== undefined ? p.cantidadSacada : (p.cantidadCargadaInicial || 0);
+                let vendidos = p.cantidadVendidaEnCalle;
+                if (vendidos === undefined) {
+                    vendidos = (p.cantidadSacada || 0) - (p.cantidadDevuelta || 0);
                 }
+                const disponible = cargados - vendidos;
+                const precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
+                
+                return `<option value="${p.idProducto}" data-precio="${precio}" data-disponible="${disponible}">
+                            ${p.nombre} (${disponible} uds) - $${precio.toLocaleString()}
+                        </option>`;
+            }).join('');
 
-                try {
-                    const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
-                    const data = await res.json();
-
-                    if (res.ok) {
-                        const select = document.getElementById('selectProductoCalle');
-                        select.innerHTML = data.remision.productos.map(p => {
-                            let disponible = p.cantidadCargadaInicial - p.cantidadVendidaEnCalle;
-                            let precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
-                            return `<option value="${p.idProducto}" data-precio="${precio}" data-disponible="${disponible}">
-                                        ${p.nombre} (${disponible} uds) - $${precio.toLocaleString()}
-                                    </option>`;
-                        }).join('');
-
-                        select.addEventListener('change', function() {
-                            const selected = this.options[this.selectedIndex];
-                            if (selected && selected.dataset.precio) {
-                                document.getElementById('precioVentaReal').value = selected.dataset.precio;
-                            }
-                        });
-
-                        if (select.options.length > 0) {
-                            select.dispatchEvent(new Event('change'));
-                        }
-
-                        document.getElementById('infoRecaudado').innerHTML = 
-                            `💰 $${data.remision.totalVentas.toLocaleString()}`;
-                        showToast(`✅ Remisión ${idRemision} cargada`, 'success');
-                    } else {
-                        showToast('Remisión no encontrada en ruta', 'error');
-                    }
-                } catch (error) {
-                    showToast('Error de conexión', 'error');
+            select.addEventListener('change', function() {
+                const selected = this.options[this.selectedIndex];
+                if (selected && selected.dataset.precio) {
+                    document.getElementById('precioVentaReal').value = selected.dataset.precio;
                 }
+            });
+
+            if (select.options.length > 0) {
+                select.dispatchEvent(new Event('change'));
             }
+
+            // Calcular total de ventas
+            let totalVentas = remision.totalVentas || 0;
+            if (totalVentas === 0 && remision.productos) {
+                totalVentas = remision.productos.reduce((sum, p) => {
+                    const vendidos = p.cantidadVendidaEnCalle || ((p.cantidadSacada || 0) - (p.cantidadDevuelta || 0));
+                    const precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
+                    return sum + (vendidos * precio);
+                }, 0);
+            }
+
+            document.getElementById('infoRecaudado').innerHTML = 
+                `💰 $${totalVentas.toLocaleString()}`;
+            showToast(`✅ Remisión ${idRemision} cargada`, 'success');
+        } else {
+            showToast('Remisión no encontrada en ruta', 'error');
+        }
+    } catch (error) {
+        console.error('Error al buscar remisión:', error);
+        showToast('Error de conexión', 'error');
+    }
+}
 
             // ==========================================
             // CARRITO DE VENTA MÚLTIPLE
@@ -1780,61 +1800,95 @@
             // ==========================================
             // CARGAR PRE-FACTURA (CIERRE)
             // ==========================================
-            async function cargarPreFacturaCierre() {
-                const idRemision = document.getElementById('remisionCierre').value;
-                if (!idRemision) {
-                    showToast('Escriba el código de remisión', 'error');
-                    return;
-                }
+            // ==========================================
+// CARGAR PRE-FACTURA (CIERRE) - CORREGIDO
+// ==========================================
+async function cargarPreFacturaCierre() {
+    const idRemision = document.getElementById('remisionCierre').value;
+    if (!idRemision) {
+        showToast('Escriba el código de remisión', 'error');
+        return;
+    }
 
-                try {
-                    const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
-                    const data = await res.json();
+    try {
+        const res = await fetch(`${API_URL}/api/preventa/consultar/${idRemision}`);
+        const data = await res.json();
 
-                    if (!res.ok) {
-                        showToast('No se encontró esa remisión activa', 'error');
-                        return;
-                    }
+        if (!res.ok) {
+            showToast('No se encontró esa remisión activa', 'error');
+            return;
+        }
 
-                    const remision = data.remision;
-                    let tablaProd = (remision.productos || []).map(p => `
-                        <tr>
-                            <td style="padding: 0.3rem;">${p.nombre}</td>
-                            <td style="padding: 0.3rem; text-align: center;">${p.cantidadCargadaInicial}</td>
-                            <td style="padding: 0.3rem; text-align: center; color: var(--success);">${p.cantidadVendidaEnCalle}</td>
-                            <td style="padding: 0.3rem; text-align: center; color: var(--danger);">${p.cantidadCargadaInicial - p.cantidadVendidaEnCalle}</td>
-                        </tr>
-                    `).join('');
-
-                    document.getElementById('areaCierreAuditoria').innerHTML = `
-                        <div style="margin-top: 1rem; background: #FFF8E1; padding: 1rem; border-radius: 10px; border-left: 4px solid var(--gold);">
-                            <strong style="display: block; margin-bottom: 0.5rem;">📋 FACTURA PREVIA</strong>
-                            <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #F8F9FA;">
-                                        <th style="padding: 0.3rem; text-align: left;">Producto</th>
-                                        <th style="padding: 0.3rem; text-align: center;">Carga</th>
-                                        <th style="padding: 0.3rem; text-align: center;">Vend</th>
-                                        <th style="padding: 0.3rem; text-align: center;">Sobra</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${tablaProd}</tbody>
-                            </table>
-                            <div style="margin-top: 0.5rem;">
-                                <div style="color: var(--success); font-weight: 700;">
-                                    💰 Efectivo: $${(remision.totalVentas || 0).toLocaleString()}
-                                </div>
-                            </div>
-                            <button onclick="ejecutarCierreConDevolucion('${idRemision}', this)" class="btn btn-success" style="margin-top: 0.6rem;">
-                                ✓ Confirmar y Reingresar a Bodega
-                            </button>
-                        </div>
-                    `;
-                } catch (error) {
-                    console.error('Error cargar pre-factura:', error);
-                    showToast('Error de conexión', 'error');
-                }
+        const remision = data.remision;
+        
+        // 🔥 CORRECCIÓN: Mapear los datos correctamente
+        let tablaProd = (remision.productos || []).map(p => {
+            // Usar los nombres correctos que devuelve la API
+            // cantidadSacada = lo que se llevó
+            // cantidadVendidaEnCalle = lo que se ha vendido (calculado o devuelto por la API)
+            // sobrante = cantidadSacada - cantidadVendidaEnCalle
+            
+            // La API puede devolver cantidadCargadaInicial (antiguo) o cantidadSacada (nuevo)
+            // Usamos el que exista
+            const cargados = p.cantidadSacada !== undefined ? p.cantidadSacada : (p.cantidadCargadaInicial || 0);
+            // Vendidos puede venir como cantidadVendidaEnCalle o calcularse
+            let vendidos = p.cantidadVendidaEnCalle;
+            if (vendidos === undefined) {
+                // Si no viene, calcular como: cantidadSacada - cantidadDevuelta
+                vendidos = (p.cantidadSacada || 0) - (p.cantidadDevuelta || 0);
             }
+            const sobrante = cargados - vendidos;
+            
+            return `
+                <tr>
+                    <td style="padding: 0.3rem;">${p.nombre || 'Producto'}</td>
+                    <td style="padding: 0.3rem; text-align: center;">${cargados}</td>
+                    <td style="padding: 0.3rem; text-align: center; color: var(--success);">${vendidos}</td>
+                    <td style="padding: 0.3rem; text-align: center; color: var(--danger);">${sobrante}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Calcular total de ventas
+        let totalVentas = remision.totalVentas || 0;
+        if (totalVentas === 0 && remision.productos) {
+            // Calcular desde los productos
+            totalVentas = remision.productos.reduce((sum, p) => {
+                const vendidos = p.cantidadVendidaEnCalle || ((p.cantidadSacada || 0) - (p.cantidadDevuelta || 0));
+                const precio = p.precioVentaRealCalle || p.precioVentaUnidadFijo || 0;
+                return sum + (vendidos * precio);
+            }, 0);
+        }
+
+        document.getElementById('areaCierreAuditoria').innerHTML = `
+            <div style="margin-top: 1rem; background: #FFF8E1; padding: 1rem; border-radius: 10px; border-left: 4px solid var(--gold);">
+                <strong style="display: block; margin-bottom: 0.5rem;">📋 FACTURA PREVIA</strong>
+                <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #F8F9FA;">
+                            <th style="padding: 0.3rem; text-align: left;">Producto</th>
+                            <th style="padding: 0.3rem; text-align: center;">Carga</th>
+                            <th style="padding: 0.3rem; text-align: center;">Vend</th>
+                            <th style="padding: 0.3rem; text-align: center;">Sobra</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tablaProd}</tbody>
+                </table>
+                <div style="margin-top: 0.5rem;">
+                    <div style="color: var(--success); font-weight: 700;">
+                        💰 Efectivo: $${totalVentas.toLocaleString()}
+                    </div>
+                </div>
+                <button onclick="ejecutarCierreConDevolucion('${idRemision}', this)" class="btn btn-success" style="margin-top: 0.6rem;">
+                    ✓ Confirmar y Reingresar a Bodega
+                </button>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error cargar pre-factura:', error);
+        showToast('Error de conexión', 'error');
+    }
+}
 
             // ==========================================
             // EJECUTAR CIERRE

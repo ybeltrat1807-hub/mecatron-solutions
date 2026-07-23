@@ -144,17 +144,15 @@ app.post('/api/preventa/salida', async (req, res) => {
         return res.status(400).json({ error: "El carrito está vacío." });
     }
 
-    // Usamos un cliente de base de datos transaccional si es posible, o consultas seguras
     try {
-        // 1. Obtener dinámicamente el último número de remisión directo de Supabase
-        // Esto evita que se dupliquen IDs si el servidor de Railway se reinicia
+        // Obtener último ID de remisión
         const { rows: ultimoRegistro } = await db.query(
             'SELECT id_remision FROM remisiones ORDER BY fecha_creacion DESC LIMIT 1'
         );
         
         let nuevoNumero = 1;
         if (ultimoRegistro.length > 0) {
-            const ultimoId = ultimoRegistro[0].id_remision; // Ejemplo: "REM-0015"
+            const ultimoId = ultimoRegistro[0].id_remision;
             const numeroExtraido = parseInt(ultimoId.replace('REM-', ''), 10);
             if (!isNaN(numeroExtraido)) {
                 nuevoNumero = numeroExtraido + 1;
@@ -180,60 +178,58 @@ app.post('/api/preventa/salida', async (req, res) => {
                 return res.status(400).json({ error: `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.stock}` });
             }
 
-            // Aseguramos valores numéricos válidos para PostgreSQL (evitando NaNs)
             const costoFijo = Number(prod.costo) || 0;
             const precioFijo = Number(prod.precio_venta) || 0;
 
             productosValidados.push({
                 idProducto: item.idProducto,
                 nombre: prod.nombre,
-                cantidadCargadaInicial: parseInt(item.cantidadSalida, 10),
-                cantidadVendidaEnCalle: 0,
+                cantidadSacada: parseInt(item.cantidadSalida, 10),
+                cantidadDevuelta: 0, // Inicialmente 0, se actualiza en cierre
                 costoUnidadFijo: costoFijo,
                 precioVentaUnidadFijo: precioFijo,
                 precioVentaRealCalle: 0
             });
         }
 
-        // --- INICIO DE TRANSACCIÓN ---
         await db.query('BEGIN');
 
-        // Descontar de la BD en Supabase
+        // Descontar stock
         for (const item of productosValidados) {
             await db.query(
                 'UPDATE inventario_venta SET stock = stock - $1 WHERE id = $2',
-                [item.cantidadCargadaInicial, item.idProducto]
+                [item.cantidadSacada, item.idProducto]
             );
         }
 
-        // Guardar la remisión en la tabla principal de Supabase
+        // Guardar remisión con id_vendedor
         await db.query(
-            'INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion) VALUES ($1, $2, $3, $4)',
-            [idRemision, new Date(), 'ACTIVA', usuario || 'Sistema']
+            `INSERT INTO remisiones (id_remision, fecha_creacion, estado, usuario_creacion, id_vendedor) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [idRemision, new Date(), 'ACTIVA', usuario || 'Sistema', usuario || 'Sistema']
         );
 
-        // Guardar cada producto en la tabla de detalles en Supabase
+        // Guardar productos con nuevos nombres de columnas
         for (const item of productosValidados) {
             await db.query(
                 `INSERT INTO remisiones_productos 
-                 (id_remision, id_producto, nombre, cantidad_cargada, cantidad_vendida, costo_unidad, precio_venta_unidad) 
+                 (id_remision, id_producto, nombre, cantidad_sacada, cantidad_devuelta, costo_unidad, precio_venta_unidad) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                 [
                     idRemision,
                     item.idProducto,
                     item.nombre,
-                    item.cantidadCargadaInicial,
-                    0,
+                    item.cantidadSacada,
+                    0, // cantidad_devuelta inicial
                     item.costoUnidadFijo,
                     item.precioVentaUnidadFijo
                 ]
             );
         }
 
-        // Si todo salió bien, confirmamos los cambios en Supabase
         await db.query('COMMIT');
 
-        // Guardar también en la memoria RAM por si acaso el frontend aún la utiliza para mapear
+        // Guardar en memoria
         const remisionMemoria = {
             idRemision,
             productos: productosValidados,
@@ -250,45 +246,55 @@ app.post('/api/preventa/salida', async (req, res) => {
         });
 
     } catch (error) {
-        // Si algo falla, revertimos todos los cambios para no dejar datos corruptos
         await db.query('ROLLBACK');
         console.error("Error crítico en salida de preventa:", error);
         res.status(500).json({ error: "Error interno: " + error.message });
     }
 });
 // Ruta para el listado detallado en ventas.html - FIX REAL TABLA
-app.get('/api/preventa/remisiones-activas', async (req,res)=>{
-  try{
-    const {rows} = await db.query(`SELECT id_remision, total_ventas, fecha_creacion FROM remisiones WHERE estado='ACTIVA' ORDER BY fecha_creacion DESC LIMIT 20`);
-    const activas = await Promise.all(rows.map(async r=>{
-      const {rows: prods} = await db.query(`SELECT id_producto, nombre, cantidad_vendida, cantidad_cargada FROM remisiones_productos WHERE id_remision=$1`, [r.id_remision]);
-      return {
-        idRemision: r.id_remision,
-        productos: prods.map(p=>({idProducto:p.id_producto, nombre:p.nombre, vendidos: Number(p.cantidad_vendida||0), cargados: Number(p.cantidad_cargada||0)})),
-        totalVentas: Number(r.total_ventas||0),
-        fechaCreacion: r.fecha_creacion
-      }
-    }));
-    res.json({activas});
-  }catch(e){
-    console.error(e);
-    res.json({activas: Object.values(remisionesVentaActivas).map(r=>({
-      idRemision: r.idRemision,
-      productos: r.productos.map(p=>({vendidos: p.cantidadVendidaEnCalle})),
-      totalVentas: r.preFactura?.totalVentasEmitidas||0,
-      fechaCreacion: r.fechaCreacion
-    }))});
-  }
-});
-// Ruta para el contador rápido en panel.html
-app.get('/ventas/remisiones-activas', async (req, res) => {
+app.get('/api/preventa/remisiones-activas', async (req, res) => {
     try {
-        const { rows } = await db.query("SELECT COUNT(*) as total FROM remisiones WHERE estado = 'ACTIVA'");
-        const total = parseInt(rows[0].total, 10) || 0;
-        res.json({ total });
-    } catch (error) {
-        console.error("Error en conteo de remisiones activas para panel:", error);
-        res.status(500).json({ error: error.message });
+        const { rows } = await db.query(
+            `SELECT id_remision, total_ventas, fecha_creacion, id_vendedor 
+             FROM remisiones WHERE estado = 'ACTIVA' 
+             ORDER BY fecha_creacion DESC LIMIT 20`
+        );
+
+        const activas = await Promise.all(rows.map(async r => {
+            const { rows: prods } = await db.query(
+                `SELECT id_producto, nombre, cantidad_sacada, cantidad_devuelta 
+                 FROM remisiones_productos WHERE id_remision = $1`,
+                [r.id_remision]
+            );
+            return {
+                idRemision: r.id_remision,
+                productos: prods.map(p => ({
+                    idProducto: p.id_producto,
+                    nombre: p.nombre,
+                    vendidos: Number(p.cantidad_devuelta || 0), // devuelta = vendida
+                    cargados: Number(p.cantidad_sacada || 0)
+                })),
+                totalVentas: Number(r.total_ventas || 0),
+                fechaCreacion: r.fecha_creacion,
+                idVendedor: r.id_vendedor || 'Sin asignar'
+            };
+        }));
+
+        res.json({ activas });
+    } catch (e) {
+        console.error(e);
+        // Fallback a memoria
+        res.json({
+            activas: Object.values(remisionesVentaActivas).map(r => ({
+                idRemision: r.idRemision,
+                productos: r.productos.map(p => ({
+                    vendidos: p.cantidadVendidaEnCalle || 0,
+                    cargados: p.cantidadSacada || 0
+                })),
+                totalVentas: r.preFactura?.totalVentasEmitidas || 0,
+                fechaCreacion: r.fechaCreacion
+            }))
+        });
     }
 });
 
@@ -306,12 +312,11 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
         return res.status(404).json({ error: "Este producto no fue cargado en esta remisión." });
     }
 
-    let disponibleEnCamion = item.cantidadCargadaInicial - item.cantidadVendidaEnCalle;
+    let disponibleEnCamion = item.cantidadSacada - (item.cantidadVendidaEnCalle || 0);
     if (cantidadAVender > disponibleEnCamion) {
         return res.status(400).json({ error: `No puede vender más de lo que lleva. Disponible: ${disponibleEnCamion} uds.` });
     }
 
-    // Guardar datos de la venta actual
     const cantidad = parseInt(cantidadAVender);
     const precio = parseFloat(precioVentaReal);
     const total = cantidad * precio;
@@ -324,16 +329,15 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
     };
 
     // Actualizar en memoria
-    item.cantidadVendidaEnCalle += cantidad;
+    item.cantidadVendidaEnCalle = (item.cantidadVendidaEnCalle || 0) + cantidad;
     item.precioVentaRealCalle = precio;
 
     // Recalcular
     let totalVentas = 0;
     let totalCostos = 0;
-
     remision.productos.forEach(p => {
-        totalVentas += p.cantidadVendidaEnCalle * (p.precioVentaRealCalle || p.precioVentaUnidadFijo);
-        totalCostos += p.cantidadVendidaEnCalle * p.costoUnidadFijo;
+        totalVentas += (p.cantidadVendidaEnCalle || 0) * (p.precioVentaRealCalle || p.precioVentaUnidadFijo);
+        totalCostos += (p.cantidadVendidaEnCalle || 0) * p.costoUnidadFijo;
     });
 
     remision.preFactura = {
@@ -342,41 +346,54 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
         gananciaPreviaCalculada: totalVentas - totalCostos
     };
 
-    // === GUARDAR EN LA BASE DE DATOS ===
     try {
-    // 1. Guardar la venta individual (PostgreSQL utiliza $1, $2, etc.)
-    await db.query(
-        `INSERT INTO ventas_individuales 
-         (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-        [
-            idRemision,
-            parseInt(idProducto),
-            item.nombre,
-            cantidad,
-            precio,
-            total,
-            vendedor || 'Sistema'
-        ]
-    );
+        await db.query('BEGIN');
 
-    // 2. Actualizar cantidad vendida en remisiones_productos
-    await db.query(
-        'UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision = $2 AND id_producto = $3',
-        [cantidad, idRemision, parseInt(idProducto)]
-    );
+        // 1. Crear cabecera de venta contado
+        const { rows: cabeceraRows } = await db.query(
+            `INSERT INTO ventas_contado_cabecera 
+             (id_remision, id_cliente, fecha_venta, total_venta, usuario_creacion, estado) 
+             VALUES ($1, NULL, NOW(), $2, $3, 'COMPLETADA') 
+             RETURNING id_venta`,
+            [idRemision, total, vendedor || 'Sistema']
+        );
+        const idVentaCabecera = cabeceraRows[0].id_venta;
 
-    // 3. Actualizar total de la remisión
-    await db.query(
-        'UPDATE remisiones SET total_ventas = total_ventas + $1 WHERE id_remision = $2',
-        [total, idRemision]
-    );
+        // 2. Guardar detalle de venta
+        await db.query(
+            `INSERT INTO ventas_contado_detalle 
+             (id_venta_cabecera, id_producto, nombre_producto, cantidad, precio_unitario, total, fecha_venta) 
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [
+                idVentaCabecera,
+                parseInt(idProducto),
+                item.nombre,
+                cantidad,
+                precio,
+                total
+            ]
+        );
 
-        console.log(`✅ Venta guardada en BD: ${item.nombre} x${cantidad} - $${total}`);
+        // 3. Actualizar remisiones_productos (usando cantidad_devuelta como control)
+        await db.query(
+            `UPDATE remisiones_productos SET cantidad_devuelta = cantidad_devuelta + $1 
+             WHERE id_remision = $2 AND id_producto = $3`,
+            [cantidad, idRemision, parseInt(idProducto)]
+        );
+
+        // 4. Actualizar total de la remisión
+        await db.query(
+            'UPDATE remisiones SET total_ventas = total_ventas + $1 WHERE id_remision = $2',
+            [total, idRemision]
+        );
+
+        await db.query('COMMIT');
+        console.log(`✅ Venta contado guardada en BD: ${item.nombre} x${cantidad} - $${total}`);
 
     } catch (error) {
+        await db.query('ROLLBACK');
         console.error('❌ Error al guardar venta en BD:', error);
-        // No detenemos el proceso, solo logueamos
+        return res.status(500).json({ error: 'Error al guardar venta: ' + error.message });
     }
 
     res.json({
@@ -389,101 +406,167 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
 // 🏁 SUBMÓDULO 3: CIERRE DE JORNADA (CORREGIDO)
 app.post('/api/preventa/cierre-jornada', async (req, res) => {
     const { idRemision } = req.body;
-    if(!idRemision) return res.status(400).json({error:"Falta idRemision"});
+    if (!idRemision) return res.status(400).json({ error: "Falta idRemision" });
+
     try {
         // Cargar remision desde memoria o BD
         let remision = remisionesVentaActivas[idRemision];
-        if(!remision){
-          const {rows}= await db.query(`SELECT * FROM remisiones WHERE id_remision=$1`,[idRemision]);
-          if(rows.length===0) return res.status(404).json({error:"Remisión no encontrada"});
-          const {rows: prods}= await db.query(`SELECT * FROM remisiones_productos WHERE id_remision=$1`,[idRemision]);
-          remision = {
-            idRemision: idRemision,
-            productos: prods.map(p=>({
-              idProducto: p.id_producto,
-              nombre: p.nombre,
-              cantidadCargadaInicial: Number(p.cantidad_cargada||0),
-              cantidadVendidaEnCalle: Number(p.cantidad_vendida||0),
-              costoUnidadFijo: Number(p.costo_unidad||0),
-              precioVentaUnidadFijo: Number(p.precio_venta_unidad||0),
-              precioVentaRealCalle: null
-            })),
-            preFactura: {totalVentasEmitidas: Number(rows[0].total_ventas||0), totalCostosOperativos:0, gananciaPreviaCalculada:0},
-            fechaCreacion: rows[0].fecha_creacion
-          };
+        if (!remision) {
+            const { rows } = await db.query(`SELECT * FROM remisiones WHERE id_remision = $1`, [idRemision]);
+            if (rows.length === 0) return res.status(404).json({ error: "Remisión no encontrada" });
+
+            const { rows: prods } = await db.query(
+                `SELECT * FROM remisiones_productos WHERE id_remision = $1`,
+                [idRemision]
+            );
+
+            remision = {
+                idRemision: idRemision,
+                productos: prods.map(p => ({
+                    idProducto: p.id_producto,
+                    nombre: p.nombre,
+                    cantidadSacada: Number(p.cantidad_sacada || 0),
+                    cantidadDevuelta: Number(p.cantidad_devuelta || 0),
+                    cantidadVendidaEnCalle: Number(p.cantidad_devuelta || 0), // En nueva estructura, devuelta = vendida
+                    costoUnidadFijo: Number(p.costo_unidad || 0),
+                    precioVentaUnidadFijo: Number(p.precio_venta_unidad || 0),
+                    precioVentaRealCalle: null
+                })),
+                preFactura: {
+                    totalVentasEmitidas: Number(rows[0].total_ventas || 0),
+                    totalCostosOperativos: 0,
+                    gananciaPreviaCalculada: 0
+                },
+                fechaCreacion: rows[0].fecha_creacion
+            };
         }
 
-        // Calcular costos reales
+        // Calcular totales
         let totalVentasEfectivo = 0;
         let totalCostos = 0;
         let totalCredito = 0;
         let totalAbono = 0;
         let totalSaldo = 0;
 
-        // Ventas totales desde remision
-        const {rows: totalRows} = await db.query(`SELECT total_ventas FROM remisiones WHERE id_remision=$1`,[idRemision]);
-        totalVentasEfectivo = Number(totalRows[0]?.total_ventas||0);
+        // Ventas de contado (sumar desde ventas_contado_detalle)
+        const { rows: contadoRows } = await db.query(
+            `SELECT COALESCE(SUM(total), 0) as total FROM ventas_contado_detalle vcd
+             JOIN ventas_contado_cabecera vcc ON vcd.id_venta_cabecera = vcc.id_venta
+             WHERE vcc.id_remision = $1`,
+            [idRemision]
+        );
+        totalVentasEfectivo = Number(contadoRows[0]?.total || 0);
 
-        // Creditos de esta remision
-        const {rows: creditos} = await db.query(`SELECT COALESCE(SUM(total_venta),0) as total, COALESCE(SUM(abono_inicial),0) as abono, COALESCE(SUM(saldo_pendiente),0) as saldo FROM ventas_credito WHERE remision_id=$1`,[idRemision]);
-        totalCredito = Number(creditos[0]?.total||0);
-        totalAbono = Number(creditos[0]?.abono||0);
-        totalSaldo = Number(creditos[0]?.saldo||0);
+        // Créditos de esta remisión (usando la columna id_remision nueva)
+        const { rows: creditos } = await db.query(
+            `SELECT COALESCE(SUM(total_venta), 0) as total, 
+                    COALESCE(SUM(abono_inicial), 0) as abono, 
+                    COALESCE(SUM(saldo_pendiente), 0) as saldo 
+             FROM ventas_credito WHERE id_remision = $1`,
+            [idRemision]
+        );
+        totalCredito = Number(creditos[0]?.total || 0);
+        totalAbono = Number(creditos[0]?.abono || 0);
+        totalSaldo = Number(creditos[0]?.saldo || 0);
 
-        let productosMovidos=[];
-        for(const item of remision.productos){
-          let cantidadSobrante = item.cantidadCargadaInicial - item.cantidadVendidaEnCalle;
-          if(cantidadSobrante>0){
-            await db.query('UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2',[cantidadSobrante, item.idProducto]);
-          }
-          totalCostos += item.cantidadVendidaEnCalle * (item.costoUnidadFijo||0);
-          productosMovidos.push({nombre:item.nombre, cargados:item.cantidadCargadaInicial, vendidos:item.cantidadVendidaEnCalle, devueltos:cantidadSobrante});
+        // Sumar abonos adicionales (si hay tabla de abonos)
+        const { rows: abonosRows } = await db.query(
+            `SELECT COALESCE(SUM(monto), 0) as total_abonos FROM abonos_credito ac
+             JOIN ventas_credito vc ON ac.venta_credito_id = vc.id
+             WHERE vc.id_remision = $1`,
+            [idRemision]
+        );
+        const totalAbonosAdicionales = Number(abonosRows[0]?.total_abonos || 0);
+
+        // El efectivo total es contado + abonos de crédito
+        const efectivoTotal = totalVentasEfectivo + totalAbono + totalAbonosAdicionales;
+
+        let productosMovidos = [];
+        for (const item of remision.productos) {
+            // cantidadSacada - cantidadDevuelta = vendido
+            const vendido = item.cantidadSacada - (item.cantidadDevuelta || 0);
+            const sobrante = item.cantidadSacada - vendido;
+
+            // Devolver sobrante a bodega
+            if (sobrante > 0) {
+                await db.query(
+                    'UPDATE inventario_venta SET stock = stock + $1 WHERE id = $2',
+                    [sobrante, item.idProducto]
+                );
+            }
+
+            totalCostos += vendido * (item.costoUnidadFijo || 0);
+            productosMovidos.push({
+                nombre: item.nombre,
+                cargados: item.cantidadSacada,
+                vendidos: vendido,
+                devueltos: sobrante
+            });
         }
 
-        // Actualizar estado
-        await db.query("UPDATE remisiones SET estado='CERRADA', fecha_cierre=NOW() WHERE id_remision=$1",[idRemision]);
+        // Cerrar remisión CON fecha_cierre
+        await db.query(
+            "UPDATE remisiones SET estado = 'CERRADA', fecha_cierre = NOW(), total_ventas = $1 WHERE id_remision = $2",
+            [efectivoTotal, idRemision]
+        );
 
-        const ganancia = (totalVentasEfectivo + totalSaldo) - totalCostos; // Ganancia considerando saldo por cobrar como venta
+        const ganancia = efectivoTotal - totalCostos;
 
-        remision.estado='CERRADA';
+        // Registrar en memoria
+        remision.estado = 'CERRADA';
         historialRemisiones.push(remision);
         delete remisionesVentaActivas[idRemision];
 
-        try{
-          if(ganancia>0){
-            await db.query(`INSERT INTO movimientos_financieros (tipo, monto, descripcion, fecha_movimiento, usuario) VALUES ($1,$2,$3,NOW(),$4)`,['UTILIDAD', ganancia, `Cierre remisión ${idRemision} (Efectivo $${totalVentasEfectivo} + Crédito $${totalCredito} - Costo $${totalCostos})`, 'Sistema']);
-            const {rows: bal}= await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
-            if(bal.length>0){
-              const tg= parseFloat(bal[0].total_ganado||0)+ganancia;
-              const tr= parseFloat(bal[0].total_reinvertido||0);
-              await db.query(`UPDATE balance_financiero SET total_ganado=$1, total_disponible=$2, ultima_actualizacion=NOW() WHERE id=$3`,[tg, tg-tr, bal[0].id]);
+        // Registrar movimiento financiero si hay ganancia
+        try {
+            if (ganancia > 0) {
+                await db.query(
+                    `INSERT INTO movimientos_financieros (tipo, monto, descripcion, fecha_movimiento, usuario) 
+                     VALUES ($1, $2, $3, NOW(), $4)`,
+                    ['UTILIDAD', ganancia, 
+                     `Cierre remisión ${idRemision} (Efectivo $${efectivoTotal} + Crédito $${totalCredito} - Costo $${totalCostos})`,
+                     'Sistema']
+                );
+
+                const { rows: bal } = await db.query('SELECT * FROM balance_financiero ORDER BY id DESC LIMIT 1');
+                if (bal.length > 0) {
+                    const tg = parseFloat(bal[0].total_ganado || 0) + ganancia;
+                    const tr = parseFloat(bal[0].total_reinvertido || 0);
+                    await db.query(
+                        `UPDATE balance_financiero SET total_ganado = $1, total_disponible = $2, ultima_actualizacion = NOW() WHERE id = $3`,
+                        [tg, tg - tr, bal[0].id]
+                    );
+                }
             }
-          }
-        }catch(e){ console.error('Error financiero', e.message); }
+        } catch (e) {
+            console.error('Error financiero', e.message);
+        }
 
         res.json({
-          mensaje:"🏁 Cierre procesado",
-          auditoriaFinal:{
-            idRemision,
-            productosMovidos,
-            resumen:{
-              ventasContadoEfectivo: totalVentasEfectivo,
-              ventasCreditoTotal: totalCredito,
-              abonoRecibido: totalAbono,
-              saldoPorCobrar: totalSaldo,
-              devoluciones: productosMovidos.reduce((s,p)=>s+p.devueltos,0)
-            },
-            cierreFinancieroCaja:{
-              ingresoEfectivoARecibir:`$${totalVentasEfectivo.toLocaleString()}`,
-              creditoOtorgado:`$${totalCredito.toLocaleString()} (Abono $${totalAbono.toLocaleString()} + Saldo $${totalSaldo.toLocaleString()})`,
-              costoMercancia:`$${totalCostos.toLocaleString()}`,
-              gananciaLimpiaMecatron:`$${ganancia.toLocaleString()}`
+            mensaje: "🏁 Cierre procesado",
+            auditoriaFinal: {
+                idRemision,
+                productosMovidos,
+                resumen: {
+                    ventasContadoEfectivo: totalVentasEfectivo,
+                    ventasCreditoTotal: totalCredito,
+                    abonoRecibido: totalAbono + totalAbonosAdicionales,
+                    saldoPorCobrar: totalSaldo,
+                    devoluciones: productosMovidos.reduce((s, p) => s + p.devueltos, 0)
+                },
+                cierreFinancieroCaja: {
+                    ingresoEfectivoARecibir: `$${totalVentasEfectivo.toLocaleString()}`,
+                    abonosCredito: `$${(totalAbono + totalAbonosAdicionales).toLocaleString()}`,
+                    creditoOtorgado: `$${totalCredito.toLocaleString()} (Saldo $${totalSaldo.toLocaleString()})`,
+                    costoMercancia: `$${totalCostos.toLocaleString()}`,
+                    gananciaLimpiaMecatron: `$${ganancia.toLocaleString()}`
+                }
             }
-          }
         });
-    }catch(error){
+
+    } catch (error) {
         console.error("❌ Error cierre:", error);
-        res.status(500).json({error:"Error al cerrar", detalle:error.message});
+        res.status(500).json({ error: "Error al cerrar", detalle: error.message });
     }
 });
 
@@ -505,8 +588,12 @@ app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
 
         const remisionDB = rows[0];
 
-        // Productos están en tabla separada - USANDO NOMBRES REALES DE TU BD
-        const { rows: prods } = await db.query(`SELECT id_producto, nombre, cantidad_cargada, cantidad_vendida, costo_unidad, precio_venta_unidad FROM remisiones_productos WHERE id_remision = $1`, [id]);
+        // Usando NUEVOS NOMBRES de columnas: cantidad_sacada y cantidad_devuelta
+        const { rows: prods } = await db.query(
+            `SELECT id_producto, nombre, cantidad_sacada, cantidad_devuelta, costo_unidad, precio_venta_unidad 
+             FROM remisiones_productos WHERE id_remision = $1`,
+            [id]
+        );
 
         if (prods.length === 0) {
             console.log(`⚠️ Remisión ${id} existe pero sin productos en remisiones_productos`);
@@ -515,18 +602,31 @@ app.get('/api/preventa/consultar/:idRemision', async (req, res) => {
         const productosFormateados = prods.map(p => ({
             idProducto: p.id_producto,
             nombre: p.nombre,
-            cantidadCargadaInicial: Number(p.cantidad_cargada || 0),
-            cantidadVendidaEnCalle: Number(p.cantidad_vendida || 0),
+            cantidadSacada: Number(p.cantidad_sacada || 0),
+            cantidadDevuelta: Number(p.cantidad_devuelta || 0),
+            // cantidadVendidaEnCalle = cantidadSacada - cantidadDevuelta
+            cantidadVendidaEnCalle: Number(p.cantidad_sacada || 0) - Number(p.cantidad_devuelta || 0),
             costoUnidadFijo: Number(p.costo_unidad || 0),
             precioVentaUnidadFijo: Number(p.precio_venta_unidad || 0),
             precioVentaRealCalle: null
         }));
 
+        // Calcular total de ventas desde los productos
+        let totalVentas = 0;
+        productosFormateados.forEach(p => {
+            totalVentas += p.cantidadVendidaEnCalle * (p.precioVentaUnidadFijo || 0);
+        });
+
         const remision = {
             idRemision: remisionDB.id_remision,
             productos: productosFormateados,
             fechaCreacion: remisionDB.fecha_creacion || remisionDB.fecha || new Date(),
-            totalVentas: Number(remisionDB.total_ventas || 0)
+            totalVentas: Number(remisionDB.total_ventas || totalVentas || 0),
+            preFactura: {
+                totalVentasEmitidas: Number(remisionDB.total_ventas || totalVentas || 0),
+                totalCostosOperativos: 0,
+                gananciaPreviaCalculada: 0
+            }
         };
 
         remisionesVentaActivas[id] = remision;
@@ -1345,49 +1445,59 @@ app.post('/api/preventa/venta-multiple', async (req, res) => {
     }
 
     try {
-        const resultados = [];
+        await db.query('BEGIN');
+        
         let totalVenta = 0;
+        let resultados = [];
+
+        // 1. Crear una sola cabecera para todos los productos
+        const { rows: cabeceraRows } = await db.query(
+            `INSERT INTO ventas_contado_cabecera 
+             (id_remision, id_cliente, fecha_venta, total_venta, usuario_creacion, estado) 
+             VALUES ($1, NULL, NOW(), $2, $3, 'COMPLETADA') 
+             RETURNING id_venta`,
+            [idRemision, 0, vendedor || 'Sistema'] // total se actualiza después
+        );
+        const idVentaCabecera = cabeceraRows[0].id_venta;
+
+        let totalCalculado = 0;
 
         for (const prod of productos) {
             const idProducto = parseInt(prod.idProducto);
             const cantidad = parseInt(prod.cantidad);
             const precio = parseFloat(prod.precioUnitario);
             const total = cantidad * precio;
+            totalCalculado += total;
 
             // Buscar el producto en la remisión
             let item = remision.productos.find(p => p.idProducto === idProducto);
             if (!item) {
-                return res.status(404).json({ error: `Producto ${idProducto} no encontrado en la remisión.` });
+                throw new Error(`Producto ${idProducto} no encontrado en la remisión.`);
             }
 
             // Verificar stock disponible en el camión
-            let disponible = item.cantidadCargadaInicial - item.cantidadVendidaEnCalle;
+            let disponible = item.cantidadSacada - (item.cantidadVendidaEnCalle || 0);
             if (cantidad > disponible) {
-                return res.status(400).json({ 
-                    error: `Stock insuficiente para ${item.nombre}. Disponible: ${disponible}` 
-                });
+                throw new Error(`Stock insuficiente para ${item.nombre}. Disponible: ${disponible}`);
             }
 
             // Actualizar en memoria
-            item.cantidadVendidaEnCalle += cantidad;
+            item.cantidadVendidaEnCalle = (item.cantidadVendidaEnCalle || 0) + cantidad;
             item.precioVentaRealCalle = precio;
 
-            // Guardar en BD
+            // Guardar detalle
             await db.query(
-                `INSERT INTO ventas_individuales 
-                 (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-                [idRemision, idProducto, item.nombre, cantidad, precio, total, vendedor || 'Sistema']
+                `INSERT INTO ventas_contado_detalle 
+                 (id_venta_cabecera, id_producto, nombre_producto, cantidad, precio_unitario, total, fecha_venta) 
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                [idVentaCabecera, idProducto, item.nombre, cantidad, precio, total]
             );
 
+            // Actualizar remisiones_productos (cantidad_devuelta)
             await db.query(
-                'UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + ? WHERE id_remision = ? AND id_producto = ?',
+                `UPDATE remisiones_productos SET cantidad_devuelta = cantidad_devuelta + $1 
+                 WHERE id_remision = $2 AND id_producto = $3`,
                 [cantidad, idRemision, idProducto]
-            );
-
-            await db.query(
-                'UPDATE remisiones SET total_ventas = total_ventas + ? WHERE id_remision = ?',
-                [total, idRemision]
             );
 
             resultados.push({ 
@@ -1396,15 +1506,28 @@ app.post('/api/preventa/venta-multiple', async (req, res) => {
                 precio: precio, 
                 total: total 
             });
-            totalVenta += total;
         }
+
+        // Actualizar total en cabecera
+        await db.query(
+            `UPDATE ventas_contado_cabecera SET total_venta = $1 WHERE id_venta = $2`,
+            [totalCalculado, idVentaCabecera]
+        );
+
+        // Actualizar total de la remisión
+        await db.query(
+            'UPDATE remisiones SET total_ventas = total_ventas + $1 WHERE id_remision = $2',
+            [totalCalculado, idRemision]
+        );
+
+        await db.query('COMMIT');
 
         // Recalcular preFactura
         let totalVentas = 0;
         let totalCostos = 0;
         remision.productos.forEach(p => {
-            totalVentas += p.cantidadVendidaEnCalle * (p.precioVentaRealCalle || p.precioVentaUnidadFijo);
-            totalCostos += p.cantidadVendidaEnCalle * p.costoUnidadFijo;
+            totalVentas += (p.cantidadVendidaEnCalle || 0) * (p.precioVentaRealCalle || p.precioVentaUnidadFijo);
+            totalCostos += (p.cantidadVendidaEnCalle || 0) * p.costoUnidadFijo;
         });
         remision.preFactura = {
             totalVentasEmitidas: totalVentas,
@@ -1413,15 +1536,16 @@ app.post('/api/preventa/venta-multiple', async (req, res) => {
         };
 
         console.log('✅ Venta múltiple registrada:', resultados);
-        console.log('💰 Total:', totalVenta);
+        console.log('💰 Total:', totalCalculado);
 
         res.json({
             mensaje: `Venta múltiple registrada con ${resultados.length} productos.`,
             productos: resultados,
-            totalVenta: totalVenta
+            totalVenta: totalCalculado
         });
 
     } catch (error) {
+        await db.query('ROLLBACK');
         console.error('❌ Error en venta múltiple:', error);
         res.status(500).json({ 
             error: 'Error al procesar venta múltiple',
@@ -2069,105 +2193,141 @@ app.post('/api/inventario/factura', async (req, res) => {
 // MÓDULO VENTA A CRÉDITO - OPTIMIZADO Y BLINDADO
 // =================================================================
 app.post('/api/ventas/credito', async (req, res) => {
-  try {
-    const { remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, productos, fecha_vencimiento, usuario } = req.body;
-    
-    if (!remision_id || !cliente_nombre || !productos || productos.length === 0) {
-      return res.status(400).json({ error: "Datos de crédito incompletos" });
-    }
+    try {
+        const { remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, productos, fecha_vencimiento, usuario } = req.body;
 
-    // Verificar si la remisión existe, si no, crear un registro básico preventivo para evitar que reviente la FK
-    const { rows: remCheck } = await db.query(`SELECT id_remision FROM remisiones WHERE id_remision = $1`, [remision_id]);
-    if (remCheck.length === 0) {
-      // Opcional: auto-crear la cabecera de remisión si no existe para garantizar integridad
-      await db.query(
-        `INSERT INTO remisiones (id_remision, estado, total_ventas, fecha_creacion) VALUES ($1, 'CREDITO_DIRECTO', 0, NOW()) ON CONFLICT (id_remision) DO NOTHING`,
-        [remision_id]
-      );
-    }
+        if (!remision_id || !cliente_nombre || !productos || productos.length === 0) {
+            return res.status(400).json({ error: "Datos de crédito incompletos" });
+        }
 
-    await db.query('BEGIN');
+        // Verificar si la remisión existe
+        const { rows: remCheck } = await db.query(`SELECT id_remision, estado FROM remisiones WHERE id_remision = $1`, [remision_id]);
+        if (remCheck.length === 0) {
+            return res.status(404).json({ error: `Remisión ${remision_id} no existe` });
+        }
+        if (remCheck[0].estado === 'CERRADA') {
+            return res.status(400).json({ error: "La remisión ya está cerrada, no se puede agregar crédito" });
+        }
 
-    // 1. Insertar la cabecera del crédito
-    const { rows: creditoRows } = await db.query(
-      `INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion, fecha_creacion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING id`,
-      [
-        remision_id, 
-        cliente_nombre, 
-        cliente_cc || '', 
-        cliente_telefono || '', 
-        cliente_direccion || '', 
-        Number(total_venta || 0), 
-        Number(abono_inicial || 0), 
-        Number(saldo_pendiente || 0), 
-        fecha_vencimiento || null, 
-        Number(saldo_pendiente || 0) <= 0 ? 'PAGADO' : 'PENDIENTE', 
-        usuario || 'Sistema'
-      ]
-    );
-    const creditoId = creditoRows[0].id;
+        // Asegurar que las tablas existan
+        await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito (
+            id SERIAL PRIMARY KEY,
+            remission_id VARCHAR(50),
+            cliente_nombre VARCHAR(200),
+            cliente_cc VARCHAR(50),
+            cliente_telefono VARCHAR(50),
+            cliente_direccion TEXT,
+            total_venta NUMERIC DEFAULT 0,
+            abono_inicial NUMERIC DEFAULT 0,
+            saldo_pendiente NUMERIC DEFAULT 0,
+            fecha_vencimiento DATE,
+            estado VARCHAR(20) DEFAULT 'PENDIENTE',
+            id_remision VARCHAR(50),
+            fecha_venta TIMESTAMP DEFAULT NOW(),
+            usuario_creacion VARCHAR(100),
+            fecha_credito TIMESTAMP DEFAULT NOW()
+        )`);
 
-    // 2. Insertar el detalle de productos asegurando la captura robusta del ID
-    for (const prod of productos) {
-      const cantidad = parseInt(prod.cantidad || prod.cantidadCargadaInicial || 1);
-      const precio = parseFloat(prod.precio || prod.precioVentaUnidadFijo || 0);
-      const nombreProd = prod.nombre || prod.nombre_producto || 'Producto';
-      // Mapeo exhaustivo de posibles nombres de ID que envíe el frontend
-      const idProd = prod.idProducto || prod.id_producto || prod.id || null;
-      const subtotal = cantidad * precio;
+        await db.query('BEGIN');
 
-      await db.query(
-        `INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) 
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [creditoId, idProd, nombreProd, cantidad, precio, subtotal]
-      );
-
-      // Si existe el producto, intentamos impactar la remisión y el stock de venta de forma segura
-      if (idProd) {
-        await db.query(
-          `UPDATE remisiones_productos 
-           SET cantidad_vendida = COALESCE(cantidad_vendida, 0) + $1 
-           WHERE id_remision = $2 AND id_producto = $3`,
-          [cantidad, remision_id, idProd]
+        // 1. Insertar la cabecera del crédito CON LAS NUEVAS COLUMNAS
+        const { rows: creditoRows } = await db.query(
+            `INSERT INTO ventas_credito 
+             (remission_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, 
+              total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, 
+              id_remision, fecha_venta, usuario_creacion, fecha_credito)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, NOW()) 
+             RETURNING id`,
+            [
+                remision_id,
+                cliente_nombre,
+                cliente_cc || '',
+                cliente_telefono || '',
+                cliente_direccion || '',
+                Number(total_venta || 0),
+                Number(abono_inicial || 0),
+                Number(saldo_pendiente || 0),
+                fecha_vencimiento || null,
+                Number(saldo_pendiente || 0) <= 0 ? 'PAGADO' : 'PENDIENTE',
+                remision_id, // id_remision (la nueva columna)
+                usuario || 'Sistema'
+            ]
         );
-      }
+        const creditoId = creditoRows[0].id;
 
-      // Registrar también en ventas individuales para los reportes generales de salida/ventas
-      try {
+        // 2. Insertar productos
+        for (const prod of productos) {
+            const cantidad = parseInt(prod.cantidad || prod.cantidadCargadaInicial || 1);
+            const precio = parseFloat(prod.precio || prod.precioVentaUnidadFijo || 0);
+            const nombreProd = prod.nombre || prod.nombre_producto || 'Producto';
+            const idProd = prod.idProducto || prod.id_producto || prod.id || null;
+            const subtotal = cantidad * precio;
+
+            // Validar stock en remisión
+            if (idProd) {
+                const { rows: dispRows } = await db.query(
+                    `SELECT cantidad_sacada, cantidad_devuelta FROM remisiones_productos 
+                     WHERE id_remision = $1 AND id_producto = $2`,
+                    [remision_id, idProd]
+                );
+                if (dispRows.length > 0) {
+                    const disponible = Number(dispRows[0].cantidad_sacada || 0) - Number(dispRows[0].cantidad_devuelta || 0);
+                    if (cantidad > disponible) {
+                        throw new Error(`Stock insuficiente en remisión para ${nombreProd}. Disponible: ${disponible}`);
+                    }
+                }
+            }
+
+            await db.query(
+                `INSERT INTO ventas_credito_productos 
+                 (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) 
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [creditoId, idProd, nombreProd, cantidad, precio, subtotal]
+            );
+
+            // Actualizar remisiones_productos (usando cantidad_devuelta)
+            if (idProd) {
+                await db.query(
+                    `UPDATE remisiones_productos SET cantidad_devuelta = cantidad_devuelta + $1 
+                     WHERE id_remision = $2 AND id_producto = $3`,
+                    [cantidad, remision_id, idProd]
+                );
+            }
+        }
+
+        // 3. Actualizar total de la remisión (solo el abono inicial como ingreso efectivo)
         await db.query(
-          `INSERT INTO ventas_individuales (id_remision, id_producto, cantidad, precio, total, vendedor, fecha_venta, tipo_venta) 
-           VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'CREDITO')`,
-          [remision_id, idProd, cantidad, precio, subtotal, usuario || 'Sistema']
+            `UPDATE remisiones SET total_ventas = COALESCE(total_ventas, 0) + $1 
+             WHERE id_remision = $2`,
+            [Number(abono_inicial || 0), remision_id]
         );
-      } catch (errInd) {
-        console.warn("Nota: No se pudo replicar en ventas_individuales (puede ser opcional en tu esquema):", errInd.message);
-      }
+
+        await db.query('COMMIT');
+
+        // Actualizar memoria
+        if (remisionesVentaActivas[remision_id]) {
+            for (const prod of productos) {
+                const idProd = prod.idProducto || prod.id_producto;
+                const p = remisionesVentaActivas[remision_id].productos.find(x => x.idProducto == idProd);
+                if (p) {
+                    p.cantidadVendidaEnCalle = (p.cantidadVendidaEnCalle || 0) + parseInt(prod.cantidad || 1);
+                }
+            }
+        }
+
+        console.log(`💳 Crédito ${remision_id} creado exitosamente con ID ${creditoId}`);
+        res.json({ 
+            mensaje: `Crédito guardado exitosamente`, 
+            credito_id: creditoId, 
+            remision_id,
+            saldo_pendiente: Number(saldo_pendiente || 0)
+        });
+
+    } catch (error) {
+        try { await db.query('ROLLBACK'); } catch (_) { }
+        console.error('❌ Error crítico al procesar crédito:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    // 3. Actualizar el acumulado total y el abono en la remisión
-    await db.query(
-      `UPDATE remisiones 
-       SET total_ventas = COALESCE(total_ventas, 0) + $1, 
-           estado = CASE WHEN estado = 'PENDIENTE' OR estado IS NULL THEN 'CREDITO' ELSE estado END 
-       WHERE id_remision = $2`,
-      [Number(total_venta || 0), remision_id]
-    );
-
-    await db.query('COMMIT');
-
-    if (typeof remisionesVentaActivas !== 'undefined') {
-      delete remisionesVentaActivas[remision_id];
-    }
-
-    console.log(`💳 Crédito ${remision_id} creado exitosamente con ID ${creditoId} y saldo pendiente: $${saldo_pendiente}`);
-    res.json({ mensaje: `Crédito guardado exitosamente`, credito_id: creditoId, remision_id });
-
-  } catch (error) {
-    try { await db.query('ROLLBACK'); } catch (_) {}
-    console.error('❌ Error crítico al procesar crédito:', error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 

@@ -403,7 +403,9 @@ app.post('/api/preventa/venta-externa', async (req, res) => {
     });
 });
 
-// 🏁 SUBMÓDULO 3: CIERRE DE JORNADA (CORREGIDO)
+// ==========================================
+// CIERRE DE JORNADA - CORREGIDO (sin total_ventas)
+// ==========================================
 app.post('/api/preventa/cierre-jornada', async (req, res) => {
     const { idRemision } = req.body;
     if (!idRemision) return res.status(400).json({ error: "Falta idRemision" });
@@ -427,16 +429,11 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
                     nombre: p.nombre,
                     cantidadSacada: Number(p.cantidad_sacada || 0),
                     cantidadDevuelta: Number(p.cantidad_devuelta || 0),
-                    cantidadVendidaEnCalle: Number(p.cantidad_devuelta || 0), // En nueva estructura, devuelta = vendida
+                    cantidadVendidaEnCalle: Number(p.cantidad_devuelta || 0),
                     costoUnidadFijo: Number(p.costo_unidad || 0),
                     precioVentaUnidadFijo: Number(p.precio_venta_unidad || 0),
                     precioVentaRealCalle: null
                 })),
-                preFactura: {
-                    totalVentasEmitidas: Number(rows[0].total_ventas || 0),
-                    totalCostosOperativos: 0,
-                    gananciaPreviaCalculada: 0
-                },
                 fechaCreacion: rows[0].fecha_creacion
             };
         }
@@ -457,7 +454,7 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
         );
         totalVentasEfectivo = Number(contadoRows[0]?.total || 0);
 
-        // Créditos de esta remisión (usando la columna id_remision nueva)
+        // Créditos de esta remisión
         const { rows: creditos } = await db.query(
             `SELECT COALESCE(SUM(total_venta), 0) as total, 
                     COALESCE(SUM(abono_inicial), 0) as abono, 
@@ -469,7 +466,7 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
         totalAbono = Number(creditos[0]?.abono || 0);
         totalSaldo = Number(creditos[0]?.saldo || 0);
 
-        // Sumar abonos adicionales (si hay tabla de abonos)
+        // Sumar abonos adicionales
         const { rows: abonosRows } = await db.query(
             `SELECT COALESCE(SUM(monto), 0) as total_abonos FROM abonos_credito ac
              JOIN ventas_credito vc ON ac.venta_credito_id = vc.id
@@ -478,12 +475,10 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
         );
         const totalAbonosAdicionales = Number(abonosRows[0]?.total_abonos || 0);
 
-        // El efectivo total es contado + abonos de crédito
         const efectivoTotal = totalVentasEfectivo + totalAbono + totalAbonosAdicionales;
 
         let productosMovidos = [];
         for (const item of remision.productos) {
-            // cantidadSacada - cantidadDevuelta = vendido
             const vendido = item.cantidadSacada - (item.cantidadDevuelta || 0);
             const sobrante = item.cantidadSacada - vendido;
 
@@ -504,10 +499,10 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
             });
         }
 
-        // Cerrar remisión CON fecha_cierre
+        // 🔥 CORREGIDO: Ya no usamos total_ventas en remisiones
         await db.query(
-            "UPDATE remisiones SET estado = 'CERRADA', fecha_cierre = NOW(), total_ventas = $1 WHERE id_remision = $2",
-            [efectivoTotal, idRemision]
+            "UPDATE remisiones SET estado = 'CERRADA', fecha_cierre = NOW() WHERE id_remision = $1",
+            [idRemision]
         );
 
         const ganancia = efectivoTotal - totalCostos;
@@ -517,13 +512,13 @@ app.post('/api/preventa/cierre-jornada', async (req, res) => {
         historialRemisiones.push(remision);
         delete remisionesVentaActivas[idRemision];
 
-        // Registrar movimiento financiero si hay ganancia
+        // Registrar movimiento financiero
         try {
             if (ganancia > 0) {
                 await db.query(
                     `INSERT INTO movimientos_financieros (tipo, monto, descripcion, fecha_movimiento, usuario) 
                      VALUES ($1, $2, $3, NOW(), $4)`,
-                    ['UTILIDAD', ganancia, 
+                    ['UTILIDAD', ganancia,
                      `Cierre remisión ${idRemision} (Efectivo $${efectivoTotal} + Crédito $${totalCredito} - Costo $${totalCostos})`,
                      'Sistema']
                 );
@@ -2438,102 +2433,216 @@ app.get('/api/ventas/credito/:remisionId', async (req,res)=>{
 // =================================================================
 // NUEVO ENDPOINT UNIFICADO: FINALIZAR VENTA MIXTA (CONTADO + CREDITO)
 // =================================================================
-app.post('/api/preventa/finalizar-mixta', async (req,res)=>{
-  const {idRemision, items, cliente, vendedor} = req.body;
-  // items = [{idProducto, nombre, cantidad, precio, tipo:'CONTADO'|'CREDITO'}]
-  // cliente = {nombre, cc, telefono, direccion, abono, fecha_vencimiento} solo si hay credito
-  try{
-    console.log('🧩 Finalizar mixta', idRemision, 'items', items?.length, 'cliente', cliente?.nombre);
-    if(!idRemision || !items || items.length===0) return res.status(400).json({error:"Datos incompletos: remisión y productos"});
+// ==========================================
+// FINALIZAR VENTA MIXTA - CON PRECIO PACTADO
+// ==========================================
+app.post('/api/preventa/finalizar-mixta', async (req, res) => {
+    const { idRemision, items, cliente, vendedor } = req.body;
+    // items = [{idProducto, nombre, cantidad, precio, tipo:'CONTADO'|'CREDITO'}]
+    
+    try {
+        console.log('🧩 Finalizar mixta', idRemision, 'items:', items?.length, 'cliente:', cliente?.nombre);
+        
+        if (!idRemision || !items || items.length === 0) {
+            return res.status(400).json({ error: "Datos incompletos: remisión y productos" });
+        }
 
-    const {rows: remRows} = await db.query(`SELECT id_remision, estado FROM remisiones WHERE id_remision=$1`,[idRemision]);
-    if(remRows.length===0) return res.status(404).json({error:"Remisión no existe"});
-    if(remRows[0].estado==='CERRADA') return res.status(400).json({error:"Remisión ya cerrada"});
+        const { rows: remRows } = await db.query(
+            `SELECT id_remision, estado FROM remisiones WHERE id_remision = $1`,
+            [idRemision]
+        );
+        
+        if (remRows.length === 0) {
+            return res.status(404).json({ error: "Remisión no existe" });
+        }
+        if (remRows[0].estado === 'CERRADA') {
+            return res.status(400).json({ error: "Remisión ya cerrada" });
+        }
 
-    const tieneCredito = items.some(i=> i.tipo==='CREDITO');
-    if(tieneCredito && (!cliente || !cliente.nombre)) return res.status(400).json({error:"Para crédito debe indicar cliente"});
+        const tieneCredito = items.some(i => i.tipo === 'CREDITO');
+        if (tieneCredito && (!cliente || !cliente.nombre)) {
+            return res.status(400).json({ error: "Para crédito debe indicar cliente" });
+        }
 
-    await db.query('BEGIN');
+        await db.query('BEGIN');
 
-    // Crear tablas si faltan
-    await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito (id SERIAL PRIMARY KEY, remision_id VARCHAR(50), cliente_nombre VARCHAR(200), cliente_cc VARCHAR(50), cliente_telefono VARCHAR(50), cliente_direccion TEXT, total_venta NUMERIC DEFAULT 0, abono_inicial NUMERIC DEFAULT 0, saldo_pendiente NUMERIC DEFAULT 0, fecha_vencimiento DATE, estado VARCHAR(20) DEFAULT 'PENDIENTE', usuario_creacion VARCHAR(100), fecha_creacion TIMESTAMP DEFAULT NOW())`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito_productos (id SERIAL PRIMARY KEY, credito_id INTEGER, id_producto INTEGER, nombre VARCHAR(200), cantidad INTEGER, precio_unitario NUMERIC, subtotal NUMERIC)`);
+        // Crear tablas si faltan
+        await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito (
+            id SERIAL PRIMARY KEY,
+            remission_id VARCHAR(50),
+            cliente_nombre VARCHAR(200),
+            cliente_cc VARCHAR(50),
+            cliente_telefono VARCHAR(50),
+            cliente_direccion TEXT,
+            total_venta NUMERIC DEFAULT 0,
+            abono_inicial NUMERIC DEFAULT 0,
+            saldo_pendiente NUMERIC DEFAULT 0,
+            fecha_vencimiento DATE,
+            estado VARCHAR(20) DEFAULT 'PENDIENTE',
+            id_remision VARCHAR(50),
+            fecha_venta TIMESTAMP DEFAULT NOW(),
+            usuario_creacion VARCHAR(100),
+            fecha_credito TIMESTAMP DEFAULT NOW()
+        )`);
 
-    let totalContado = 0;
-    let totalCredito = 0;
-    const productosCredito = items.filter(i=> i.tipo==='CREDITO');
+        await db.query(`CREATE TABLE IF NOT EXISTS ventas_credito_productos (
+            id SERIAL PRIMARY KEY,
+            credito_id INTEGER,
+            id_producto INTEGER,
+            nombre VARCHAR(200),
+            cantidad INTEGER DEFAULT 1,
+            precio_unitario NUMERIC DEFAULT 0,
+            subtotal NUMERIC DEFAULT 0
+        )`);
 
-    // Validar stock
-    for(const it of items){
-      const {rows: st} = await db.query(`SELECT cantidad_cargada, cantidad_vendida FROM remisiones_productos WHERE id_remision=$1 AND id_producto=$2`,[idRemision, it.idProducto]);
-      if(st.length>0){
-        const disp = Number(st[0].cantidad_cargada||0) - Number(st[0].cantidad_vendida||0);
-        if(it.cantidad > disp) throw new Error(`Stock insuficiente para ${it.nombre}. Disponible ${disp}`);
-      }
+        let totalContado = 0;
+        let totalCredito = 0;
+        const productosCredito = items.filter(i => i.tipo === 'CREDITO');
+
+        // Validar stock
+        for (const it of items) {
+            const { rows: st } = await db.query(
+                `SELECT cantidad_sacada, cantidad_devuelta FROM remisiones_productos 
+                 WHERE id_remision = $1 AND id_producto = $2`,
+                [idRemision, it.idProducto]
+            );
+            if (st.length > 0) {
+                const disp = Number(st[0].cantidad_sacada || 0) - Number(st[0].cantidad_devuelta || 0);
+                if (it.cantidad > disp) {
+                    throw new Error(`Stock insuficiente para ${it.nombre}. Disponible ${disp}`);
+                }
+            }
+        }
+
+        // Guardar contado con el PRECIO PACTADO
+        for (const it of items.filter(i => i.tipo === 'CONTADO')) {
+            // 🔥 IMPORTANTE: Usar el precio que viene del frontend (el que pactó el vendedor)
+            const precio = parseFloat(it.precio) || 0;
+            const cantidad = parseInt(it.cantidad) || 1;
+            const total = cantidad * precio;
+            totalContado += total;
+
+            // 1. Crear cabecera de venta contado
+            const { rows: cabeceraRows } = await db.query(
+                `INSERT INTO ventas_contado_cabecera 
+                 (id_remision, id_cliente, fecha_venta, total_venta, usuario_creacion, estado) 
+                 VALUES ($1, NULL, NOW(), $2, $3, 'COMPLETADA') 
+                 RETURNING id_venta`,
+                [idRemision, total, vendedor || 'Sistema']
+            );
+            const idVentaCabecera = cabeceraRows[0].id_venta;
+
+            // 2. Guardar detalle con el precio pactado
+            await db.query(
+                `INSERT INTO ventas_contado_detalle 
+                 (id_venta_cabecera, id_producto, nombre_producto, cantidad, precio_unitario, total, fecha_venta) 
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                [idVentaCabecera, it.idProducto, it.nombre, cantidad, precio, total]
+            );
+
+            // 3. Actualizar remisiones_productos (cantidad_devuelta = vendido)
+            await db.query(
+                `UPDATE remisiones_productos SET cantidad_devuelta = cantidad_devuelta + $1 
+                 WHERE id_remision = $2 AND id_producto = $3`,
+                [cantidad, idRemision, it.idProducto]
+            );
+        }
+
+        let creditoId = null;
+        let abono = 0;
+        let saldo = 0;
+
+        if (tieneCredito) {
+            totalCredito = productosCredito.reduce((s, i) => s + Number(i.cantidad) * Number(i.precio), 0);
+            abono = Number(cliente.abono || 0);
+            saldo = totalCredito - abono;
+            
+            if (abono < 0 || abono > totalCredito) {
+                throw new Error(`Abono inválido. Total crédito $${totalCredito}, abono $${abono}`);
+            }
+
+            const { rows: credRows } = await db.query(
+                `INSERT INTO ventas_credito 
+                 (remission_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, 
+                  total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, 
+                  id_remision, fecha_venta, usuario_creacion) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12) 
+                 RETURNING id`,
+                [
+                    idRemision,
+                    cliente.nombre,
+                    cliente.cc || '',
+                    cliente.telefono || '',
+                    cliente.direccion || '',
+                    totalCredito,
+                    abono,
+                    saldo,
+                    cliente.fecha_vencimiento || null,
+                    'PENDIENTE',
+                    idRemision,
+                    vendedor || 'Sistema'
+                ]
+            );
+            creditoId = credRows[0].id;
+
+            // Guardar productos de crédito
+            for (const it of productosCredito) {
+                const precio = parseFloat(it.precio) || 0;
+                const cantidad = parseInt(it.cantidad) || 1;
+                const tot = cantidad * precio;
+
+                await db.query(
+                    `INSERT INTO ventas_credito_productos 
+                     (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) 
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [creditoId, it.idProducto, it.nombre, cantidad, precio, tot]
+                );
+
+                await db.query(
+                    `UPDATE remisiones_productos SET cantidad_devuelta = cantidad_devuelta + $1 
+                     WHERE id_remision = $2 AND id_producto = $3`,
+                    [cantidad, idRemision, it.idProducto]
+                );
+            }
+        }
+
+        // 🔥 ELIMINADO: Ya no actualizamos total_ventas en remisiones
+        // Simplemente registramos que la remisión tiene movimientos
+
+        await db.query('COMMIT');
+
+        // Actualizar memoria
+        if (remisionesVentaActivas[idRemision]) {
+            for (const it of items) {
+                const p = remisionesVentaActivas[idRemision].productos.find(x => x.idProducto == it.idProducto);
+                if (p) {
+                    p.cantidadVendidaEnCalle = (p.cantidadVendidaEnCalle || 0) + Number(it.cantidad);
+                    p.precioVentaRealCalle = parseFloat(it.precio) || p.precioVentaRealCalle || p.precioVentaUnidadFijo;
+                }
+            }
+        }
+
+        const efectivoRecaudado = totalContado + abono;
+        console.log(`✅ Mixta OK ${idRemision} contado $${totalContado} credito $${totalCredito} abono $${abono} efectivo $${efectivoRecaudado}`);
+
+        res.json({
+            ok: true,
+            mensaje: "Venta mixta guardada",
+            resumen: {
+                totalContado,
+                totalCredito,
+                abono,
+                saldo,
+                efectivoRecaudado,
+                creditoId
+            }
+        });
+
+    } catch (e) {
+        try { await db.query('ROLLBACK'); } catch (_) { }
+        console.error('❌ Error finalizar-mixta', e.message);
+        res.status(500).json({ error: e.message });
     }
-
-    // Guardar contado
-    for(const it of items.filter(i=> i.tipo==='CONTADO')){
-      const total = Number(it.cantidad)*Number(it.precio);
-      totalContado += total;
-      await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,[idRemision, it.idProducto, it.nombre, it.cantidad, it.precio, total, vendedor||'Sistema']);
-      await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[it.cantidad, idRemision, it.idProducto]);
-    }
-
-    let creditoId = null;
-    let abono = 0;
-    let saldo = 0;
-    if(tieneCredito){
-      totalCredito = productosCredito.reduce((s,i)=> s + Number(i.cantidad)*Number(i.precio),0);
-      abono = Number(cliente.abono||0);
-      saldo = totalCredito - abono;
-      if(abono<0 || abono>totalCredito) throw new Error(`Abono inválido. Total crédito $${totalCredito}, abono $${abono}`);
-
-      const {rows: credRows} = await db.query(`INSERT INTO ventas_credito (remision_id, cliente_nombre, cliente_cc, cliente_telefono, cliente_direccion, total_venta, abono_inicial, saldo_pendiente, fecha_vencimiento, estado, usuario_creacion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[idRemision, cliente.nombre, cliente.cc||'', cliente.telefono||'', cliente.direccion||'', totalCredito, abono, saldo, cliente.fecha_vencimiento||null, 'PENDIENTE', vendedor||'Sistema']);
-      creditoId = credRows[0].id;
-
-      for(const it of productosCredito){
-        const tot = Number(it.cantidad)*Number(it.precio);
-        await db.query(`INSERT INTO ventas_credito_productos (credito_id, id_producto, nombre, cantidad, precio_unitario, subtotal) VALUES ($1,$2,$3,$4,$5,$6)`,[creditoId, it.idProducto, it.nombre, it.cantidad, it.precio, tot]);
-        await db.query(`UPDATE remisiones_productos SET cantidad_vendida = cantidad_vendida + $1 WHERE id_remision=$2 AND id_producto=$3`,[it.cantidad, idRemision, it.idProducto]);
-        await db.query(`INSERT INTO ventas_individuales (id_remision, id_producto, nombre_producto, cantidad, precio_unitario, total, vendedor, fecha_venta) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,[idRemision, it.idProducto, it.nombre+' (CREDITO)', it.cantidad, it.precio, tot, vendedor||'Sistema']);
-      }
-    }
-
-    const efectivoRecaudado = totalContado + abono;
-    await db.query(`UPDATE remisiones SET total_ventas = COALESCE(total_ventas,0) + $1 WHERE id_remision=$2`,[efectivoRecaudado, idRemision]);
-
-    await db.query('COMMIT');
-
-    // Actualizar memoria
-    if(remisionesVentaActivas[idRemision]){
-      for(const it of items){
-        const p = remisionesVentaActivas[idRemision].productos.find(x=> x.idProducto==it.idProducto);
-        if(p) p.cantidadVendidaEnCalle += Number(it.cantidad);
-      }
-      remisionesVentaActivas[idRemision].totalVentas = (remisionesVentaActivas[idRemision].totalVentas||0) + efectivoRecaudado;
-    }
-
-    console.log(`✅ Mixta OK ${idRemision} contado $${totalContado} credito $${totalCredito} abono $${abono} efectivo $${efectivoRecaudado}`);
-
-    res.json({
-      ok:true,
-      mensaje:"Venta mixta guardada",
-      resumen:{
-        totalContado,
-        totalCredito,
-        abono,
-        saldo,
-        efectivoRecaudado,
-        creditoId
-      }
-    });
-
-  }catch(e){
-    try{await db.query('ROLLBACK')}catch{}
-    console.error('❌ Error finalizar-mixta', e.message);
-    res.status(500).json({error:e.message});
-  }
 });
 
 // GET para evitar Cannot GET
